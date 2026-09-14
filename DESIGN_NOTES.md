@@ -1643,6 +1643,32 @@ uint64, a WAD, a timestamp in nanoseconds — must cross as a string. The Python
 notice, because in Python there is no such limit to trip over. The port is what surfaced it, which is
 an argument for doing the port rather than against it.
 
+**The same defect in the second fixture, at much larger scale.** Porting `moments` found it again in
+`spec/fixtures/moments.json`: 112 points, and **all 112 carry at least one integer above 2^53** —
+`lambdaWad` reaches 1e21, `premiumWad` 9.9e17 on 109 of the points, and `momentWad`, `capWad`,
+`sigmaWad` and `firstMomentWad` are each over the line on between 59 and 96 of them. A JavaScript
+reader would have rounded every one of them and the comparison would then have passed or failed by
+luck against the recorded tolerance.
+
+The digest fixture was one field; this is seven across 112 points, which is the difference between a
+boundary case that happened to be extreme and a *systematic* encoding choice. The fix is the same and
+was made uniform rather than per-field: **every integer in the fixture is now a string**, including
+`toleranceWei`, which cannot exceed 2^53 today (its maximum is about 1.5e11). A uniform rule —
+"every integer in this fixture is a string" — is checkable by reading one line; a per-field rule
+requires re-deriving the bound every time a field is added, which is exactly the reasoning that let
+seven unsafe fields through the first time.
+
+Both readers were updated and both now *assert* the encoding rather than merely tolerating it: the
+Python test checks `isinstance(point[field], str)` before coercing, so a regenerated fixture that went
+back to bare numbers fails there. The Solidity reader needed no change, again because
+`vm.parseJsonUint` accepts a string-encoded number.
+
+**And the port reproduces it.** `moments.test.ts` verifies the TypeScript against all 112 points —
+`truncatedAbsMoment`, the fair premium, the cap form, the reciprocal cap, and `truncatedFirstMoment` —
+and every one matches exactly. That is the empirical answer to R5.1: `decimal.js` at 50 significant
+digits reproduces the Python reference, so the one dependency the ruling admits is doing the job it
+was admitted for.
+
 ## F53 — The architecture gate passed while enforcing nothing, twice, for two different reasons
 
 The TypeScript counterpart of the Python side's `import-linter` contracts is a `dependency-cruiser`

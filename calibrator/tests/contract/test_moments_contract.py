@@ -28,10 +28,34 @@ def quantise(value: Decimal) -> int:
     return int((value * WAD).to_integral_value(rounding=ROUND_HALF_EVEN))
 
 
+#: The fixture's integer fields, every one emitted as a string.
+#:
+#: A JSON number is exact only up to 2^53 - 1, and these are WAD-scale values: 109 of the 112 points
+#: carry a `premiumWad` above that line and all 112 carry at least one field above it. Python would
+#: read a bare number exactly and a JavaScript reader would silently round it, so the fixture emits
+#: them as strings and this file asserts that it still does. See DESIGN_NOTES.md F52.
+_INTEGER_FIELDS = (
+    "lambdaWad",
+    "sigmaWad",
+    "capWad",
+    "momentWad",
+    "premiumWad",
+    "firstMomentWad",
+    "toleranceWei",
+)
+
+
 def load_points() -> list[dict[str, Any]]:
     payload: dict[str, Any] = json.loads(FIXTURE.read_text())
     points: list[dict[str, Any]] = payload["points"]
     assert len(points) == payload["pointCount"]
+    # Coerced once here rather than at each use, so the rest of this file reads as arithmetic — and
+    # asserted rather than merely coerced, so a regenerated fixture that went back to bare numbers
+    # fails here instead of passing on a value no other language can read.
+    for point in points:
+        for field in _INTEGER_FIELDS:
+            assert isinstance(point[field], str), f"{field} must be a string in the fixture"
+            point[field] = int(point[field])
     return points
 
 

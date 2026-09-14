@@ -76,13 +76,27 @@ def main() -> int:
                 tolerance_wei = int(cap * ERF_ABSOLUTE_BOUND * WAD) + WAD_SLACK_WEI
                 points.append(
                     {
-                        "lambdaWad": lam_units * WAD,
-                        "sigmaWad": to_wad(sigma),
-                        "capWad": to_wad(cap),
-                        "momentWad": to_wad(moment),
-                        "premiumWad": to_wad(premium),
-                        "firstMomentWad": to_wad(first_moment),
-                        "toleranceWei": tolerance_wei,
+                        # **Every integer field is a string, and the rule is uniform on purpose.**
+                        #
+                        # A JSON number is exact only up to 2^53 - 1. These are WAD-scale values, so
+                        # most of them exceed that: `lambdaWad` at 1e21 for the widest leverage,
+                        # `premiumWad` at ~9.9e17, and 109 of the 112 points have at least one field
+                        # over the line. A JavaScript reader does not fail on them -- `JSON.parse`
+                        # silently rounds, so the port would compare a wrong number against a
+                        # tolerance and either pass by luck or fail confusingly.
+                        #
+                        # `toleranceWei` cannot exceed 2^53 today (its maximum is about 1.5e11), and
+                        # it is still emitted as a string. A uniform rule -- "every integer in this
+                        # fixture is a string" -- is checkable by reading one line; a per-field rule
+                        # requires re-deriving the bound every time a field is added. See
+                        # DESIGN_NOTES.md F52.
+                        "lambdaWad": str(lam_units * WAD),
+                        "sigmaWad": str(to_wad(sigma)),
+                        "capWad": str(to_wad(cap)),
+                        "momentWad": str(to_wad(moment)),
+                        "premiumWad": str(to_wad(premium)),
+                        "firstMomentWad": str(to_wad(first_moment)),
+                        "toleranceWei": str(tolerance_wei),
                     }
                 )
 

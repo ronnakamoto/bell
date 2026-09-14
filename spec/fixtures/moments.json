@@ -6,1012 +6,1012 @@
   "pointCount": 112,
   "points": [
     {
-      "lambdaWad": 1000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 1000000000000000000,
-      "momentWad": 3989422804014327,
-      "premiumWad": 3989422804014327,
-      "firstMomentWad": 3989422804014327,
-      "toleranceWei": 150000001000
-    },
-    {
-      "lambdaWad": 1000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 1000000000000000000,
-      "momentWad": 8696941712751232,
-      "premiumWad": 8696941712751232,
-      "firstMomentWad": 8696941712751232,
-      "toleranceWei": 150000001000
-    },
-    {
-      "lambdaWad": 1000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 1000000000000000000,
-      "momentWad": 11569326131641548,
-      "premiumWad": 11569326131641548,
-      "firstMomentWad": 11569326131641548,
-      "toleranceWei": 150000001000
-    },
-    {
-      "lambdaWad": 1000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 1000000000000000000,
-      "momentWad": 15000229743093869,
-      "premiumWad": 15000229743093869,
-      "firstMomentWad": 15000229743093869,
-      "toleranceWei": 150000001000
-    },
-    {
-      "lambdaWad": 1000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 1000000000000000000,
-      "momentWad": 17393883425502465,
-      "premiumWad": 17393883425502465,
-      "firstMomentWad": 17393883425502465,
-      "toleranceWei": 150000001000
-    },
-    {
-      "lambdaWad": 1000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 1000000000000000000,
-      "momentWad": 20505633212633640,
-      "premiumWad": 20505633212633640,
-      "firstMomentWad": 20505633212633640,
-      "toleranceWei": 150000001000
-    },
-    {
-      "lambdaWad": 1000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 1000000000000000000,
-      "momentWad": 24973786753129686,
-      "premiumWad": 24973786753129686,
-      "firstMomentWad": 24973786753129686,
-      "toleranceWei": 150000001000
-    },
-    {
-      "lambdaWad": 1000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 1000000000000000000,
-      "momentWad": 39894228040143268,
-      "premiumWad": 39894228040143268,
-      "firstMomentWad": 39894228040143268,
-      "toleranceWei": 150000001000
-    },
-    {
-      "lambdaWad": 2000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 500000000000000000,
-      "momentWad": 3989422804014327,
-      "premiumWad": 7978845608028654,
-      "firstMomentWad": 3989422804014327,
-      "toleranceWei": 75000001000
-    },
-    {
-      "lambdaWad": 2000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 500000000000000000,
-      "momentWad": 8696941712751232,
-      "premiumWad": 17393883425502465,
-      "firstMomentWad": 8696941712751232,
-      "toleranceWei": 75000001000
-    },
-    {
-      "lambdaWad": 2000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 500000000000000000,
-      "momentWad": 11569326131641548,
-      "premiumWad": 23138652263283095,
-      "firstMomentWad": 11569326131641548,
-      "toleranceWei": 75000001000
-    },
-    {
-      "lambdaWad": 2000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 500000000000000000,
-      "momentWad": 15000229743093869,
-      "premiumWad": 30000459486187737,
-      "firstMomentWad": 15000229743093869,
-      "toleranceWei": 75000001000
-    },
-    {
-      "lambdaWad": 2000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 500000000000000000,
-      "momentWad": 17393883425502465,
-      "premiumWad": 34787766851004930,
-      "firstMomentWad": 17393883425502465,
-      "toleranceWei": 75000001000
-    },
-    {
-      "lambdaWad": 2000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 500000000000000000,
-      "momentWad": 20505633212633640,
-      "premiumWad": 41011266425267279,
-      "firstMomentWad": 20505633212633640,
-      "toleranceWei": 75000001000
-    },
-    {
-      "lambdaWad": 2000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 500000000000000000,
-      "momentWad": 24973786753129686,
-      "premiumWad": 49947573506259371,
-      "firstMomentWad": 24973786753129686,
-      "toleranceWei": 75000001000
-    },
-    {
-      "lambdaWad": 2000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 500000000000000000,
-      "momentWad": 39894228040143268,
-      "premiumWad": 79788456080286536,
-      "firstMomentWad": 39894228040143268,
-      "toleranceWei": 75000001000
-    },
-    {
-      "lambdaWad": 4000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 250000000000000000,
-      "momentWad": 3989422804014327,
-      "premiumWad": 15957691216057307,
-      "firstMomentWad": 3989422804014327,
-      "toleranceWei": 37500001000
-    },
-    {
-      "lambdaWad": 4000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 250000000000000000,
-      "momentWad": 8696941712751232,
-      "premiumWad": 34787766851004930,
-      "firstMomentWad": 8696941712751232,
-      "toleranceWei": 37500001000
-    },
-    {
-      "lambdaWad": 4000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 250000000000000000,
-      "momentWad": 11569326131641548,
-      "premiumWad": 46277304526566191,
-      "firstMomentWad": 11569326131641548,
-      "toleranceWei": 37500001000
-    },
-    {
-      "lambdaWad": 4000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 250000000000000000,
-      "momentWad": 15000229743093869,
-      "premiumWad": 60000918972375475,
-      "firstMomentWad": 15000229743093869,
-      "toleranceWei": 37500001000
-    },
-    {
-      "lambdaWad": 4000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 250000000000000000,
-      "momentWad": 17393883425502465,
-      "premiumWad": 69575533702009859,
-      "firstMomentWad": 17393883425502465,
-      "toleranceWei": 37500001000
-    },
-    {
-      "lambdaWad": 4000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 250000000000000000,
-      "momentWad": 20505633212633640,
-      "premiumWad": 82022532850534559,
-      "firstMomentWad": 20505633212633640,
-      "toleranceWei": 37500001000
-    },
-    {
-      "lambdaWad": 4000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 250000000000000000,
-      "momentWad": 24973786753129680,
-      "premiumWad": 99895147012518722,
-      "firstMomentWad": 24973786753129335,
-      "toleranceWei": 37500001000
-    },
-    {
-      "lambdaWad": 4000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 250000000000000000,
-      "momentWad": 39894222693977734,
-      "premiumWad": 159576890775910936,
-      "firstMomentWad": 39894079368191794,
-      "toleranceWei": 37500001000
-    },
-    {
-      "lambdaWad": 8000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 125000000000000000,
-      "momentWad": 3989422804014327,
-      "premiumWad": 31915382432114614,
-      "firstMomentWad": 3989422804014327,
-      "toleranceWei": 18750001000
-    },
-    {
-      "lambdaWad": 8000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 125000000000000000,
-      "momentWad": 8696941712751232,
-      "premiumWad": 69575533702009859,
-      "firstMomentWad": 8696941712751232,
-      "toleranceWei": 18750001000
-    },
-    {
-      "lambdaWad": 8000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 125000000000000000,
-      "momentWad": 11569326131641548,
-      "premiumWad": 92554609053132381,
-      "firstMomentWad": 11569326131641547,
-      "toleranceWei": 18750001000
-    },
-    {
-      "lambdaWad": 8000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 125000000000000000,
-      "momentWad": 15000229743013803,
-      "premiumWad": 120001837944110427,
-      "firstMomentWad": 15000229739323566,
-      "toleranceWei": 18750001000
-    },
-    {
-      "lambdaWad": 8000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 125000000000000000,
-      "momentWad": 17393883390182568,
-      "premiumWad": 139151067121460542,
-      "firstMomentWad": 17393882163667722,
-      "toleranceWei": 18750001000
-    },
-    {
-      "lambdaWad": 8000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 125000000000000000,
-      "momentWad": 20505627558726113,
-      "premiumWad": 164045020469808904,
-      "firstMomentWad": 20505483626760359,
-      "toleranceWei": 18750001000
-    },
-    {
-      "lambdaWad": 8000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 125000000000000000,
-      "momentWad": 24973326618960157,
-      "premiumWad": 199786612951681258,
-      "firstMomentWad": 24965192268162245,
-      "toleranceWei": 18750001000
-    },
-    {
-      "lambdaWad": 8000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 125000000000000000,
-      "momentWad": 39693814322230448,
-      "premiumWad": 317550514577843583,
-      "firstMomentWad": 38141397990786414,
-      "toleranceWei": 18750001000
-    },
-    {
-      "lambdaWad": 10000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 100000000000000000,
-      "momentWad": 3989422804014327,
-      "premiumWad": 39894228040143268,
-      "firstMomentWad": 3989422804014327,
-      "toleranceWei": 15000001000
-    },
-    {
-      "lambdaWad": 10000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 100000000000000000,
-      "momentWad": 8696941712751232,
-      "premiumWad": 86969417127512324,
-      "firstMomentWad": 8696941712751232,
-      "toleranceWei": 15000001000
-    },
-    {
-      "lambdaWad": 10000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 100000000000000000,
-      "momentWad": 11569326131630774,
-      "premiumWad": 115693261316307735,
-      "firstMomentWad": 11569326131097974,
-      "toleranceWei": 15000001000
-    },
-    {
-      "lambdaWad": 10000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 100000000000000000,
-      "momentWad": 15000229396974870,
-      "premiumWad": 150002293969748698,
-      "firstMomentWad": 15000218971598012,
-      "toleranceWei": 15000001000
-    },
-    {
-      "lambdaWad": 10000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 100000000000000000,
-      "momentWad": 17393863738094597,
-      "premiumWad": 173938637380945966,
-      "firstMomentWad": 17393414413078098,
-      "toleranceWei": 15000001000
-    },
-    {
-      "lambdaWad": 10000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 100000000000000000,
-      "momentWad": 20505041176505630,
-      "premiumWad": 205050411765056297,
-      "firstMomentWad": 20495060064460495,
-      "toleranceWei": 15000001000
-    },
-    {
-      "lambdaWad": 10000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 100000000000000000,
-      "momentWad": 24961968458704467,
-      "premiumWad": 249619684587044675,
-      "firstMomentWad": 24822083430916758,
-      "toleranceWei": 15000001000
-    },
-    {
-      "lambdaWad": 10000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 100000000000000000,
-      "momentWad": 39045157778460304,
-      "premiumWad": 390451577784603040,
-      "firstMomentWad": 34495131388824463,
-      "toleranceWei": 15000001000
-    },
-    {
-      "lambdaWad": 11000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 90909090909090909,
-      "momentWad": 3989422804014327,
-      "premiumWad": 43883650844157595,
-      "firstMomentWad": 3989422804014327,
-      "toleranceWei": 13636364636
-    },
-    {
-      "lambdaWad": 11000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 90909090909090909,
-      "momentWad": 8696941712751232,
-      "premiumWad": 95666358840263555,
-      "firstMomentWad": 8696941712751226,
-      "toleranceWei": 13636364636
-    },
-    {
-      "lambdaWad": 11000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 90909090909090909,
-      "momentWad": 11569326130842351,
-      "premiumWad": 127262587439265866,
-      "firstMomentWad": 11569326097933783,
-      "toleranceWei": 13636364636
-    },
-    {
-      "lambdaWad": 11000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 90909090909090909,
-      "momentWad": 15000224950558904,
-      "premiumWad": 165002474456147942,
-      "firstMomentWad": 15000104267529712,
-      "toleranceWei": 13636364636
-    },
-    {
-      "lambdaWad": 11000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 90909090909090909,
-      "momentWad": 17393738812677809,
-      "premiumWad": 191331126939455898,
-      "firstMomentWad": 17390971447304398,
-      "toleranceWei": 13636364636
-    },
-    {
-      "lambdaWad": 11000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 90909090909090909,
-      "momentWad": 20503043603214333,
-      "premiumWad": 225533479635357667,
-      "firstMomentWad": 20466297096532289,
-      "toleranceWei": 13636364636
-    },
-    {
-      "lambdaWad": 11000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 90909090909090909,
-      "momentWad": 24940393342086704,
-      "premiumWad": 274344326762953749,
-      "firstMomentWad": 24605933116291248,
-      "toleranceWei": 13636364636
-    },
-    {
-      "lambdaWad": 11000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 90909090909090909,
-      "momentWad": 38530706697492528,
-      "premiumWad": 423837773672417813,
-      "firstMomentWad": 32254675061636594,
-      "toleranceWei": 13636364636
-    },
-    {
-      "lambdaWad": 15000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 66666666666666667,
-      "momentWad": 3989422804014327,
-      "premiumWad": 59841342060214902,
-      "firstMomentWad": 3989422804014327,
-      "toleranceWei": 10000001000
-    },
-    {
-      "lambdaWad": 15000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 66666666666666667,
-      "momentWad": 8696941711124471,
-      "premiumWad": 130454125666867070,
-      "firstMomentWad": 8696941647238964,
-      "toleranceWei": 10000001000
-    },
-    {
-      "lambdaWad": 15000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 66666666666666667,
-      "momentWad": 11569313706778826,
-      "premiumWad": 173539705601682392,
-      "firstMomentWad": 11569028921354627,
-      "toleranceWei": 10000001000
-    },
-    {
-      "lambdaWad": 15000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 66666666666666667,
-      "momentWad": 14998401025779623,
-      "premiumWad": 224976015386694344,
-      "firstMomentWad": 14972335768360212,
-      "toleranceWei": 10000001000
-    },
-    {
-      "lambdaWad": 15000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 66666666666666667,
-      "momentWad": 17380333299070181,
-      "premiumWad": 260704999486052721,
-      "firstMomentWad": 17231838448334054,
-      "toleranceWei": 10000001000
-    },
-    {
-      "lambdaWad": 15000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 66666666666666667,
-      "momentWad": 20428947839955514,
-      "premiumWad": 306434217599332716,
-      "firstMomentWad": 19796566623677773,
-      "toleranceWei": 10000001000
-    },
-    {
-      "lambdaWad": 15000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 66666666666666667,
-      "momentWad": 24601129032408035,
-      "premiumWad": 369016935486120519,
-      "firstMomentWad": 22389277804512296,
-      "toleranceWei": 10000001000
-    },
-    {
-      "lambdaWad": 15000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 66666666666666667,
-      "momentWad": 35654716535992955,
-      "premiumWad": 534820748039894327,
-      "firstMomentWad": 23493220572543906,
-      "toleranceWei": 10000001000
-    },
-    {
-      "lambdaWad": 16000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 62500000000000000,
-      "momentWad": 3989422804014327,
-      "premiumWad": 63830764864229228,
-      "firstMomentWad": 3989422804014327,
-      "toleranceWei": 9375001000
-    },
-    {
-      "lambdaWad": 16000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 62500000000000000,
-      "momentWad": 8696941695091284,
-      "premiumWad": 139151067121460542,
-      "firstMomentWad": 8696941081833861,
-      "toleranceWei": 9375001000
-    },
-    {
-      "lambdaWad": 16000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 62500000000000000,
-      "momentWad": 11569276040201283,
-      "premiumWad": 185108416643220525,
-      "firstMomentWad": 11568257289117837,
-      "toleranceWei": 9375001000
-    },
-    {
-      "lambdaWad": 16000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 62500000000000000,
-      "momentWad": 14995870293103661,
-      "premiumWad": 239933924689658577,
-      "firstMomentWad": 14940503185534192,
-      "toleranceWei": 9375001000
-    },
-    {
-      "lambdaWad": 16000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 62500000000000000,
-      "momentWad": 17367433508514738,
-      "premiumWad": 277878936136235802,
-      "firstMomentWad": 17108421601461773,
-      "toleranceWei": 9375001000
-    },
-    {
-      "lambdaWad": 16000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 62500000000000000,
-      "momentWad": 20378675149669958,
-      "premiumWad": 326058802394719325,
-      "firstMomentWad": 19439951449277653,
-      "toleranceWei": 9375001000
-    },
-    {
-      "lambdaWad": 16000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 62500000000000000,
-      "momentWad": 24437701456632239,
-      "premiumWad": 391003223306115829,
-      "firstMomentWad": 21572304077601995,
-      "toleranceWei": 9375001000
-    },
-    {
-      "lambdaWad": 16000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 62500000000000000,
-      "momentWad": 34835541209597985,
-      "premiumWad": 557368659353567752,
-      "firstMomentWad": 21629319501241077,
-      "toleranceWei": 9375001000
-    },
-    {
-      "lambdaWad": 22000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 45454545454545455,
-      "momentWad": 3989422804014327,
-      "premiumWad": 87767301688315189,
-      "firstMomentWad": 3989422804014327,
-      "toleranceWei": 6818182818
-    },
-    {
-      "lambdaWad": 22000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 45454545454545455,
-      "momentWad": 8696869406338904,
-      "premiumWad": 191331126939455898,
-      "firstMomentWad": 8695485723652199,
-      "toleranceWei": 6818182818
-    },
-    {
-      "lambdaWad": 22000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 45454545454545455,
-      "momentWad": 11562496967473573,
-      "premiumWad": 254374933284418613,
-      "firstMomentWad": 11484327186347504,
-      "toleranceWei": 6818182818
-    },
-    {
-      "lambdaWad": 22000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 45454545454545455,
-      "momentWad": 14903294504165798,
-      "premiumWad": 327872479091647563,
-      "firstMomentWad": 14193527578419068,
-      "toleranceWei": 6818182818
-    },
-    {
-      "lambdaWad": 22000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 45454545454545455,
-      "momentWad": 17100020921752861,
-      "premiumWad": 376200460278562953,
-      "firstMomentWad": 15415345196321592,
-      "toleranceWei": 6818182818
-    },
-    {
-      "lambdaWad": 22000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 45454545454545455,
-      "momentWad": 19711956904614547,
-      "premiumWad": 433663051901520039,
-      "firstMomentWad": 16214196048620149,
-      "toleranceWei": 6818182818
-    },
-    {
-      "lambdaWad": 22000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 45454545454545455,
-      "momentWad": 22929889917878868,
-      "premiumWad": 504457578193335104,
-      "firstMomentWad": 16273530129463657,
-      "toleranceWei": 6818182818
-    },
-    {
-      "lambdaWad": 22000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 45454545454545455,
-      "momentWad": 30017345192447444,
-      "premiumWad": 660381594233843766,
-      "firstMomentWad": 13503611515770269,
-      "toleranceWei": 6818182818
-    },
-    {
-      "lambdaWad": 32000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 31250000000000000,
-      "momentWad": 3989422803700955,
-      "premiumWad": 127661529718430560,
-      "firstMomentWad": 3989422790874309,
-      "toleranceWei": 4687501000
-    },
-    {
-      "lambdaWad": 32000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 31250000000000000,
-      "momentWad": 8683716754257369,
-      "premiumWad": 277878936136235802,
-      "firstMomentWad": 8554210800730886,
-      "toleranceWei": 4687501000
-    },
-    {
-      "lambdaWad": 32000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 31250000000000000,
-      "momentWad": 11408460101554391,
-      "premiumWad": 365070723249740511,
-      "firstMomentWad": 10435074327465235,
-      "toleranceWei": 4687501000
-    },
-    {
-      "lambdaWad": 32000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 31250000000000000,
-      "momentWad": 14246749505545411,
-      "premiumWad": 455895984177453154,
-      "firstMomentWad": 11232191481249661,
-      "toleranceWei": 4687501000
-    },
-    {
-      "lambdaWad": 32000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 31250000000000000,
-      "momentWad": 15909453909022711,
-      "premiumWad": 509102525088726755,
-      "firstMomentWad": 11168237381593373,
-      "toleranceWei": 4687501000
-    },
-    {
-      "lambdaWad": 32000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 31250000000000000,
-      "momentWad": 17715062325504223,
-      "premiumWad": 566881994416135144,
-      "firstMomentWad": 10714977653910536,
-      "toleranceWei": 4687501000
-    },
-    {
-      "lambdaWad": 32000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 31250000000000000,
-      "momentWad": 19742353431921069,
-      "premiumWad": 631755309821474200,
-      "firstMomentWad": 9802222346369862,
-      "toleranceWei": 4687501000
-    },
-    {
-      "lambdaWad": 32000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 31250000000000000,
-      "momentWad": 23702226750649548,
-      "premiumWad": 758471256020785525,
-      "firstMomentWad": 7078131185105764,
-      "toleranceWei": 4687501000
-    },
-    {
-      "lambdaWad": 64000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 15625000000000000,
-      "momentWad": 3986982264259478,
-      "premiumWad": 255166864912606574,
-      "firstMomentWad": 3959200223662339,
-      "toleranceWei": 2343751000
-    },
-    {
-      "lambdaWad": 64000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 15625000000000000,
-      "momentWad": 7954726954511356,
-      "premiumWad": 509102525088726755,
-      "firstMomentWad": 5584118690796687,
-      "toleranceWei": 2343751000
-    },
-    {
-      "lambdaWad": 64000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 15625000000000000,
-      "momentWad": 9489577406385633,
-      "premiumWad": 607332954008680489,
-      "firstMomentWad": 5095538963282625,
-      "toleranceWei": 2343751000
-    },
-    {
-      "lambdaWad": 64000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 15625000000000000,
-      "momentWad": 10723079083227579,
-      "premiumWad": 686277061326565049,
-      "firstMomentWad": 4380774005744835,
-      "toleranceWei": 2343751000
-    },
-    {
-      "lambdaWad": 64000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 15625000000000000,
-      "momentWad": 11339075281931801,
-      "premiumWad": 725700818043635256,
-      "firstMomentWad": 3940128177915659,
-      "toleranceWei": 2343751000
-    },
-    {
-      "lambdaWad": 64000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 15625000000000000,
-      "momentWad": 11947754531273720,
-      "premiumWad": 764656290001518063,
-      "firstMomentWad": 3460208310488160,
-      "toleranceWei": 2343751000
-    },
-    {
-      "lambdaWad": 64000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 15625000000000000,
-      "momentWad": 12576288351877624,
-      "premiumWad": 804882454520167915,
-      "firstMomentWad": 2925700939632248,
-      "toleranceWei": 2343751000
-    },
-    {
-      "lambdaWad": 64000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 15625000000000000,
-      "momentWad": 13692738718088083,
-      "premiumWad": 876335277957637331,
-      "firstMomentWad": 1901167420280492,
-      "toleranceWei": 2343751000
-    },
-    {
-      "lambdaWad": 100000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 10000000000000000,
-      "momentWad": 3904515777846030,
-      "premiumWad": 390451577784603040,
-      "firstMomentWad": 3449513138882446,
-      "toleranceWei": 1500001000
-    },
-    {
-      "lambdaWad": 100000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 10000000000000000,
-      "momentWad": 6576609129558432,
-      "premiumWad": 657660912955843227,
-      "firstMomentWad": 2987441793840264,
-      "toleranceWei": 1500001000
-    },
-    {
-      "lambdaWad": 100000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 10000000000000000,
-      "momentWad": 7352749409160876,
-      "premiumWad": 735274940916087584,
-      "firstMomentWad": 2448638783534778,
-      "toleranceWei": 1500001000
-    },
-    {
-      "lambdaWad": 100000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 10000000000000000,
-      "momentWad": 7926618838910459,
-      "premiumWad": 792661883891045868,
-      "firstMomentWad": 1978769424133501,
-      "toleranceWei": 1500001000
-    },
-    {
-      "lambdaWad": 100000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 10000000000000000,
-      "momentWad": 8201416032026178,
-      "premiumWad": 820141603202617755,
-      "firstMomentWad": 1737031905411936,
-      "toleranceWei": 1500001000
-    },
-    {
-      "lambdaWad": 100000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 10000000000000000,
-      "momentWad": 8466988107353344,
-      "premiumWad": 846698810735334392,
-      "firstMomentWad": 1495003789987646,
-      "toleranceWei": 1500001000
-    },
-    {
-      "lambdaWad": 100000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 10000000000000000,
-      "momentWad": 8736156021277210,
-      "premiumWad": 873615602127721016,
-      "firstMomentWad": 1242597326484430,
-      "toleranceWei": 1500001000
-    },
-    {
-      "lambdaWad": 100000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 10000000000000000,
-      "momentWad": 9204764453815620,
-      "premiumWad": 920476445381561953,
-      "firstMomentWad": 789958642597680,
-      "toleranceWei": 1500001000
-    },
-    {
-      "lambdaWad": 250000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 4000000000000000,
-      "momentWad": 2787350465066673,
-      "premiumWad": 696837616266668221,
-      "firstMomentWad": 1092507276399499,
-      "toleranceWei": 600001000
-    },
-    {
-      "lambdaWad": 250000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 4000000000000000,
-      "momentWad": 3420881078035290,
-      "premiumWad": 855220269508822426,
-      "firstMomentWad": 566322885882345,
-      "toleranceWei": 600001000
-    },
-    {
-      "lambdaWad": 250000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 4000000000000000,
-      "momentWad": 3562558401904331,
-      "premiumWad": 890639600476082811,
-      "firstMomentWad": 431942368245317,
-      "toleranceWei": 600001000
-    },
-    {
-      "lambdaWad": 250000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 4000000000000000,
-      "momentWad": 3661749721094926,
-      "premiumWad": 915437430273731423,
-      "firstMomentWad": 335711649987828,
-      "toleranceWei": 600001000
-    },
-    {
-      "lambdaWad": 250000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 4000000000000000,
-      "momentWad": 3708017053264170,
-      "premiumWad": 927004263316042476,
-      "firstMomentWad": 290350991120257,
-      "toleranceWei": 600001000
-    },
-    {
-      "lambdaWad": 250000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 4000000000000000,
-      "momentWad": 3752131435951329,
-      "premiumWad": 938032858987832237,
-      "firstMomentWad": 246870641050499,
-      "toleranceWei": 600001000
-    },
-    {
-      "lambdaWad": 250000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 4000000000000000,
-      "momentWad": 3796344937774964,
-      "premiumWad": 949086234443740976,
-      "firstMomentWad": 203101778365861,
-      "toleranceWei": 600001000
-    },
-    {
-      "lambdaWad": 250000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 4000000000000000,
-      "momentWad": 3872406512870482,
-      "premiumWad": 968101628217620565,
-      "firstMomentWad": 127457488982381,
-      "toleranceWei": 600001000
-    },
-    {
-      "lambdaWad": 1000000000000000000000,
-      "sigmaWad": 5000000000000000,
-      "capWad": 1000000000000000,
-      "momentWad": 920476445381562,
-      "premiumWad": 920476445381561953,
-      "firstMomentWad": 78995864259768,
-      "toleranceWei": 150001000
-    },
-    {
-      "lambdaWad": 1000000000000000000000,
-      "sigmaWad": 10900000000000000,
-      "capWad": 1000000000000000,
-      "momentWad": 963425440584529,
-      "premiumWad": 963425440584529370,
-      "firstMomentWad": 36523302973428,
-      "toleranceWei": 150001000
-    },
-    {
-      "lambdaWad": 1000000000000000000000,
-      "sigmaWad": 14500000000000000,
-      "capWad": 1000000000000000,
-      "momentWad": 972497639076674,
-      "premiumWad": 972497639076674184,
-      "firstMomentWad": 27480571699836,
-      "toleranceWei": 150001000
-    },
-    {
-      "lambdaWad": 1000000000000000000000,
-      "sigmaWad": 18800000000000000,
-      "capWad": 1000000000000000,
-      "momentWad": 978784667806199,
-      "premiumWad": 978784667806198756,
-      "firstMomentWad": 21205331283355,
-      "toleranceWei": 150001000
-    },
-    {
-      "lambdaWad": 1000000000000000000000,
-      "sigmaWad": 21800000000000000,
-      "capWad": 1000000000000000,
-      "momentWad": 981703103642652,
-      "premiumWad": 981703103642651807,
-      "firstMomentWad": 18290481210840,
-      "toleranceWei": 150001000
-    },
-    {
-      "lambdaWad": 1000000000000000000000,
-      "sigmaWad": 25700000000000000,
-      "capWad": 1000000000000000,
-      "momentWad": 984478912299986,
-      "premiumWad": 984478912299986129,
-      "firstMomentWad": 15517171832900,
-      "toleranceWei": 150001000
-    },
-    {
-      "lambdaWad": 1000000000000000000000,
-      "sigmaWad": 31300000000000000,
-      "capWad": 1000000000000000,
-      "momentWad": 987255324298171,
-      "premiumWad": 987255324298170715,
-      "firstMomentWad": 12742507812307,
-      "toleranceWei": 150001000
-    },
-    {
-      "lambdaWad": 1000000000000000000000,
-      "sigmaWad": 50000000000000000,
-      "capWad": 1000000000000000,
-      "momentWad": 992021420342854,
-      "premiumWad": 992021420342853533,
-      "firstMomentWad": 7978047776657,
-      "toleranceWei": 150001000
+      "lambdaWad": "1000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "1000000000000000000",
+      "momentWad": "3989422804014327",
+      "premiumWad": "3989422804014327",
+      "firstMomentWad": "3989422804014327",
+      "toleranceWei": "150000001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "1000000000000000000",
+      "momentWad": "8696941712751232",
+      "premiumWad": "8696941712751232",
+      "firstMomentWad": "8696941712751232",
+      "toleranceWei": "150000001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "1000000000000000000",
+      "momentWad": "11569326131641548",
+      "premiumWad": "11569326131641548",
+      "firstMomentWad": "11569326131641548",
+      "toleranceWei": "150000001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "1000000000000000000",
+      "momentWad": "15000229743093869",
+      "premiumWad": "15000229743093869",
+      "firstMomentWad": "15000229743093869",
+      "toleranceWei": "150000001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "1000000000000000000",
+      "momentWad": "17393883425502465",
+      "premiumWad": "17393883425502465",
+      "firstMomentWad": "17393883425502465",
+      "toleranceWei": "150000001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "1000000000000000000",
+      "momentWad": "20505633212633640",
+      "premiumWad": "20505633212633640",
+      "firstMomentWad": "20505633212633640",
+      "toleranceWei": "150000001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "1000000000000000000",
+      "momentWad": "24973786753129686",
+      "premiumWad": "24973786753129686",
+      "firstMomentWad": "24973786753129686",
+      "toleranceWei": "150000001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "1000000000000000000",
+      "momentWad": "39894228040143268",
+      "premiumWad": "39894228040143268",
+      "firstMomentWad": "39894228040143268",
+      "toleranceWei": "150000001000"
+    },
+    {
+      "lambdaWad": "2000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "500000000000000000",
+      "momentWad": "3989422804014327",
+      "premiumWad": "7978845608028654",
+      "firstMomentWad": "3989422804014327",
+      "toleranceWei": "75000001000"
+    },
+    {
+      "lambdaWad": "2000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "500000000000000000",
+      "momentWad": "8696941712751232",
+      "premiumWad": "17393883425502465",
+      "firstMomentWad": "8696941712751232",
+      "toleranceWei": "75000001000"
+    },
+    {
+      "lambdaWad": "2000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "500000000000000000",
+      "momentWad": "11569326131641548",
+      "premiumWad": "23138652263283095",
+      "firstMomentWad": "11569326131641548",
+      "toleranceWei": "75000001000"
+    },
+    {
+      "lambdaWad": "2000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "500000000000000000",
+      "momentWad": "15000229743093869",
+      "premiumWad": "30000459486187737",
+      "firstMomentWad": "15000229743093869",
+      "toleranceWei": "75000001000"
+    },
+    {
+      "lambdaWad": "2000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "500000000000000000",
+      "momentWad": "17393883425502465",
+      "premiumWad": "34787766851004930",
+      "firstMomentWad": "17393883425502465",
+      "toleranceWei": "75000001000"
+    },
+    {
+      "lambdaWad": "2000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "500000000000000000",
+      "momentWad": "20505633212633640",
+      "premiumWad": "41011266425267279",
+      "firstMomentWad": "20505633212633640",
+      "toleranceWei": "75000001000"
+    },
+    {
+      "lambdaWad": "2000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "500000000000000000",
+      "momentWad": "24973786753129686",
+      "premiumWad": "49947573506259371",
+      "firstMomentWad": "24973786753129686",
+      "toleranceWei": "75000001000"
+    },
+    {
+      "lambdaWad": "2000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "500000000000000000",
+      "momentWad": "39894228040143268",
+      "premiumWad": "79788456080286536",
+      "firstMomentWad": "39894228040143268",
+      "toleranceWei": "75000001000"
+    },
+    {
+      "lambdaWad": "4000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "250000000000000000",
+      "momentWad": "3989422804014327",
+      "premiumWad": "15957691216057307",
+      "firstMomentWad": "3989422804014327",
+      "toleranceWei": "37500001000"
+    },
+    {
+      "lambdaWad": "4000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "250000000000000000",
+      "momentWad": "8696941712751232",
+      "premiumWad": "34787766851004930",
+      "firstMomentWad": "8696941712751232",
+      "toleranceWei": "37500001000"
+    },
+    {
+      "lambdaWad": "4000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "250000000000000000",
+      "momentWad": "11569326131641548",
+      "premiumWad": "46277304526566191",
+      "firstMomentWad": "11569326131641548",
+      "toleranceWei": "37500001000"
+    },
+    {
+      "lambdaWad": "4000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "250000000000000000",
+      "momentWad": "15000229743093869",
+      "premiumWad": "60000918972375475",
+      "firstMomentWad": "15000229743093869",
+      "toleranceWei": "37500001000"
+    },
+    {
+      "lambdaWad": "4000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "250000000000000000",
+      "momentWad": "17393883425502465",
+      "premiumWad": "69575533702009859",
+      "firstMomentWad": "17393883425502465",
+      "toleranceWei": "37500001000"
+    },
+    {
+      "lambdaWad": "4000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "250000000000000000",
+      "momentWad": "20505633212633640",
+      "premiumWad": "82022532850534559",
+      "firstMomentWad": "20505633212633640",
+      "toleranceWei": "37500001000"
+    },
+    {
+      "lambdaWad": "4000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "250000000000000000",
+      "momentWad": "24973786753129680",
+      "premiumWad": "99895147012518722",
+      "firstMomentWad": "24973786753129335",
+      "toleranceWei": "37500001000"
+    },
+    {
+      "lambdaWad": "4000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "250000000000000000",
+      "momentWad": "39894222693977734",
+      "premiumWad": "159576890775910936",
+      "firstMomentWad": "39894079368191794",
+      "toleranceWei": "37500001000"
+    },
+    {
+      "lambdaWad": "8000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "125000000000000000",
+      "momentWad": "3989422804014327",
+      "premiumWad": "31915382432114614",
+      "firstMomentWad": "3989422804014327",
+      "toleranceWei": "18750001000"
+    },
+    {
+      "lambdaWad": "8000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "125000000000000000",
+      "momentWad": "8696941712751232",
+      "premiumWad": "69575533702009859",
+      "firstMomentWad": "8696941712751232",
+      "toleranceWei": "18750001000"
+    },
+    {
+      "lambdaWad": "8000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "125000000000000000",
+      "momentWad": "11569326131641548",
+      "premiumWad": "92554609053132381",
+      "firstMomentWad": "11569326131641547",
+      "toleranceWei": "18750001000"
+    },
+    {
+      "lambdaWad": "8000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "125000000000000000",
+      "momentWad": "15000229743013803",
+      "premiumWad": "120001837944110427",
+      "firstMomentWad": "15000229739323566",
+      "toleranceWei": "18750001000"
+    },
+    {
+      "lambdaWad": "8000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "125000000000000000",
+      "momentWad": "17393883390182568",
+      "premiumWad": "139151067121460542",
+      "firstMomentWad": "17393882163667722",
+      "toleranceWei": "18750001000"
+    },
+    {
+      "lambdaWad": "8000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "125000000000000000",
+      "momentWad": "20505627558726113",
+      "premiumWad": "164045020469808904",
+      "firstMomentWad": "20505483626760359",
+      "toleranceWei": "18750001000"
+    },
+    {
+      "lambdaWad": "8000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "125000000000000000",
+      "momentWad": "24973326618960157",
+      "premiumWad": "199786612951681258",
+      "firstMomentWad": "24965192268162245",
+      "toleranceWei": "18750001000"
+    },
+    {
+      "lambdaWad": "8000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "125000000000000000",
+      "momentWad": "39693814322230448",
+      "premiumWad": "317550514577843583",
+      "firstMomentWad": "38141397990786414",
+      "toleranceWei": "18750001000"
+    },
+    {
+      "lambdaWad": "10000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "100000000000000000",
+      "momentWad": "3989422804014327",
+      "premiumWad": "39894228040143268",
+      "firstMomentWad": "3989422804014327",
+      "toleranceWei": "15000001000"
+    },
+    {
+      "lambdaWad": "10000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "100000000000000000",
+      "momentWad": "8696941712751232",
+      "premiumWad": "86969417127512324",
+      "firstMomentWad": "8696941712751232",
+      "toleranceWei": "15000001000"
+    },
+    {
+      "lambdaWad": "10000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "100000000000000000",
+      "momentWad": "11569326131630774",
+      "premiumWad": "115693261316307735",
+      "firstMomentWad": "11569326131097974",
+      "toleranceWei": "15000001000"
+    },
+    {
+      "lambdaWad": "10000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "100000000000000000",
+      "momentWad": "15000229396974870",
+      "premiumWad": "150002293969748698",
+      "firstMomentWad": "15000218971598012",
+      "toleranceWei": "15000001000"
+    },
+    {
+      "lambdaWad": "10000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "100000000000000000",
+      "momentWad": "17393863738094597",
+      "premiumWad": "173938637380945966",
+      "firstMomentWad": "17393414413078098",
+      "toleranceWei": "15000001000"
+    },
+    {
+      "lambdaWad": "10000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "100000000000000000",
+      "momentWad": "20505041176505630",
+      "premiumWad": "205050411765056297",
+      "firstMomentWad": "20495060064460495",
+      "toleranceWei": "15000001000"
+    },
+    {
+      "lambdaWad": "10000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "100000000000000000",
+      "momentWad": "24961968458704467",
+      "premiumWad": "249619684587044675",
+      "firstMomentWad": "24822083430916758",
+      "toleranceWei": "15000001000"
+    },
+    {
+      "lambdaWad": "10000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "100000000000000000",
+      "momentWad": "39045157778460304",
+      "premiumWad": "390451577784603040",
+      "firstMomentWad": "34495131388824463",
+      "toleranceWei": "15000001000"
+    },
+    {
+      "lambdaWad": "11000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "90909090909090909",
+      "momentWad": "3989422804014327",
+      "premiumWad": "43883650844157595",
+      "firstMomentWad": "3989422804014327",
+      "toleranceWei": "13636364636"
+    },
+    {
+      "lambdaWad": "11000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "90909090909090909",
+      "momentWad": "8696941712751232",
+      "premiumWad": "95666358840263555",
+      "firstMomentWad": "8696941712751226",
+      "toleranceWei": "13636364636"
+    },
+    {
+      "lambdaWad": "11000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "90909090909090909",
+      "momentWad": "11569326130842351",
+      "premiumWad": "127262587439265866",
+      "firstMomentWad": "11569326097933783",
+      "toleranceWei": "13636364636"
+    },
+    {
+      "lambdaWad": "11000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "90909090909090909",
+      "momentWad": "15000224950558904",
+      "premiumWad": "165002474456147942",
+      "firstMomentWad": "15000104267529712",
+      "toleranceWei": "13636364636"
+    },
+    {
+      "lambdaWad": "11000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "90909090909090909",
+      "momentWad": "17393738812677809",
+      "premiumWad": "191331126939455898",
+      "firstMomentWad": "17390971447304398",
+      "toleranceWei": "13636364636"
+    },
+    {
+      "lambdaWad": "11000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "90909090909090909",
+      "momentWad": "20503043603214333",
+      "premiumWad": "225533479635357667",
+      "firstMomentWad": "20466297096532289",
+      "toleranceWei": "13636364636"
+    },
+    {
+      "lambdaWad": "11000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "90909090909090909",
+      "momentWad": "24940393342086704",
+      "premiumWad": "274344326762953749",
+      "firstMomentWad": "24605933116291248",
+      "toleranceWei": "13636364636"
+    },
+    {
+      "lambdaWad": "11000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "90909090909090909",
+      "momentWad": "38530706697492528",
+      "premiumWad": "423837773672417813",
+      "firstMomentWad": "32254675061636594",
+      "toleranceWei": "13636364636"
+    },
+    {
+      "lambdaWad": "15000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "66666666666666667",
+      "momentWad": "3989422804014327",
+      "premiumWad": "59841342060214902",
+      "firstMomentWad": "3989422804014327",
+      "toleranceWei": "10000001000"
+    },
+    {
+      "lambdaWad": "15000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "66666666666666667",
+      "momentWad": "8696941711124471",
+      "premiumWad": "130454125666867070",
+      "firstMomentWad": "8696941647238964",
+      "toleranceWei": "10000001000"
+    },
+    {
+      "lambdaWad": "15000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "66666666666666667",
+      "momentWad": "11569313706778826",
+      "premiumWad": "173539705601682392",
+      "firstMomentWad": "11569028921354627",
+      "toleranceWei": "10000001000"
+    },
+    {
+      "lambdaWad": "15000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "66666666666666667",
+      "momentWad": "14998401025779623",
+      "premiumWad": "224976015386694344",
+      "firstMomentWad": "14972335768360212",
+      "toleranceWei": "10000001000"
+    },
+    {
+      "lambdaWad": "15000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "66666666666666667",
+      "momentWad": "17380333299070181",
+      "premiumWad": "260704999486052721",
+      "firstMomentWad": "17231838448334054",
+      "toleranceWei": "10000001000"
+    },
+    {
+      "lambdaWad": "15000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "66666666666666667",
+      "momentWad": "20428947839955514",
+      "premiumWad": "306434217599332716",
+      "firstMomentWad": "19796566623677773",
+      "toleranceWei": "10000001000"
+    },
+    {
+      "lambdaWad": "15000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "66666666666666667",
+      "momentWad": "24601129032408035",
+      "premiumWad": "369016935486120519",
+      "firstMomentWad": "22389277804512296",
+      "toleranceWei": "10000001000"
+    },
+    {
+      "lambdaWad": "15000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "66666666666666667",
+      "momentWad": "35654716535992955",
+      "premiumWad": "534820748039894327",
+      "firstMomentWad": "23493220572543906",
+      "toleranceWei": "10000001000"
+    },
+    {
+      "lambdaWad": "16000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "62500000000000000",
+      "momentWad": "3989422804014327",
+      "premiumWad": "63830764864229228",
+      "firstMomentWad": "3989422804014327",
+      "toleranceWei": "9375001000"
+    },
+    {
+      "lambdaWad": "16000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "62500000000000000",
+      "momentWad": "8696941695091284",
+      "premiumWad": "139151067121460542",
+      "firstMomentWad": "8696941081833861",
+      "toleranceWei": "9375001000"
+    },
+    {
+      "lambdaWad": "16000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "62500000000000000",
+      "momentWad": "11569276040201283",
+      "premiumWad": "185108416643220525",
+      "firstMomentWad": "11568257289117837",
+      "toleranceWei": "9375001000"
+    },
+    {
+      "lambdaWad": "16000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "62500000000000000",
+      "momentWad": "14995870293103661",
+      "premiumWad": "239933924689658577",
+      "firstMomentWad": "14940503185534192",
+      "toleranceWei": "9375001000"
+    },
+    {
+      "lambdaWad": "16000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "62500000000000000",
+      "momentWad": "17367433508514738",
+      "premiumWad": "277878936136235802",
+      "firstMomentWad": "17108421601461773",
+      "toleranceWei": "9375001000"
+    },
+    {
+      "lambdaWad": "16000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "62500000000000000",
+      "momentWad": "20378675149669958",
+      "premiumWad": "326058802394719325",
+      "firstMomentWad": "19439951449277653",
+      "toleranceWei": "9375001000"
+    },
+    {
+      "lambdaWad": "16000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "62500000000000000",
+      "momentWad": "24437701456632239",
+      "premiumWad": "391003223306115829",
+      "firstMomentWad": "21572304077601995",
+      "toleranceWei": "9375001000"
+    },
+    {
+      "lambdaWad": "16000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "62500000000000000",
+      "momentWad": "34835541209597985",
+      "premiumWad": "557368659353567752",
+      "firstMomentWad": "21629319501241077",
+      "toleranceWei": "9375001000"
+    },
+    {
+      "lambdaWad": "22000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "45454545454545455",
+      "momentWad": "3989422804014327",
+      "premiumWad": "87767301688315189",
+      "firstMomentWad": "3989422804014327",
+      "toleranceWei": "6818182818"
+    },
+    {
+      "lambdaWad": "22000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "45454545454545455",
+      "momentWad": "8696869406338904",
+      "premiumWad": "191331126939455898",
+      "firstMomentWad": "8695485723652199",
+      "toleranceWei": "6818182818"
+    },
+    {
+      "lambdaWad": "22000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "45454545454545455",
+      "momentWad": "11562496967473573",
+      "premiumWad": "254374933284418613",
+      "firstMomentWad": "11484327186347504",
+      "toleranceWei": "6818182818"
+    },
+    {
+      "lambdaWad": "22000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "45454545454545455",
+      "momentWad": "14903294504165798",
+      "premiumWad": "327872479091647563",
+      "firstMomentWad": "14193527578419068",
+      "toleranceWei": "6818182818"
+    },
+    {
+      "lambdaWad": "22000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "45454545454545455",
+      "momentWad": "17100020921752861",
+      "premiumWad": "376200460278562953",
+      "firstMomentWad": "15415345196321592",
+      "toleranceWei": "6818182818"
+    },
+    {
+      "lambdaWad": "22000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "45454545454545455",
+      "momentWad": "19711956904614547",
+      "premiumWad": "433663051901520039",
+      "firstMomentWad": "16214196048620149",
+      "toleranceWei": "6818182818"
+    },
+    {
+      "lambdaWad": "22000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "45454545454545455",
+      "momentWad": "22929889917878868",
+      "premiumWad": "504457578193335104",
+      "firstMomentWad": "16273530129463657",
+      "toleranceWei": "6818182818"
+    },
+    {
+      "lambdaWad": "22000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "45454545454545455",
+      "momentWad": "30017345192447444",
+      "premiumWad": "660381594233843766",
+      "firstMomentWad": "13503611515770269",
+      "toleranceWei": "6818182818"
+    },
+    {
+      "lambdaWad": "32000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "31250000000000000",
+      "momentWad": "3989422803700955",
+      "premiumWad": "127661529718430560",
+      "firstMomentWad": "3989422790874309",
+      "toleranceWei": "4687501000"
+    },
+    {
+      "lambdaWad": "32000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "31250000000000000",
+      "momentWad": "8683716754257369",
+      "premiumWad": "277878936136235802",
+      "firstMomentWad": "8554210800730886",
+      "toleranceWei": "4687501000"
+    },
+    {
+      "lambdaWad": "32000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "31250000000000000",
+      "momentWad": "11408460101554391",
+      "premiumWad": "365070723249740511",
+      "firstMomentWad": "10435074327465235",
+      "toleranceWei": "4687501000"
+    },
+    {
+      "lambdaWad": "32000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "31250000000000000",
+      "momentWad": "14246749505545411",
+      "premiumWad": "455895984177453154",
+      "firstMomentWad": "11232191481249661",
+      "toleranceWei": "4687501000"
+    },
+    {
+      "lambdaWad": "32000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "31250000000000000",
+      "momentWad": "15909453909022711",
+      "premiumWad": "509102525088726755",
+      "firstMomentWad": "11168237381593373",
+      "toleranceWei": "4687501000"
+    },
+    {
+      "lambdaWad": "32000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "31250000000000000",
+      "momentWad": "17715062325504223",
+      "premiumWad": "566881994416135144",
+      "firstMomentWad": "10714977653910536",
+      "toleranceWei": "4687501000"
+    },
+    {
+      "lambdaWad": "32000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "31250000000000000",
+      "momentWad": "19742353431921069",
+      "premiumWad": "631755309821474200",
+      "firstMomentWad": "9802222346369862",
+      "toleranceWei": "4687501000"
+    },
+    {
+      "lambdaWad": "32000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "31250000000000000",
+      "momentWad": "23702226750649548",
+      "premiumWad": "758471256020785525",
+      "firstMomentWad": "7078131185105764",
+      "toleranceWei": "4687501000"
+    },
+    {
+      "lambdaWad": "64000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "15625000000000000",
+      "momentWad": "3986982264259478",
+      "premiumWad": "255166864912606574",
+      "firstMomentWad": "3959200223662339",
+      "toleranceWei": "2343751000"
+    },
+    {
+      "lambdaWad": "64000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "15625000000000000",
+      "momentWad": "7954726954511356",
+      "premiumWad": "509102525088726755",
+      "firstMomentWad": "5584118690796687",
+      "toleranceWei": "2343751000"
+    },
+    {
+      "lambdaWad": "64000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "15625000000000000",
+      "momentWad": "9489577406385633",
+      "premiumWad": "607332954008680489",
+      "firstMomentWad": "5095538963282625",
+      "toleranceWei": "2343751000"
+    },
+    {
+      "lambdaWad": "64000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "15625000000000000",
+      "momentWad": "10723079083227579",
+      "premiumWad": "686277061326565049",
+      "firstMomentWad": "4380774005744835",
+      "toleranceWei": "2343751000"
+    },
+    {
+      "lambdaWad": "64000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "15625000000000000",
+      "momentWad": "11339075281931801",
+      "premiumWad": "725700818043635256",
+      "firstMomentWad": "3940128177915659",
+      "toleranceWei": "2343751000"
+    },
+    {
+      "lambdaWad": "64000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "15625000000000000",
+      "momentWad": "11947754531273720",
+      "premiumWad": "764656290001518063",
+      "firstMomentWad": "3460208310488160",
+      "toleranceWei": "2343751000"
+    },
+    {
+      "lambdaWad": "64000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "15625000000000000",
+      "momentWad": "12576288351877624",
+      "premiumWad": "804882454520167915",
+      "firstMomentWad": "2925700939632248",
+      "toleranceWei": "2343751000"
+    },
+    {
+      "lambdaWad": "64000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "15625000000000000",
+      "momentWad": "13692738718088083",
+      "premiumWad": "876335277957637331",
+      "firstMomentWad": "1901167420280492",
+      "toleranceWei": "2343751000"
+    },
+    {
+      "lambdaWad": "100000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "10000000000000000",
+      "momentWad": "3904515777846030",
+      "premiumWad": "390451577784603040",
+      "firstMomentWad": "3449513138882446",
+      "toleranceWei": "1500001000"
+    },
+    {
+      "lambdaWad": "100000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "10000000000000000",
+      "momentWad": "6576609129558432",
+      "premiumWad": "657660912955843227",
+      "firstMomentWad": "2987441793840264",
+      "toleranceWei": "1500001000"
+    },
+    {
+      "lambdaWad": "100000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "10000000000000000",
+      "momentWad": "7352749409160876",
+      "premiumWad": "735274940916087584",
+      "firstMomentWad": "2448638783534778",
+      "toleranceWei": "1500001000"
+    },
+    {
+      "lambdaWad": "100000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "10000000000000000",
+      "momentWad": "7926618838910459",
+      "premiumWad": "792661883891045868",
+      "firstMomentWad": "1978769424133501",
+      "toleranceWei": "1500001000"
+    },
+    {
+      "lambdaWad": "100000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "10000000000000000",
+      "momentWad": "8201416032026178",
+      "premiumWad": "820141603202617755",
+      "firstMomentWad": "1737031905411936",
+      "toleranceWei": "1500001000"
+    },
+    {
+      "lambdaWad": "100000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "10000000000000000",
+      "momentWad": "8466988107353344",
+      "premiumWad": "846698810735334392",
+      "firstMomentWad": "1495003789987646",
+      "toleranceWei": "1500001000"
+    },
+    {
+      "lambdaWad": "100000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "10000000000000000",
+      "momentWad": "8736156021277210",
+      "premiumWad": "873615602127721016",
+      "firstMomentWad": "1242597326484430",
+      "toleranceWei": "1500001000"
+    },
+    {
+      "lambdaWad": "100000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "10000000000000000",
+      "momentWad": "9204764453815620",
+      "premiumWad": "920476445381561953",
+      "firstMomentWad": "789958642597680",
+      "toleranceWei": "1500001000"
+    },
+    {
+      "lambdaWad": "250000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "4000000000000000",
+      "momentWad": "2787350465066673",
+      "premiumWad": "696837616266668221",
+      "firstMomentWad": "1092507276399499",
+      "toleranceWei": "600001000"
+    },
+    {
+      "lambdaWad": "250000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "4000000000000000",
+      "momentWad": "3420881078035290",
+      "premiumWad": "855220269508822426",
+      "firstMomentWad": "566322885882345",
+      "toleranceWei": "600001000"
+    },
+    {
+      "lambdaWad": "250000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "4000000000000000",
+      "momentWad": "3562558401904331",
+      "premiumWad": "890639600476082811",
+      "firstMomentWad": "431942368245317",
+      "toleranceWei": "600001000"
+    },
+    {
+      "lambdaWad": "250000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "4000000000000000",
+      "momentWad": "3661749721094926",
+      "premiumWad": "915437430273731423",
+      "firstMomentWad": "335711649987828",
+      "toleranceWei": "600001000"
+    },
+    {
+      "lambdaWad": "250000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "4000000000000000",
+      "momentWad": "3708017053264170",
+      "premiumWad": "927004263316042476",
+      "firstMomentWad": "290350991120257",
+      "toleranceWei": "600001000"
+    },
+    {
+      "lambdaWad": "250000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "4000000000000000",
+      "momentWad": "3752131435951329",
+      "premiumWad": "938032858987832237",
+      "firstMomentWad": "246870641050499",
+      "toleranceWei": "600001000"
+    },
+    {
+      "lambdaWad": "250000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "4000000000000000",
+      "momentWad": "3796344937774964",
+      "premiumWad": "949086234443740976",
+      "firstMomentWad": "203101778365861",
+      "toleranceWei": "600001000"
+    },
+    {
+      "lambdaWad": "250000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "4000000000000000",
+      "momentWad": "3872406512870482",
+      "premiumWad": "968101628217620565",
+      "firstMomentWad": "127457488982381",
+      "toleranceWei": "600001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000000",
+      "sigmaWad": "5000000000000000",
+      "capWad": "1000000000000000",
+      "momentWad": "920476445381562",
+      "premiumWad": "920476445381561953",
+      "firstMomentWad": "78995864259768",
+      "toleranceWei": "150001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000000",
+      "sigmaWad": "10900000000000000",
+      "capWad": "1000000000000000",
+      "momentWad": "963425440584529",
+      "premiumWad": "963425440584529370",
+      "firstMomentWad": "36523302973428",
+      "toleranceWei": "150001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000000",
+      "sigmaWad": "14500000000000000",
+      "capWad": "1000000000000000",
+      "momentWad": "972497639076674",
+      "premiumWad": "972497639076674184",
+      "firstMomentWad": "27480571699836",
+      "toleranceWei": "150001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000000",
+      "sigmaWad": "18800000000000000",
+      "capWad": "1000000000000000",
+      "momentWad": "978784667806199",
+      "premiumWad": "978784667806198756",
+      "firstMomentWad": "21205331283355",
+      "toleranceWei": "150001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000000",
+      "sigmaWad": "21800000000000000",
+      "capWad": "1000000000000000",
+      "momentWad": "981703103642652",
+      "premiumWad": "981703103642651807",
+      "firstMomentWad": "18290481210840",
+      "toleranceWei": "150001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000000",
+      "sigmaWad": "25700000000000000",
+      "capWad": "1000000000000000",
+      "momentWad": "984478912299986",
+      "premiumWad": "984478912299986129",
+      "firstMomentWad": "15517171832900",
+      "toleranceWei": "150001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000000",
+      "sigmaWad": "31300000000000000",
+      "capWad": "1000000000000000",
+      "momentWad": "987255324298171",
+      "premiumWad": "987255324298170715",
+      "firstMomentWad": "12742507812307",
+      "toleranceWei": "150001000"
+    },
+    {
+      "lambdaWad": "1000000000000000000000",
+      "sigmaWad": "50000000000000000",
+      "capWad": "1000000000000000",
+      "momentWad": "992021420342854",
+      "premiumWad": "992021420342853533",
+      "firstMomentWad": "7978047776657",
+      "toleranceWei": "150001000"
     }
   ]
 }

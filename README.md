@@ -60,10 +60,10 @@ inside a recipe with `No module named pytest`.
 | Suite | Tests |
 |---|---|
 | Solidity — unit, fuzz, invariant, differential, gas, adversarial | 353 |
-| TypeScript — calibrator (in progress) | 14 |
+| TypeScript — calibrator (in progress) | 31 |
 | Calibrator — Python (being ported to TypeScript) | 164 |
 | Settlement — Python (being ported to TypeScript) | 83 |
-| **Total** | **614** |
+| **Total** | **631** |
 
 **The stack is Solidity for the contracts and TypeScript for everything around them** (ruling R5),
 which supersedes the brief's §6. The port is in progress: the workspace scaffold, the gates and the
