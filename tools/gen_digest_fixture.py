@@ -111,7 +111,15 @@ def main() -> int:
                 "label": case["label"],
                 "symbol": symbol.text,
                 "nameId": "0x" + name_id.hex(),
-                "forSession": case["for_session"],
+                # A string, like `lambdaWad` and `premiumWad` below, and for the same reason: the
+                # value can exceed the range a JSON consumer can represent exactly. `forSession` is a
+                # uint64, and the boundary case is uint64 max, which is larger than JavaScript's
+                # `Number.MAX_SAFE_INTEGER` (2^53 - 1). A JSON parser in a language with one numeric
+                # type reads `18446744073709551615` as `18446744073709552000` -- which is exactly
+                # 2^64, so the boundary case silently becomes an *out-of-range* value rather than a
+                # wrong digest. Emitting it as a string is what makes the fixture losslessly readable
+                # by every consumer.
+                "forSession": str(case["for_session"]),
                 "sessionCode": session.value,
                 "windowSessions": case["window_sessions"],
                 "sourceIds": case["source_ids"],

@@ -12,6 +12,13 @@ contracts/lib/*/out/
 contracts/lib/*/cache/
 *.gas-snapshot.tmp
 
+# --- TypeScript / Node ---
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+.eslintcache
+
 # --- Python ---
 __pycache__/
 *.py[cod]

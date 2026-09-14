@@ -343,6 +343,66 @@ where they apply.
 | R2 | F4 — bond denomination | **6-decimal USDG ERC-20**, collected by `transferFrom`. | `minPublisherBond = 500_000 * 10**6`, `challengerBond = 50_000 * 10**6`. `commit`/`challenge` are no longer `payable`; `msg.value` is rejected. No oracle. |
 | R3 | F5 — missing raw data | **Build the calibrator against synthetic data.** | Appendix A reproduction is **struck from acceptance** (§12.9, §13.3). The canonical fixture is retained as a regression target for the pure functions only. The calibrator ships with a data port and a synthetic generator; when the real sample arrives it is a drop-in adapter. |
 | R4 | Scope | **Foundations first.** | This pass delivers the constants pipeline, the pure math core in both languages, the shared fixtures, and the differential tests. Contracts' stateful core, the Python services' application layers, and the fork suite follow. |
+| R5 | Tech stack | **Solidity for the contracts, TypeScript for the surrounding code** — implementation, tooling and integrations alike. | **Supersedes the brief's §6**, which specified Python 3.12+ for `bell-calibrator` and `bell-settlement`. Both service workspaces and all of `tools/` are reimplemented in TypeScript. D4's argument is retired as a *decision* and survives only as a description of what the Python implementation was doing and why it was shaped that way. Raises exactly one blocking question — see R5.1 below. |
+
+### R5.1 — the one thing the port cannot decide for itself
+
+Recorded rather than assumed, because it amends a rule the same brief states and because guessing
+wrong means writing `domain/` twice.
+
+**The requirement, measured rather than estimated.** The domain needs **arbitrary-precision decimal
+arithmetic at 50 significant digits**, and specifically these operations:
+
+| Needed | Where | Python's `decimal` | Node's standard library |
+|---|---|---|---|
+| 50-digit decimal, add/sub/mul/div/compare | both services (WAD values are 19 digits; intermediate products ~38) | yes | **no** — `number` is a double, ~15–17 digits; `BigInt` is integer-only |
+| `exp` | `moments.py`, twice | yes | **no** |
+| `sqrt` | `moments.py`, once | yes | **no** |
+| rounding modes: ceiling, half-even | `to_integral_value`, `round_cap_up_to_lattice` | yes | **no** |
+
+This is the trade-off D4 named, and it is now live: **in TypeScript the reference implementation can
+be exactly precise *or* dependency-free, but not both.** The three ways out, with what each costs:
+
+1. **One pure-computation dependency** (`decimal.js`, ~32 KB, mature, and a near 1:1 map onto the
+   `Decimal` API already used). Preserves exactness. Requires narrowing §7.4's "`domain/` may take no
+   dependency at all" to "`domain/` may take no dependency that can reach the world" — which is
+   arguably what §7.4 *meant*, since its stated purpose is that the domain cannot touch a network, a
+   filesystem, a clock or a third-party service. A pure arithmetic library violates none of that, and
+   the domain stays testable with literal arguments and no mocking.
+2. **Hand-roll a `BigInt` fixed-point decimal.** No dependency at all. Costs roughly 300 lines of
+   numerics — `exp` by series, `sqrt` by Newton, plus the rounding modes — and its only independent
+   check is the existing Python reference and the 112-point fixture. That is a real check, but it
+   means the oracle for the new implementation is the old one.
+3. **Keep `moments` in Python and port everything else.** Least risk: the one module whose entire
+   purpose is to be numerically authoritative stays where it is already verified at 50 digits. Costs
+   a mixed-language boundary inside the calibrator, and does not fully honour "all relevant
+   implementation".
+
+**Recommendation: option 1.** `decimal.js` is a pure computation library, so narrowing §7.4 to exclude
+I/O-capable dependencies preserves the rule's purpose exactly while keeping the reference exact. Option
+2 trades a well-tested dependency for hand-rolled numerics whose failure mode is a silently wrong
+reference — the worst possible failure in a module that exists to be the oracle. Option 3 is the
+fallback if the dependency rule is considered absolute.
+
+**Ruling: option 1 — one pure-computation dependency, `decimal.js`.**
+
+Consequences, recorded so they are not rediscovered:
+
+- **§7.4 is narrowed from "`domain/` may take no dependency at all" to "`domain/` may take no
+  dependency that can reach the world."** The rule's stated purpose is that the domain cannot touch a
+  network, a filesystem, a clock or a third-party service. A pure arithmetic library violates none of
+  that, and the property the rule protects — a domain testable with literal arguments, no mocking, no
+  I/O — is preserved intact. The narrowing is a real amendment to a stated rule and is recorded as
+  such, not smuggled in.
+- **The dependency allow-list is explicit and enforced**, not "any pure library". `decimal.js` is the
+  only permitted entry, and the architecture check fails on any other. A rule that admits one named
+  exception is checkable; a rule that admits "pure libraries" is not.
+- **`decimal.js` is pinned to an exact version**, like every other dependency in this repository.
+- **The 112-point fixture remains the oracle.** It was generated by the Python reference at 50
+  significant digits and is committed, so the TypeScript port is verified against it directly rather
+  than against the implementation it is replacing. That is what makes the port a port rather than a
+  rewrite with a new source of truth.
+
 
 R3 has a consequence worth stating plainly: **no claim in this repository that Appendix A has been
 reproduced from data is true, and none is made.** The canonical table is carried as
@@ -1554,10 +1614,77 @@ developer; it is not evidence that either extra is sufficient on its own.
 
 
 
+## F52 — The digest fixture encoded a uint64 as a JSON number, which no JavaScript reader can read exactly
+
+Found by the TypeScript port on its first run, and it is a defect in the fixture rather than in either
+implementation.
+
+The `event` case sets `forSession = 18446744073709551615` — uint64 max — deliberately, as a boundary
+test. That value is larger than JavaScript's `Number.MAX_SAFE_INTEGER` (2^53 − 1), so `JSON.parse`
+reads it as `18446744073709552000`, which is **exactly 2^64**. The boundary case therefore arrived at
+the TypeScript domain as an *out-of-range* value, and the range check refused it. Without that check it
+would have produced a digest that looked entirely plausible and matched nothing — the silent failure
+mode the module exists to prevent.
+
+**The implementation was right and the encoding was wrong.** Python's `int` is arbitrary-precision and
+`vm.parseJsonUint` coerces, so the number was lossless for two of the three consumers and lossy for the
+third. The fix is to emit it as a **string**, which is what `lambdaWad` and `premiumWad` already do for
+the same class of reason at 256 bits — the fixture was inconsistent with itself, not merely
+inconvenient for TypeScript.
+
+**Changes, all three verified.** `tools/gen_digest_fixture.py` emits `str(case["for_session"])`; the
+Python contract test reads `int(case["forSession"])`; the Solidity differential test is unchanged
+because `vm.parseJsonUint` accepts a string-encoded number, which was checked rather than assumed.
+`spec/digest.json` was regenerated and all three consumers pass.
+
+**The generalisable point.** A cross-language fixture is only a contract if every consumer can read it
+losslessly. A JSON number is safe up to 2^53 and no further, so any value that can exceed that — a
+uint64, a WAD, a timestamp in nanoseconds — must cross as a string. The Python side had no way to
+notice, because in Python there is no such limit to trip over. The port is what surfaced it, which is
+an argument for doing the port rather than against it.
+
+## F53 — The architecture gate passed while enforcing nothing, twice, for two different reasons
+
+The TypeScript counterpart of the Python side's `import-linter` contracts is a `dependency-cruiser`
+configuration. It reported `✔ no dependency violations found` on the real tree from the moment it was
+written, which is exactly what a working gate looks like and exactly what a broken one looks like.
+
+It was broken, in two independent ways, and only probing it found either.
+
+**Cause one: a deny-list of dependency categories.** The rule named the npm types
+(`npm`, `npm-dev`, `npm-optional`, …) and permitted everything else. `node:fs` is classified as
+`core`, not `npm`, so a domain file importing the filesystem — the single thing §7.4 exists to prevent
+— passed the check. The fix is an **allow-list**: `domain/` may import itself, the shared domain core,
+and `decimal.js`, and anything else is a violation. An allow-list fails closed on the category nobody
+thought of; a deny-list fails open on it.
+
+**Cause two: two options that look equivalent and are not.** With the allow-list in place, `node:fs`
+was caught but an npm import still produced *no dependency edge at all*, so it was still not caught.
+Two settings were responsible, and both were found by isolating them rather than by reading:
+
+- `tsConfig: { fileName: 'tsconfig.base.json' }` — pointing it at an `extends`-only base with no
+  `include` made dependency-cruiser extract **zero** dependencies from a domain file. Removing the
+  option restored extraction; its own resolver already handles the `.js` → `.ts` mapping the option was
+  added for.
+- `exclude: { path: '…|node_modules)/' }` — `exclude` removes a module from the graph and takes its
+  **edge** with it, whereas `doNotFollow` keeps the edge and declines to descend. Excluding
+  `node_modules` therefore deleted every edge into it, which is the entire class of import the rule
+  existed to police. `node:fs` was caught throughout, because a core module does not live under
+  `node_modules` — so the gate looked like it was working.
+
+**The lesson, which is the same one as F44 and F51 in a new costume.** A checker that has never failed
+is a checker nobody has tested. This one was verified by writing three two-line probe files — an npm
+import, a core import, and the one permitted exception — and asserting that the first two fail and the
+third passes. That took four minutes and found two defects that reading the configuration had not, and
+could not have. Every gate added in this port is now probed the same way before it is trusted.
+
+
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
+| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` is written and verified against the digest fixture; `moments`, `leverage`, `sessions`, `families`, the application layer, the adapters, the settlement service, `tools/` and the 247 ported tests remain | the port |
 | F3 | guard identifiers inconsistent between brief §4.1.4 and §13.1; `G9` missing from the table, multiplier drift is `G8` | the guard implementation |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F9 | event-session `tau` stated two ways in the paper | the shrinkage estimator |

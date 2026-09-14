@@ -38,7 +38,7 @@ def test_commitment_digest_matches_the_fixture() -> None:
         computed = digest_module.commitment_digest(
             reference_keccak,
             bytes.fromhex(case["nameId"][2:]),
-            case["forSession"],
+            int(case["forSession"]),
             Wad(int(case["lambdaWad"])),
             Wad(int(case["premiumWad"])),
             bytes.fromhex(case["inputsHash"][2:]),
@@ -69,7 +69,7 @@ def test_preimage_is_five_words() -> None:
     for case in load_cases():
         preimage = digest_module.commitment_preimage(
             bytes.fromhex(case["nameId"][2:]),
-            case["forSession"],
+            int(case["forSession"]),
             Wad(int(case["lambdaWad"])),
             Wad(int(case["premiumWad"])),
             bytes.fromhex(case["inputsHash"][2:]),

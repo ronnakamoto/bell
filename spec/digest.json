@@ -8,7 +8,7 @@
       "label": "overnight",
       "symbol": "NVDA",
       "nameId": "0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb",
-      "forSession": 12345,
+      "forSession": "12345",
       "sessionCode": "E",
       "windowSessions": 504,
       "sourceIds": [
@@ -27,7 +27,7 @@
       "label": "weekend-multi-source",
       "symbol": "TSLA",
       "nameId": "0x0a8f1f385fed9c77a2e0daa363ccc865e971bdbe4458bb570cc0acb068d7c0f2",
-      "forSession": 4294967296,
+      "forSession": "4294967296",
       "sessionCode": "W",
       "windowSessions": 126,
       "sourceIds": [
@@ -47,7 +47,7 @@
       "label": "event",
       "symbol": "AAPL",
       "nameId": "0x3a54a9a690616fbc26cfc409bf11f89d51f1d57a4ab2791fb86026cee74ed2f3",
-      "forSession": 18446744073709551615,
+      "forSession": "18446744073709551615",
       "sessionCode": "C",
       "windowSessions": 34,
       "sourceIds": [

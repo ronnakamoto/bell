@@ -1,0 +1,42 @@
+{
+  "name": "bell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BELL — a fully-collateralised, no-liquidation market for closed-session equity gap risk on tokenised equities",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "calibrator",
+    "settlement"
+  ],
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "tsc -b calibrator/tsconfig.build.json settlement/tsconfig.build.json",
+    "typecheck": "tsc -p calibrator/tsconfig.json && tsc -p settlement/tsconfig.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "architecture": "depcruise calibrator/src settlement/src",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run architecture && npm run test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@noble/hashes": "^2.4.0",
+    "@types/node": "26.5.1",
+    "@vitest/coverage-v8": "5.0.0",
+    "dependency-cruiser": "18.3.0",
+    "eslint": "10.10.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.12.0",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.0",
+    "vitest": "5.0.0"
+  }
+}

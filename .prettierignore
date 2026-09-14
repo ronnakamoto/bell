@@ -1,0 +1,21 @@
+# Build products
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Solidity, and the vendored Forge standard library. `forge fmt` owns this tree.
+contracts/
+
+# Generated from `spec/`. The generator owns the layout, not the formatter.
+spec/
+
+# Markdown is hand-wrapped deliberately: the design notes and the architecture document are prose
+# written to a line length a reader can scan, and several tables are aligned by hand. A formatter
+# that reflows them would fight every future edit and produce a diff nobody can review.
+*.md
+docs/
+
+# Python, while the TypeScript port is in progress. Removed with the port.
+**/*.py
+**/pyproject.toml

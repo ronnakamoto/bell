@@ -22,7 +22,8 @@ TOOLS := tools
 
 .PHONY: help venv build test test-contracts test-calibrator test-settlement test-fork check \
         check-format check-lint check-types check-architecture check-layout check-generated \
-        check-coverage deploy deploy-fork diagnostics gas coverage clean
+        check-coverage deploy deploy-fork diagnostics gas coverage clean \
+        ts-install ts-build ts-test ts-check
 
 help: ## List every target
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -62,7 +63,7 @@ check-python:
 		exit 1; \
 	}
 
-test: test-contracts test-calibrator test-settlement ## Run the full suite
+test: test-contracts test-calibrator test-settlement ts-test ## Run the full suite
 
 test-contracts: ## Solidity unit, fuzz, invariant and differential suites
 	cd $(CONTRACTS) && forge test -vv
@@ -103,7 +104,7 @@ gas: ## Per-operation gas report, against the brief's §13.3 budget
 
 # ---------------------------------------------------------------------------- check
 
-check: check-format check-lint check-types check-architecture check-layout check-generated check-coverage ## Everything CI runs
+check: check-format check-lint check-types check-architecture check-layout check-generated check-coverage ts-check ## Everything CI runs
 
 check-format: ## Formatter check
 	cd $(CONTRACTS) && forge fmt --check
@@ -129,6 +130,26 @@ check-generated: ## Fail if any generated file is stale
 
 check-coverage: check-python ## Every coverage rule the brief states, asserted rather than eyeballed
 	$(PYTHON) $(TOOLS)/check_coverage.py
+
+# ---------------------------------------------------------------------------- typescript
+
+# The surrounding code is TypeScript (ruling R5). These targets are the counterparts of the Python
+# ones above, and they run alongside them while the port is in progress.
+
+ts-install: ## Install the TypeScript workspaces
+	npm install
+
+ts-build: ## Compile the TypeScript workspaces
+	npm run build
+
+ts-test: ## The TypeScript suites
+	npm run test
+
+ts-check: ## Format, lint, types and the §5.3 dependency rule, for TypeScript
+	npm run format:check
+	npm run lint
+	npm run typecheck
+	npm run architecture
 
 # ---------------------------------------------------------------------------- housekeeping
 

@@ -1,0 +1,16 @@
+{
+  "name": "@bell/calibrator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "BELL off-chain calibration and publishing service",
+  "exports": {
+    "./domain": {
+      "types": "./dist/domain/index.d.ts",
+      "default": "./dist/domain/index.js"
+    }
+  },
+  "dependencies": {
+    "decimal.js": "10.6.0"
+  }
+}

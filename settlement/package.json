@@ -1,0 +1,17 @@
+{
+  "name": "@bell/settlement",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "BELL settlement-route evaluation and challenge adjudication",
+  "exports": {
+    "./domain": {
+      "types": "./dist/domain/index.d.ts",
+      "default": "./dist/domain/index.js"
+    }
+  },
+  "dependencies": {
+    "@bell/calibrator": "*",
+    "decimal.js": "10.6.0"
+  }
+}
