@@ -1116,6 +1116,103 @@ the next caller, and this hole would still be open.
 
 
 
+## F46 — Three files had no tests at all, and coverage is what said so
+
+Continuing the measurement from F44, the per-file rows showed three files whose coverage was not
+merely incomplete but structurally absent. None of them was listed as a gap anywhere, and none would
+have been found by reading the test suite, because a missing test file leaves no trace in the tests
+that do exist.
+
+**`ReferencePrintBook` had no test file.** It owns the two magnitude guards (G3), the sequencer guard
+(G10b), the entire deterministic print-selection algorithm, and the whole configuration surface — and
+it sat at 83.33% lines with **zero** hits on `setHaltBand`, `setPlausibilityBand`,
+`setFreshnessBounds` and the `bandIsUsable` modifier. The registry's 31 tests read those bands on
+every settlement path and never once configured them. A guard whose *thresholds* are never set in a
+test is a guard whose configuration path is unverified, which is the half of a guard that decides
+what it catches. Added `test/unit/ReferencePrintBook.t.sol`, 41 tests: the configuration surface with
+its refusals, both ingestion guards in both directions, the F31 ordering pinned explicitly, the
+sequencer guard in all four states, and the selection ordering with each tie-break isolated.
+
+**`ClaimToken` had no test file**, and sat at **11.11% branches (1/9)** with 100% lines. All eight
+uncovered branches were refusal paths, and the one that matters is `NotSession` — the gate that stops
+anyone but the owning session from minting a leg. The pair accounting rests on it: a leg minted
+outside the session breaks `PI_L + PI_S == 1` with no visible symptom. The session's own tests called
+`mint` and `burn` on the happy path only, so the contract's central access control was assumed rather
+than tested. Added `test/unit/ClaimToken.t.sol`, 20 tests, covering every refusal plus the infinite
+allowance not being spent.
+
+**`ReferenceRegistry.preview` had no tests**, despite being the public view a caller consults to
+decide whether to spend gas on `resolve`. An untested `preview` is worse than an untested private
+helper: it is the pre-flight check, and F47 is what happens when it is wrong. Added 13 tests,
+including the two that assert `preview` and `resolve` **agree** — the property `preview`'s own NatSpec
+claims and nothing checked.
+
+**One set of uncovered branches is unreachable and is recorded rather than removed.** The
+`if (!longClaim.transfer(...)) revert ClaimTransferFailed()` checks in `SessionPool` cannot fire,
+because `longClaim` is typed `ClaimToken`, whose `transfer` either returns `true` or reverts. Unlike
+Amm's `DivByZero` (F44), which was redundant with a guard two lines above it *in the same function*,
+these guard a cross-contract call's success and are the only check on it. They are kept as defence
+against the interface rather than against a runtime input, and this is the note that says so.
+
+**Result.** `ReferencePrintBook` and `ClaimToken` are at 100% on all four metrics;
+`ReferenceRegistry` at 99.06% lines and 90.91% branches; `SessionPool` at 100% lines. `src/**` moved
+from 97.46% to 98.80%.
+
+**The generalisable point.** Coverage measured per file is a *diagnostic*, not a score. Three times in
+this build the uncovered-lines list pointed at something the test suite had never touched at all — a
+trading direction (F44), a guard configuration path, an access control gate — and each time the
+finding was invisible from the tests, because a missing test file leaves nothing to read.
+
+
+
+## F47 — `resolve` and `preview` disagreed, and the disagreement was a panic
+
+Found by the coverage measurement that F46 describes: `preview`'s corporate-action block had zero
+hits while `resolve`'s equivalent was covered, which raised the question of why the two differed.
+
+**They differed in a way that mattered.** `preview` handled the absent-print case on the
+multiplier-drifted path and `resolve` did not:
+
+```solidity
+// resolve, before the fix
+if (_multiplierDrifted(record)) {
+    branch = Branch.CorporateActionTerminal;
+    (printIndex, stale) = _selectOrDefer(record);
+    gapWad = _adjustedGap(_prints[printIndex].gapWad, record);   // no sentinel check
+}
+```
+
+`_selectOrDefer` signals "nothing qualifies" by returning `type(uint256).max`. So
+`_prints[type(uint256).max]` is an out-of-bounds access: **`panic: array out-of-bounds access (0x32)`**,
+confirmed by a test before any fix was written. The registry named nothing, and because the multiplier
+drift persists, every retry panicked identically — **the session was permanently unsettleable**.
+
+**Why it is worse than a plain missing branch.** `preview`'s NatSpec says its three return values
+"are derived from the same code path rather than a parallel one". That was false here, and the
+consequence is that the pre-flight check was *actively misleading*: `preview` reported a deferral —
+`wouldSettle = false` — for a call that would panic. A caller who checked first was told the call was
+safe to skip; a caller who skipped the check and called `resolve` directly hit a panic. Both readings
+of "consult `preview` first" were wrong.
+
+**It is also the case the registry's own comments call a designed degradation.** The comments on
+`_payoffForBranch` are explicit that an absent print is "the absence of a decision rather than a
+decision that the payoff is zero", and both `VoidAtHalf` and `Deferred` exist to answer it. The live
+path handles it; the drifted path did not.
+
+**Fix.** `resolve`'s drifted path now checks the sentinel and routes to `voidAtHalf ? VoidAtHalf :
+Deferred`, exactly as `preview` does and as the live path already did. Two tests were added that
+assert the branch and the payoff for both settings of `voidAtHalf`, and two more assert the agreement
+property directly — `preview`'s report against what `resolve` then does — including the specific case
+that was broken.
+
+**The lesson.** A view function that duplicates a state-changing function's decision logic is a second
+implementation of that logic, and it will drift. The cheap defence is not "keep them in sync by
+reading carefully"; it is a test that runs both and compares, which is what now exists. The NatSpec
+claim that they share a code path should have been a test from the start, because it was a claim about
+the code that nothing verified.
+
+
+
 ## Still open
 
 | # | Item | Blocking |

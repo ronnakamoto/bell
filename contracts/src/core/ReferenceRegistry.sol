@@ -190,7 +190,22 @@ contract ReferenceRegistry is ReferencePrintBook {
         if (_multiplierDrifted(record)) {
             branch = Branch.CorporateActionTerminal;
             (printIndex, stale) = _selectOrDefer(record);
-            gapWad = _adjustedGap(_prints[printIndex].gapWad, record);
+            if (printIndex == type(uint256).max) {
+                // A corporate action with no usable print is still an absent print, and the route
+                // answers for it the same way it does on the live path: void at half, or defer.
+                //
+                // This branch was missing, and its absence was not a missing degradation but a
+                // panic. `_selectOrDefer` returns `type(uint256).max` as its sentinel, so the
+                // unguarded `_prints[printIndex]` was an out-of-bounds access that reverted with
+                // `0x32` and named nothing -- and because the drift persists, every retry panicked
+                // identically and the session was permanently unsettleable. It also made `preview`
+                // actively misleading, since `preview` *did* handle this case and reported a
+                // deferral for a call that would panic.
+                branch = voidAtHalf ? Branch.VoidAtHalf : Branch.Deferred;
+                gapWad = 0;
+            } else {
+                gapWad = _adjustedGap(_prints[printIndex].gapWad, record);
+            }
         } else {
             (printIndex, stale) = _selectOrDefer(record);
             if (printIndex == type(uint256).max) {

@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {Constants} from "../../src/generated/Constants.sol";
 import {Amm} from "../../src/libraries/Amm.sol";
+import {WadMath} from "../../src/libraries/WadMath.sol";
 import {ClaimToken} from "../../src/core/ClaimToken.sol";
 import {Session} from "../../src/core/Session.sol";
 import {SessionPool} from "../../src/core/SessionPool.sol";
@@ -378,6 +379,139 @@ contract SessionTest is Test {
         assertEq(
             session.poolDepth(), session.longReserve() + session.shortReserve(), "depth is a + b"
         );
+    }
+
+    /// @notice Every path that prices against the pool refuses an unseeded one.
+    /// @dev Found by coverage, and the four are worth grouping because they are one rule: a pool with
+    ///      an empty reserve has no price, so every entry point that would derive one must refuse
+    ///      rather than quote. Three of these four guards are the ones added in this session after
+    ///      `Amm` began refusing the degenerate case — adding a guard and not testing it would have
+    ///      been the same mistake one layer up.
+    ///
+    ///      `_acquireLong` and `_acquireShort` already had theirs; `_swapShortForLong` and
+    ///      `_swapLongForShort` did not, which is how a trade could have taken a whole reserve.
+    function test_buyLong_revertsOnAnUnseededPool() public {
+        _approve(bob, 100 * UNIT);
+        vm.prank(bob);
+        vm.expectRevert(SessionPool.PoolDepthZero.selector);
+        session.buyLong(100 * UNIT, 0);
+    }
+
+    function test_buyShort_revertsOnAnUnseededPool() public {
+        _approve(bob, 100 * UNIT);
+        vm.prank(bob);
+        vm.expectRevert(SessionPool.PoolDepthZero.selector);
+        session.buyShort(100 * UNIT, 0);
+    }
+
+    function test_swapShortForLong_revertsOnAnUnseededPool() public {
+        // Holding a pair is not the same as a seeded pool: `mintPair` mints both legs to the caller
+        // and moves nothing into the reserves.
+        _mintPairAs(bob, 1_000 * UNIT);
+        _approveClaims(bob, 1_000 * UNIT);
+        assertEq(session.longReserve(), 0, "the pool is still empty");
+
+        vm.prank(bob);
+        vm.expectRevert(SessionPool.PoolDepthZero.selector);
+        session.swapShortForLong(100 * UNIT, 0);
+    }
+
+    function test_swapLongForShort_revertsOnAnUnseededPool() public {
+        _mintPairAs(bob, 1_000 * UNIT);
+        _approveClaims(bob, 1_000 * UNIT);
+
+        vm.prank(bob);
+        vm.expectRevert(SessionPool.PoolDepthZero.selector);
+        session.swapLongForShort(100 * UNIT, 0);
+    }
+
+    function test_seedPool_refusesAZeroDeposit() public {
+        _mintPairAs(alice, 1_000 * UNIT);
+        _approveClaims(alice, 1_000 * UNIT);
+        vm.prank(alice);
+        vm.expectRevert(SessionPool.ZeroAmount.selector);
+        session.seedPool(0, 100 * UNIT);
+    }
+
+    // ---------------------------------------------------------------- the pool's withdrawal
+
+    /// @notice A withdrawal that is not the last one takes a proportional slice.
+    /// @dev The only withdrawal test in this file had a single liquidity provider, so
+    ///      `shares == totalPoolShares` was always true and the proportional branch — the one every
+    ///      non-final withdrawal takes — had never executed. The final withdrawal is deliberately a
+    ///      different rule: it takes the remainder rather than a slice, so integer rounding cannot
+    ///      strand a claim and make `close()` unreachable. Both rules are now exercised, in order.
+    function test_withdrawPool_partialWithdrawalTakesAProportionalSlice() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        _seed(bob, 500 * UNIT, 100 * UNIT);
+        // Alice holds 1,200 of 1,800 shares; Bob holds 600.
+        uint256 aliceShares = session.poolShares(alice);
+
+        vm.warp(block.timestamp + 18 hours);
+        session.expire();
+        vm.prank(REFERENCE_REGISTRY);
+        session.settle(0.4e18, false);
+
+        uint256 poolLong = session.longClaim().balanceOf(address(session));
+        uint256 poolShort = session.shortClaim().balanceOf(address(session));
+        uint256 aliceBefore = collateral.balanceOf(alice);
+
+        vm.prank(alice);
+        session.withdrawPool();
+
+        // The slice is proportional: 1,200/1,800 of each reserve.
+        uint256 longOut = (poolLong * aliceShares) / (aliceShares + session.poolShares(bob));
+        uint256 shortOut = (poolShort * aliceShares) / (aliceShares + session.poolShares(bob));
+        uint256 expected =
+            WadMath.mulWad(longOut, 0.4e18) + WadMath.mulWad(shortOut, Constants.WAD - 0.4e18);
+
+        assertEq(session.poolShares(alice), 0, "her shares are gone");
+        assertEq(collateral.balanceOf(alice) - aliceBefore, expected, "paid the proportional slice");
+        assertEq(session.totalPoolShares(), 600 * UNIT, "and Bob's remain");
+    }
+
+    /// @dev The two withdrawals together are worth exactly what the pool held, which is the
+    ///      property the remainder rule exists to preserve.
+    function test_withdrawPool_theTwoWithdrawalsConserveThePool() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        _seed(bob, 500 * UNIT, 100 * UNIT);
+
+        vm.warp(block.timestamp + 18 hours);
+        session.expire();
+        vm.prank(REFERENCE_REGISTRY);
+        session.settle(0.4e18, false);
+
+        uint256 aliceBefore = collateral.balanceOf(alice);
+        uint256 bobBefore = collateral.balanceOf(bob);
+
+        vm.prank(alice);
+        session.withdrawPool();
+        vm.prank(bob);
+        session.withdrawPool();
+
+        uint256 total =
+            (collateral.balanceOf(alice) - aliceBefore) + (collateral.balanceOf(bob) - bobBefore);
+        uint256 poolValue = WadMath.mulWad(1_500 * UNIT, 0.4e18)
+            + WadMath.mulWad(300 * UNIT, Constants.WAD - 0.4e18);
+
+        assertEq(total, poolValue, "the pool's whole value was distributed");
+        assertEq(session.totalPoolShares(), 0, "and no shares remain");
+        assertEq(session.longClaim().balanceOf(address(session)), 0, "no claim stranded");
+    }
+
+    function test_withdrawPool_refusesASecondWithdrawal() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        vm.warp(block.timestamp + 18 hours);
+        session.expire();
+        vm.prank(REFERENCE_REGISTRY);
+        session.settle(0.4e18, false);
+
+        vm.prank(alice);
+        session.withdrawPool();
+
+        vm.prank(alice);
+        vm.expectRevert(SessionPool.ZeroAmount.selector);
+        session.withdrawPool();
     }
 
     // ---------------------------------------------------------------- lifecycle

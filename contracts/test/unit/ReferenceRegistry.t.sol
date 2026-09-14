@@ -311,6 +311,44 @@ contract ReferenceRegistryTest is Test {
         registry.resolve(address(session));
     }
 
+    /// @notice A corporate action with no usable print must route, not revert.
+    /// @dev Found by a coverage measurement rather than by reading the code: `preview` handled the
+    ///      absent-print case on the drifted path and `resolve` did not, so the two disagreed
+    ///      *exactly* where a caller consults `preview` to decide whether to spend gas on `resolve`.
+    ///      `resolve` indexed `_prints[type(uint256).max]`, the defer sentinel, which is an
+    ///      out-of-bounds access: it panics with `0x32` and reports nothing. The session was then
+    ///      unsettleable, because every subsequent call panicked the same way.
+    ///
+    ///      This is the case the registry's own comments call a designed degradation: an absent print
+    ///      is a state the route answers for, not a fault.
+    function test_resolve_corporateActionWithNoPrint_defersRatherThanPanicking() public {
+        registry.registerSession(address(session), address(referenceToken));
+        referenceToken.setMultiplier(0.98e18);
+        vm.warp(session.expiryTimestamp() + 1);
+        // No print was ever submitted, so `_selectOrDefer` returns its sentinel.
+
+        (uint256 payoff, Branch branch) = registry.resolve(address(session));
+        assertEq(uint8(branch), uint8(Branch.Deferred), "deferred, not a panic");
+        assertEq(payoff, 0, "a deferral fixes no payoff");
+        assertFalse(registry.sessionResolved(address(session)), "and nothing is marked resolved");
+    }
+
+    /// @dev The same absence with void-at-half enabled pays half to every holder, which is the
+    ///      route's other answer to an absent print. Both answers must be reachable on the drifted
+    ///      path, not just the one the default configuration happens to take.
+    function test_resolve_corporateActionWithNoPrint_voidsAtHalfWhenEnabled() public {
+        registry.registerSession(address(session), address(referenceToken));
+        vm.prank(AUTHORITY);
+        registry.setVoidAtHalf(true);
+        referenceToken.setMultiplier(0.98e18);
+        vm.warp(session.expiryTimestamp() + 1);
+
+        (uint256 payoff, Branch branch) = registry.resolve(address(session));
+        assertEq(uint8(branch), uint8(Branch.VoidAtHalf), "voided at half");
+        assertEq(payoff, Constants.WAD / 2, "half to every holder");
+        assertTrue(registry.sessionResolved(address(session)), "and the session is resolved");
+    }
+
     function test_resolve_refusesAnUnregisteredSession() public {
         vm.expectRevert(
             abi.encodeWithSelector(ReferenceRegistry.NotRegistered.selector, address(session))
@@ -326,6 +364,141 @@ contract ReferenceRegistryTest is Test {
             abi.encodeWithSelector(ReferenceRegistry.AlreadyResolved.selector, address(session))
         );
         registry.resolve(address(session));
+    }
+
+    // ---------------------------------------------------------------- preview
+
+    /// @dev `preview` had no tests at all until a coverage measurement showed it. It is the public
+    ///      view a caller consults to decide whether to spend gas on `resolve`, so an untested
+    ///      `preview` is worse than an untested private helper: a caller's pre-flight check was the
+    ///      only thing standing between them and a reverting transaction.
+
+    function test_preview_refusesAnUnregisteredSession() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(ReferenceRegistry.NotRegistered.selector, address(session))
+        );
+        registry.preview(address(session));
+    }
+
+    function test_preview_refusesBeforeTheExpiry() public {
+        registry.registerSession(address(session), address(referenceToken));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ReferenceRegistry.NotYetExpired.selector, session.expiryTimestamp(), block.timestamp
+            )
+        );
+        registry.preview(address(session));
+    }
+
+    function test_preview_refusesAfterResolution() public {
+        _prepareSessionWithPrint(0.02e18);
+        vm.warp(session.expiryTimestamp() + 1);
+        registry.resolve(address(session));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ReferenceRegistry.AlreadyResolved.selector, address(session))
+        );
+        registry.preview(address(session));
+    }
+
+    function test_preview_reportsTheLiveBranch() public {
+        _prepareSessionWithPrint(0.02e18);
+        vm.warp(session.expiryTimestamp() + 1);
+
+        (uint256 payoff, Branch branch, bool wouldSettle) = registry.preview(address(session));
+        assertEq(uint8(branch), uint8(Branch.LivePrint), "live");
+        assertEq(payoff, Payoff.longWad(LAM, 0.02e18), "the payoff is the gap's");
+        assertTrue(wouldSettle, "and it would settle");
+    }
+
+    function test_preview_reportsTheStaleBranch() public {
+        _prepareSessionWithPrint(0.02e18);
+        // Beyond the freshness bound (600s) and inside the staleness bound (7,200s).
+        vm.warp(session.expiryTimestamp() + 1_000);
+
+        (, Branch branch, bool wouldSettle) = registry.preview(address(session));
+        assertEq(uint8(branch), uint8(Branch.StalePrint), "stale");
+        assertTrue(wouldSettle, "a stale print still settles");
+    }
+
+    function test_preview_reportsDeferredWhenNoPrintQualifies() public {
+        registry.registerSession(address(session), address(referenceToken));
+        vm.warp(session.expiryTimestamp() + 1);
+
+        (uint256 payoff, Branch branch, bool wouldSettle) = registry.preview(address(session));
+        assertEq(uint8(branch), uint8(Branch.Deferred), "deferred");
+        assertEq(payoff, 0, "a deferral fixes no payoff");
+        assertFalse(wouldSettle, "and it would not settle");
+    }
+
+    function test_preview_reportsVoidAtHalfWhenEnabledAndNoPrintQualifies() public {
+        registry.registerSession(address(session), address(referenceToken));
+        vm.prank(AUTHORITY);
+        registry.setVoidAtHalf(true);
+        vm.warp(session.expiryTimestamp() + 1);
+
+        (uint256 payoff, Branch branch, bool wouldSettle) = registry.preview(address(session));
+        assertEq(uint8(branch), uint8(Branch.VoidAtHalf), "voided at half");
+        assertEq(payoff, Constants.WAD / 2, "half to every holder");
+        assertTrue(wouldSettle, "a void settles");
+    }
+
+    function test_preview_reportsTheCorporateActionBranchOnDrift() public {
+        _prepareSessionWithPrint(-0.02e18);
+        referenceToken.setMultiplier(0.98e18);
+        vm.warp(session.expiryTimestamp() + 1);
+
+        (uint256 payoff, Branch branch, bool wouldSettle) = registry.preview(address(session));
+        assertEq(uint8(branch), uint8(Branch.CorporateActionTerminal), "G8 routes it");
+        assertEq(payoff, 0, "the spurious gap adjusts away");
+        assertTrue(wouldSettle, "and it would settle");
+    }
+
+    /// @dev The case that was broken. `preview` handled it and `resolve` panicked, so the two
+    ///      disagreed exactly where a caller relies on the agreement.
+    function test_preview_corporateActionWithNoPrint_defers() public {
+        registry.registerSession(address(session), address(referenceToken));
+        referenceToken.setMultiplier(0.98e18);
+        vm.warp(session.expiryTimestamp() + 1);
+
+        (uint256 payoff, Branch branch, bool wouldSettle) = registry.preview(address(session));
+        assertEq(uint8(branch), uint8(Branch.Deferred), "deferred");
+        assertEq(payoff, 0, "no payoff fixed");
+        assertFalse(wouldSettle, "and it would not settle");
+    }
+
+    /// @notice `preview` and `resolve` agree, which is the property `preview`'s doc claims.
+    /// @dev `preview`'s NatSpec says the three return values "are derived from the same code path
+    ///      rather than a parallel one". That was not true on the drifted path, and nothing checked
+    ///      it. These two tests are the check: whatever `preview` reports, `resolve` must do.
+    function test_preview_agreesWithResolve() public {
+        _prepareSessionWithPrint(0.02e18);
+        vm.warp(session.expiryTimestamp() + 1);
+
+        (uint256 previewPayoff, Branch previewBranch, bool wouldSettle) =
+            registry.preview(address(session));
+        (uint256 payoff, Branch branch) = registry.resolve(address(session));
+
+        assertEq(uint8(branch), uint8(previewBranch), "the same branch");
+        assertEq(payoff, previewPayoff, "the same payoff");
+        assertTrue(wouldSettle, "and `wouldSettle` was honest");
+    }
+
+    /// @dev The regression case. Before the fix this call panicked with an out-of-bounds access
+    ///      while `preview` reported a deferral.
+    function test_preview_agreesWithResolveOnTheDriftedAbsentPrintCase() public {
+        registry.registerSession(address(session), address(referenceToken));
+        referenceToken.setMultiplier(0.98e18);
+        vm.warp(session.expiryTimestamp() + 1);
+
+        (uint256 previewPayoff, Branch previewBranch, bool wouldSettle) =
+            registry.preview(address(session));
+        (uint256 payoff, Branch branch) = registry.resolve(address(session));
+
+        assertEq(uint8(branch), uint8(previewBranch), "the same branch");
+        assertEq(payoff, previewPayoff, "the same payoff");
+        assertFalse(wouldSettle, "and `wouldSettle` was honest: a deferral does not settle");
+        assertFalse(registry.sessionResolved(address(session)), "so the session stays unresolved");
     }
 
     // ---------------------------------------------------------------- guard G10
