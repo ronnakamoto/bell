@@ -59,14 +59,15 @@ inside a recipe with `No module named pytest`.
 
 | Suite | Tests |
 |---|---|
-| Solidity — unit, fuzz, invariant, differential, gas, adversarial | 321 |
+| Solidity — unit, fuzz, invariant, differential, gas, adversarial | 353 |
 | Calibrator — Python | 130 |
 | Settlement — Python | 77 |
-| **Total** | **528** |
+| **Total** | **560** |
 
 `make build`, `make test` and `make check` all pass. The brief's two coverage rules are met and are
 asserted by `make check-coverage` rather than eyeballed: all five libraries in `contracts/src/libraries/`
-are at 100% on lines, statements, branches and functions, and `src/**` is at 98.80% lines.
+are at 100% on lines, statements, branches and functions, and `src/**` is at 99.47% lines. Six of the
+nine source files are at 100% on all four metrics.
 
 One brief requirement is not met and is recorded rather than hidden: `commit` costs 158,247 gas against
 a §13.3 cap of 150,000 — see F42 in `DESIGN_NOTES.md` and `GAS_REPORT.md` for the attribution and the
@@ -76,11 +77,12 @@ The fork suite is the one item that cannot run here: the brief requires tests ag
 block on chain 4663 but supplies no RPC endpoint, so `make test-fork` skips with an explanation
 (F6). Everything else in the brief is executable and executed.
 
-`DESIGN_NOTES.md` carries 47 findings. Most are defects the build found in itself rather than
-objections to the brief, and several were surfaced by measuring coverage rather than by reading code:
-a pool-draining swap path in `Amm` (F44), a missing depth guard in `SessionPool` (F45), three files
-with no tests at all (F46), and a `resolve`/`preview` divergence that panicked and left a session
-permanently unsettleable (F47).
+`DESIGN_NOTES.md` carries 48 findings. Most are defects the build found in itself rather than
+objections to the brief, and most of those were surfaced by reading the coverage report as a
+diagnostic rather than by reading code: a pool-draining swap path in `Amm` (F44), a missing depth
+guard in `SessionPool` (F45), three files with no tests at all (F46), a `resolve`/`preview`
+divergence that panicked and left a session permanently unsettleable (F47), and a one-pair seed that
+stranded a claim and made `close()` unreachable (F48).
 
 ## Deploy
 

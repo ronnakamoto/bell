@@ -561,10 +561,30 @@ roughly one run in five, and passed in isolation every time. They were the only 
 `vm.readFile` on the same path from within one suite.
 
 **Resolution.** The fixture is read once in `setUp` and cached in a state variable, which removes the
-concurrent second read. Ten consecutive full runs are clean since. The underlying cause is not
-established — it is consistent with a race in the cheatcode's file cache under Foundry's parallel
-suite execution — so this is recorded as a workaround rather than a diagnosis. `make test` should be
-re-run if it ever appears again.
+concurrent second read. The underlying cause is not established — it is consistent with a race in the
+cheatcode's file cache under Foundry's parallel suite execution — so this is recorded as a workaround
+rather than a diagnosis. `make test` should be re-run if it ever appears again.
+
+**Update, after a recurrence.** It did appear again, twice, and the recurrence sharpened the
+characterisation without settling the cause. Both times it was the *first* `forge test` after a batch
+of source edits followed by `forge fmt`, and both times the next run was clean. Thirteen consecutive
+full runs since — eight in a loop, five interspersed — are all green, as are repeated runs immediately
+after a `forge coverage` (which rebuilds `out/` with the optimizer disabled) and after touching a
+source file. So the trigger is narrower than "intermittent": it is the first run in a
+freshly-recompiled tree, and only sometimes.
+
+Two hypotheses were tested and eliminated. The fixture's JSON key order does match the
+`CanonicalCell` struct's field order exactly, so the `abi.decode(vm.parseJson(...))` both tests use is
+not decoding against a reordered object. And a coverage run does not poison the next test run. What
+remains consistent with the evidence is that the failing pair are the only two tests that decode a
+*struct array* out of the fixture, which is the pattern F35 already flagged as fragile; every other
+fixture consumer reads one JSON path at a time with a typed accessor.
+
+**Follow-up, stated rather than taken.** The robust fix is to have `tools/gen_constants.py` emit the
+canonical cells as parallel flat arrays (`.cells.name` as a string array, `.cells.lambdaWad` as a uint
+array) so that every read is a typed single-path accessor and no `abi.decode` is involved. That
+changes a fixture consumed by both languages and by the differential suite, so it is not a change to
+make on an unconfirmed hypothesis. Recorded as the next step if the flake returns.
 
 ## F22 — `Session` exceeded the file limit and was split along the pool seam
 
@@ -1210,6 +1230,69 @@ implementation of that logic, and it will drift. The cheap defence is not "keep 
 reading carefully"; it is a test that runs both and compares, which is what now exists. The NatSpec
 claim that they share a code path should have been a test from the start, because it was a claim about
 the code that nothing verified.
+
+
+
+## F48 — A seed of one pair stranded a claim and made `close()` unreachable
+
+Found by continuing to read the coverage report as a diagnostic. `_seedBalanced`'s `longIn == 0` early
+return had never executed, and asking which input reaches it gave the only answer: `pairs == 1`. A
+probe test confirmed the consequence before any fix was written — a `seed` of one pair minted the pair,
+left the pool unseeded, and left the pair sitting in the factory.
+
+**Why that is worse than it looks.** The factory has no function that could redeem a claim, so the
+pair is stranded for ever. The session is left in a state with an unseeded pool *and* an outstanding
+pair, which means `close()` can never succeed: it requires both claim supplies to be zero. A caller
+asking for a one-pair seed therefore got a session that could not be traded against and could not be
+closed — the two worst outcomes at once.
+
+**It is also a direct contradiction of the code's own comment.** The comment above `_seedBalanced`
+says the odd unit goes to the short leg "rather than being left behind: a stranded claim is a claim
+nobody can redeem, and it would make `close()` unreachable once the session settled." That is exactly
+what happened. The odd-unit rule covers an odd seed *above* one; `seed == 1` is the case below it, and
+the guard written to protect against stranding was the thing causing it — by returning quietly on the
+one input it covered.
+
+**Fix.** `createSession` refuses `seed == 1` at the listing gate with a named `SeedTooSmall`. Refusing
+before the session exists is cheaper than refusing after, and the caller learns before spending gas on
+a deployment. Zero remains the documented way to ask for an unseeded session and is not an error. Two
+tests: the refusal, and the smallest *splittable* seed of two, which pins that the fix is not an
+off-by-one that also rejects a legitimate listing.
+
+**The guard it replaced is now provably dead and was removed.** With `seed == 1` refused, the only
+caller passes `pairs >= 2`, so `longIn >= 1` always. Its absence is the fix rather than an omission,
+and the comment says so.
+
+**Three more dead branches were removed in the same pass, from `SessionFactory`.** `checkListingCap`
+carried `if (whole == 0) revert NotOnHarmonicLattice(capWad)` and both diagnostics carried an
+equivalent `continue`. All three are unreachable by arithmetic the functions themselves establish:
+`checkListingCap`'s gate gives `0 < capWad < WAD`, so `reciprocal = 1e36 / capWad > 1e18` and
+`whole >= 1`; `latticeCoverage` runs `capWad` over `[spacing, WAD)` with the same bound; and
+`worstLatticeRoundingWad` skips `snapped >= WAD` immediately above, so `snappedLam >= 1` likewise.
+Removed with the proof in a comment rather than tested around, which is the same resolution as
+`Amm`'s `DivByZero` in F44. The diagnostics still report 399 grid points and 14 listable, so the
+removal is behaviour-preserving.
+
+**One branch was left uncovered on purpose, and the reasoning is recorded rather than the mock.**
+`if (!collateral.approve(session, seed)) revert SeedTransferFailed()` cannot be reached without a
+token that refuses approvals, and building a third mock for it would overstate its importance. The
+check is not the only one on that precondition: if `approve` silently returned false, the very next
+call — `mintPairFromFactory` — re-checks the same precondition through `transferFrom` and reverts with
+`ClaimTransferFailed`. So the check converts one error into a clearer one; it is not load-bearing for
+safety, unlike `SessionPool`'s `ClaimTransferFailed` checks, which *are* the only check on the value
+they guard. A mock for a naming improvement is not worth its maintenance.
+
+**Also recorded: a test-shape trap that cost two false findings.** `test_constructor_refusesAZeroBond`
+held two `vm.expectRevert` calls, each followed by a `new` whose constructor reverts. The first
+refusal read as covered and the second as uncovered, for a refusal that demonstrably fired. Splitting
+them into one assertion per test resolved both. A reverting constructor is a frame that gets rolled
+back, and the coverage counters written inside it go with it; two `new` calls in one function make the
+attribution ambiguous. **One assertion per test is the rule**, and it is also the shape that would
+have caught a test asserting a revert that never happened.
+
+**One branch remains uncovered and is an artifact, not a gap.** `Session`'s `inState` modifier reports
+`0/1` branches while dozens of tests assert its `WrongState` refusal directly. This is the same
+modifier-inlining artifact as `ReentrancyGuard` in F44, and it is recorded rather than chased.
 
 
 

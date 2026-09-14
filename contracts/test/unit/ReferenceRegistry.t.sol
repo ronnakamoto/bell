@@ -625,6 +625,54 @@ contract ReferenceRegistryTest is Test {
         new ReferenceRegistry(AUTHORITY, PLAUSIBILITY_BAND, TIER1_BAND, FRESHNESS, FRESHNESS - 1);
     }
 
+    /// @dev A zero configuration authority would make every setter permanently unreachable: they all
+    ///      gate on `msg.sender == configurationAuthority` and no address can send from zero. Refusing
+    ///      it at construction turns a registry that can never be configured into a deployment
+    ///      failure.
+    function test_constructor_refusesAZeroConfigurationAuthority() public {
+        vm.expectRevert(ReferencePrintBook.ZeroAddress.selector);
+        new ReferenceRegistry(address(0), PLAUSIBILITY_BAND, TIER1_BAND, FRESHNESS, STALENESS);
+    }
+
+    /// @dev The pause-check registry is opt-in per token, and the opt-in is the guard's whole safety
+    ///      property: an unregistered reference is never probed. Zero is the mapping's "not
+    ///      registered" value, so registering it would be a no-op that reads as a registration.
+    function test_setPauseChecked_isAuthorityOnlyAndRefusesZero() public {
+        vm.prank(address(0xBAD));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ReferenceRegistry.NotConfigurationAuthority.selector, address(0xBAD)
+            )
+        );
+        registry.setPauseChecked(address(referenceToken), true);
+
+        vm.prank(AUTHORITY);
+        vm.expectRevert(ReferencePrintBook.ZeroAddress.selector);
+        registry.setPauseChecked(address(0), true);
+    }
+
+    function test_setPauseChecked_registersAndDeregisters() public {
+        vm.startPrank(AUTHORITY);
+        registry.setPauseChecked(address(referenceToken), true);
+        assertTrue(registry.pauseChecked(address(referenceToken)), "registered");
+        registry.setPauseChecked(address(referenceToken), false);
+        assertFalse(registry.pauseChecked(address(referenceToken)), "and deregistered");
+        vm.stopPrank();
+    }
+
+    /// @dev A zero multiplier would divide by zero in the ex-date adjustment. The registry refuses it
+    ///      at registration rather than letting every later settlement revert, which is the difference
+    ///      between a listing that fails and a session that is unsettleable.
+    function test_registerSession_refusesAZeroMultiplier() public {
+        referenceToken.setMultiplier(0);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ReferenceRegistry.ZeroMultiplier.selector, address(referenceToken)
+            )
+        );
+        registry.registerSession(address(session), address(referenceToken));
+    }
+
     // ---------------------------------------------------------------- helpers
 
     /// @dev The timestamp is computed before the prank. `vm.prank` applies to the *next* call, and an

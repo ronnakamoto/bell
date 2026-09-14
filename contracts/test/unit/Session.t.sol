@@ -8,7 +8,7 @@ import {WadMath} from "../../src/libraries/WadMath.sol";
 import {ClaimToken} from "../../src/core/ClaimToken.sol";
 import {Session} from "../../src/core/Session.sol";
 import {SessionPool} from "../../src/core/SessionPool.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
+import {MockERC20, MockNonRevertingERC20} from "../mocks/MockERC20.sol";
 
 /// @notice The session lifecycle, the collateral ledger and the pool.
 /// @dev One file per unit under test. Revert assertions use the exact selector and the exact
@@ -644,6 +644,248 @@ contract SessionTest is Test {
         );
         session.expire();
         vm.stopPrank();
+    }
+
+    // ---------------------------------------------------------------- refusals
+
+    /// @dev One block for every guarded path that had no negative test, because they are the same
+    ///      finding repeated: a refusal that has never been observed to fire is indistinguishable
+    ///      from one that does nothing, and the coverage report is what said which ones had never
+    ///      fired. Grouping them here rather than scattering them keeps the narrative sections above
+    ///      about behaviour and this one about the edges.
+
+    function test_constructor_refusesAZeroReferenceToken() public {
+        vm.expectRevert(Session.ZeroAddress.selector);
+        new Session(
+            collateral,
+            address(0),
+            LAM,
+            block.timestamp + 17.5 hours,
+            NOTIONAL_CAP,
+            REFERENCE_REGISTRY
+        );
+    }
+
+    function test_constructor_refusesAZeroReferenceRegistry() public {
+        vm.expectRevert(Session.ZeroAddress.selector);
+        new Session(
+            collateral, REFERENCE_TOKEN, LAM, block.timestamp + 17.5 hours, NOTIONAL_CAP, address(0)
+        );
+    }
+
+    /// @dev The factory path exists so the factory can seed a pool without holding the collateral
+    ///      itself. The permission is explicit rather than implied by `msg.sender`, and this is the
+    ///      test that says so.
+    function test_mintPairFromFactory_isFactoryOnly() public {
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(Session.NotFactory.selector, bob));
+        session.mintPairFromFactory(bob, 100 * UNIT);
+    }
+
+    function test_mintPairFromFactory_letsTheFactoryMintToAnotherAccount() public {
+        // The factory pays: `_mintPair` pulls the collateral from `msg.sender`, so the factory must
+        // both hold it and have approved. That is the point of the path — the factory seeds a pool
+        // without the recipient having to hold anything first.
+        _fund(FACTORY, 1_000 * UNIT);
+        _approve(FACTORY, 1_000 * UNIT);
+
+        vm.prank(FACTORY);
+        session.mintPairFromFactory(bob, 100 * UNIT);
+
+        assertEq(session.longClaim().balanceOf(bob), 100 * UNIT, "long minted to Bob");
+        assertEq(session.shortClaim().balanceOf(bob), 100 * UNIT, "short minted to Bob");
+        assertEq(collateral.balanceOf(FACTORY), 900 * UNIT, "and the factory paid for it");
+    }
+
+    function test_collectFees_isFactoryOnly() public {
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(Session.NotFactory.selector, bob));
+        session.collectFees(bob);
+    }
+
+    function test_redeemPair_refusesZero() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        vm.prank(alice);
+        vm.expectRevert(SessionPool.ZeroAmount.selector);
+        session.redeemPair(0);
+    }
+
+    function test_buyLong_refusesZero() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        _approve(bob, 0);
+        vm.prank(bob);
+        vm.expectRevert(SessionPool.ZeroAmount.selector);
+        session.buyLong(0, 0);
+    }
+
+    function test_buyShort_refusesZero() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        vm.prank(bob);
+        vm.expectRevert(SessionPool.ZeroAmount.selector);
+        session.buyShort(0, 0);
+    }
+
+    /// @dev `_reserveForMint` carries its own cap check, separate from `mintPair`'s. Only the latter
+    ///      had a test, so the cap was enforced on one of the two paths that can breach it.
+    function test_buyLong_enforcesTheNotionalCap() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        uint256 wouldBe = session.totalPairSupply() + NOTIONAL_CAP;
+
+        _approve(bob, NOTIONAL_CAP);
+        vm.prank(bob);
+        vm.expectRevert(
+            abi.encodeWithSelector(Session.NotionalCapExceeded.selector, wouldBe, NOTIONAL_CAP)
+        );
+        session.buyLong(NOTIONAL_CAP, 0);
+    }
+
+    function test_buyShort_enforcesTheNotionalCap() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        uint256 wouldBe = session.totalPairSupply() + NOTIONAL_CAP;
+
+        _approve(bob, NOTIONAL_CAP);
+        vm.prank(bob);
+        vm.expectRevert(
+            abi.encodeWithSelector(Session.NotionalCapExceeded.selector, wouldBe, NOTIONAL_CAP)
+        );
+        session.buyShort(NOTIONAL_CAP, 0);
+    }
+
+    function test_swapShortForLong_refusesZero() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        vm.prank(bob);
+        vm.expectRevert(SessionPool.ZeroAmount.selector);
+        session.swapShortForLong(0, 0);
+    }
+
+    /// @dev The slippage floor on the swap path. `buyLong` had one tested and the swaps did not,
+    ///      which left the two swap entry points as the only trades a caller could not protect.
+    function test_swapShortForLong_enforcesTheSlippageFloor() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        _mintPairAs(bob, 1_000 * UNIT);
+        _approveClaims(bob, 1_000 * UNIT);
+
+        uint256 shortIn = 100 * UNIT;
+        uint256 longOut =
+            Amm.longOutForShortIn(session.longReserve(), session.shortReserve(), shortIn);
+        uint256 impossible = longOut + 1;
+
+        vm.prank(bob);
+        vm.expectRevert(
+            abi.encodeWithSelector(SessionPool.SlippageExceeded.selector, longOut, impossible)
+        );
+        session.swapShortForLong(shortIn, impossible);
+    }
+
+    function test_swapLongForShort_refusesZero() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        vm.prank(bob);
+        vm.expectRevert(SessionPool.ZeroAmount.selector);
+        session.swapLongForShort(0, 0);
+    }
+
+    function test_swapLongForShort_enforcesTheSlippageFloor() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        _mintPairAs(bob, 1_000 * UNIT);
+        _approveClaims(bob, 1_000 * UNIT);
+
+        uint256 longIn = 100 * UNIT;
+        uint256 shortOut =
+            Amm.shortOutForLongIn(session.longReserve(), session.shortReserve(), longIn);
+        uint256 impossible = shortOut + 1;
+
+        vm.prank(bob);
+        vm.expectRevert(
+            abi.encodeWithSelector(SessionPool.SlippageExceeded.selector, shortOut, impossible)
+        );
+        session.swapLongForShort(longIn, impossible);
+    }
+
+    /// @dev The checked return value on the collateral pull. A token that returns `false` instead of
+    ///      reverting is permitted by the ERC-20 spec, and crediting the deposit anyway would mint a
+    ///      pair against collateral that never arrived. This is the only input that reaches the
+    ///      branch, which is why it needs its own session rather than a prank on the existing one.
+    function test_mintPair_refusesWhenTheCollateralTransferFails() public {
+        MockNonRevertingERC20 hostile = new MockNonRevertingERC20("Hostile", "HOST", 6);
+        Session hostileSession = new Session(
+            hostile,
+            REFERENCE_TOKEN,
+            LAM,
+            block.timestamp + 17.5 hours,
+            NOTIONAL_CAP,
+            REFERENCE_REGISTRY
+        );
+
+        vm.expectRevert(SessionPool.ClaimTransferFailed.selector);
+        hostileSession.mintPair(1 * UNIT);
+    }
+
+    function test_expire_refusesASecondCall() public {
+        vm.warp(block.timestamp + 18 hours);
+        session.expire();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Session.WrongState.selector, Session.State.Expired, Session.State.Open
+            )
+        );
+        session.expire();
+    }
+
+    /// @dev Settlement is gated on `Expired`, so a registry that skipped the clock cannot fix a
+    ///      payoff on a session that is still trading.
+    function test_settle_refusesWhileStillOpen() public {
+        vm.prank(REFERENCE_REGISTRY);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Session.WrongState.selector, Session.State.Open, Session.State.Expired
+            )
+        );
+        session.settle(0.4e18, false);
+    }
+
+    function test_claim_refusesWhenNothingIsHeld() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        vm.warp(block.timestamp + 18 hours);
+        session.expire();
+        vm.prank(REFERENCE_REGISTRY);
+        session.settle(0.4e18, false);
+
+        vm.prank(bob);
+        vm.expectRevert(SessionPool.ZeroAmount.selector);
+        session.claim();
+    }
+
+    function test_close_refusesBeforeSettlement() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Session.WrongState.selector, Session.State.Open, Session.State.Settled
+            )
+        );
+        session.close();
+    }
+
+    /// @dev The residual check in `close`. A session that closes with collateral stranded is a
+    ///      session whose sum-to-one arithmetic did not hold, so the check is what catches an
+    ///      accounting error rather than a user error. Reached by donating collateral the session
+    ///      never earned, which is exactly the shape of the bug it guards against.
+    function test_close_refusesWhenCollateralIsStranded() public {
+        _seed(alice, 1_000 * UNIT, 200 * UNIT);
+        vm.warp(block.timestamp + 18 hours);
+        session.expire();
+        vm.prank(REFERENCE_REGISTRY);
+        session.settle(0.4e18, false);
+        vm.prank(alice);
+        session.withdrawPool();
+        vm.prank(alice);
+        session.claim();
+
+        collateral.mint(address(session), 7);
+        uint256 fees = session.collectedFees();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(Session.InsufficientCollateral.selector, fees + 7, fees)
+        );
+        session.close();
     }
 
     // ---------------------------------------------------------------- helpers

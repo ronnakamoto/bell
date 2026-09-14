@@ -7,7 +7,7 @@ import {Payoff} from "../../src/libraries/Payoff.sol";
 import {Session} from "../../src/core/Session.sol";
 import {SessionFactory} from "../../src/core/SessionFactory.sol";
 import {SessionPool} from "../../src/core/SessionPool.sol";
-import {MockERC20} from "../mocks/MockERC20.sol";
+import {MockERC20, MockNonRevertingERC20} from "../mocks/MockERC20.sol";
 
 /// @notice The listing gates and the deterministic deployment.
 /// @dev Both gates are tested in both directions. A guard that has never been observed to fire is
@@ -243,5 +243,54 @@ contract SessionFactoryTest is Test {
         assertEq(deployed.totalPairSupply(), 0, "and nothing minted");
         vm.expectRevert(SessionPool.PoolDepthZero.selector);
         deployed.poolPriceLongWad();
+    }
+
+    /// @notice A seed of one pair is refused, because it cannot be split.
+    /// @dev Found by a coverage measurement: `_seedBalanced`'s `longIn == 0` guard had never
+    ///      executed, and asking why led to the only input that reaches it. A probe confirmed the
+    ///      consequence before any fix was written — `seed = 1` minted a pair, left the pool unseeded,
+    ///      and stranded the pair in the factory, which has no function that could redeem it. The
+    ///      session was therefore uncloseable once it settled, which is precisely the failure the
+    ///      comment above `_seedBalanced` says the odd-unit rule exists to prevent.
+    ///
+    ///      The odd-unit rule handles an odd seed *above* one. This is the case below it, and the
+    ///      listing gate is where it belongs: refusing before the session exists is cheaper than
+    ///      refusing after, and the caller learns before spending gas on a deployment.
+    function test_createSession_refusesASeedThatCannotBeSplit() public {
+        collateral.mint(address(this), 1);
+        collateral.approve(address(factory), 1);
+
+        uint256 expiry = block.timestamp + 17.5 hours;
+        vm.expectRevert(abi.encodeWithSelector(SessionFactory.SeedTooSmall.selector, uint256(1)));
+        factory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, 1);
+    }
+
+    /// @dev The smallest seed that *can* be split is two, and it must still work: one unit to each
+    ///      leg, an even split, and a pool that opens at one half. The refusal above must not have
+    ///      been implemented as an off-by-one that also rejects this.
+    function test_createSession_acceptsTheSmallestSplittableSeed() public {
+        collateral.mint(address(this), 2);
+        collateral.approve(address(factory), 2);
+
+        uint256 expiry = block.timestamp + 17.5 hours;
+        Session deployed =
+            Session(factory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, 2));
+
+        assertEq(deployed.totalPairSupply(), 2, "two pairs minted");
+        assertEq(deployed.longReserve(), 1, "one unit to the long leg");
+        assertEq(deployed.shortReserve(), 1, "one to the short leg");
+        assertEq(deployed.poolPriceLongWad(), 0.5e18, "an even split opens at one half");
+    }
+
+    /// @dev The checked return value on the seed transfer. The factory is the one paying, so a token
+    ///      that returns `false` instead of reverting would leave it believing it had funded a pool
+    ///      it had not funded. `MockNonRevertingERC20` is the token that reaches this branch.
+    function test_createSession_refusesACollateralThatWillNotMove() public {
+        MockNonRevertingERC20 hostile = new MockNonRevertingERC20("Hostile", "HST", 6);
+        SessionFactory hostileFactory = new SessionFactory(hostile, REFERENCE_REGISTRY);
+
+        uint256 expiry = block.timestamp + 17.5 hours;
+        vm.expectRevert(SessionFactory.SeedTransferFailed.selector);
+        hostileFactory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, 1_000 * UNIT);
     }
 }

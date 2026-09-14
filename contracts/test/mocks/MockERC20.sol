@@ -178,3 +178,57 @@ contract MockFeeOnTransferERC20 is IERC20 {
         emit Transfer(from, to, value - fee);
     }
 }
+
+/// @title MockFailingPayoutERC20
+/// @notice An ERC-20 that accepts a deposit and refuses to pay it back.
+/// @dev The mirror of `MockNonRevertingERC20`, and it exists for the same reason from the other
+///      direction. `_pullBond` is exercised by a token that always fails; `_pushBond` needs one that
+///      *succeeds* on the way in and fails on the way out, because a registry cannot reach a payout
+///      without first having taken the bond. Both behaviours are permitted by the ERC-20 spec --
+///      returning `false` rather than reverting -- and without a mock for each direction one of the
+///      two checked return values is untestable, which is how a check becomes decorative.
+///
+///      The failure mode this guards against is specific: a registry that ignored the return value
+///      would clear the bond, mark it withdrawn and emit `BondWithdrawn` while the publisher received
+///      nothing. The ledger would say the bond was returned; it would not have been.
+contract MockFailingPayoutERC20 is IERC20 {
+    string public name;
+    string public symbol;
+    uint8 public immutable decimals;
+
+    uint256 public totalSupply;
+    mapping(address account => uint256) public balanceOf;
+    mapping(address owner => mapping(address spender => uint256)) public allowance;
+
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) {
+        name = name_;
+        symbol = symbol_;
+        decimals = decimals_;
+    }
+
+    function mint(address to, uint256 value) external {
+        totalSupply += value;
+        balanceOf[to] += value;
+        emit Transfer(address(0), to, value);
+    }
+
+    /// @dev Always reports failure. The payout direction is the one under test.
+    function transfer(address, uint256) external pure returns (bool) {
+        return false;
+    }
+
+    function approve(address spender, uint256 value) external returns (bool) {
+        allowance[msg.sender][spender] = value;
+        emit Approval(msg.sender, spender, value);
+        return true;
+    }
+
+    /// @dev Succeeds, so the registry can reach a state where it owes the bond back. Allowance is not
+    ///      checked: this mock exists to test the payout path, not the deposit path.
+    function transferFrom(address from, address to, uint256 value) external returns (bool) {
+        balanceOf[from] -= value;
+        balanceOf[to] += value;
+        emit Transfer(from, to, value);
+        return true;
+    }
+}

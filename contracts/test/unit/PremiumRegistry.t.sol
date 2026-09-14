@@ -4,7 +4,12 @@ pragma solidity 0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {PremiumRegistry} from "../../src/pricing/PremiumRegistry.sol";
 import {PremiumStore} from "../../src/pricing/PremiumStore.sol";
-import {MockERC20, MockFeeOnTransferERC20, MockNonRevertingERC20} from "../mocks/MockERC20.sol";
+import {
+    MockERC20,
+    MockFeeOnTransferERC20,
+    MockNonRevertingERC20,
+    MockFailingPayoutERC20
+} from "../mocks/MockERC20.sol";
 
 /// @notice The premium registry: the commitment, the bonds, the staleness bound and the dispute.
 /// @dev The deployment parameters are the brief's derived values, at the collateral's own scale:
@@ -299,6 +304,25 @@ contract PremiumRegistryTest is Test {
         assertEq(uint8(verdict), uint8(PremiumRegistry.Quote.Refuse), "one past it is not");
     }
 
+    /// @notice A publisher who has taken the bond back has no standing parameter, so the quote refuses.
+    /// @dev `commit` refuses a zero parameter and the challenger path never zeroes one, so `bond == 0`
+    ///      is the reachable disjunct of this check: `withdrawPublisherBond` clears the bond while the
+    ///      status stays `Committed`. The order matters and is what makes this testable — the bond
+    ///      check sits above the staleness check, so withdrawing past the lock reports the missing
+    ///      bond rather than the passage of time, which is the more specific of the two refusals.
+    function test_quote_refusesOnceTheBondHasBeenWithdrawn() public {
+        _commit(1);
+        for (uint256 i = 0; i < BOND_LOCK; ++i) {
+            vm.prank(AUTHORITY);
+            registry.advanceSession();
+        }
+        vm.prank(publisher);
+        registry.withdrawPublisherBond(NAME_ID, 1);
+
+        (PremiumRegistry.Quote verdict,,) = registry.quote(NAME_ID, 1);
+        assertEq(uint8(verdict), uint8(PremiumRegistry.Quote.Refuse), "no bond, no quote");
+    }
+
     // ---------------------------------------------------------------- challenge and fallback
 
     function test_challenge_locksTheBondAndDegradesTheQuoteToRefuseWithoutAFallback() public {
@@ -375,6 +399,39 @@ contract PremiumRegistryTest is Test {
         );
         leakyRegistry.commit(NAME_ID, 1, LAMBDA, PREMIUM, INPUTS_HASH);
         vm.stopPrank();
+    }
+
+    /// @notice A challenger bond that arrives short is refused, even though the publisher's arrived full.
+    /// @dev The exact-match rule, and this is the shape of input that makes it necessary rather than
+    ///      pedantic. The fee is proportional, so `value * bp / 10_000` floors to zero on a one-unit
+    ///      publisher bond and does not on a 1e18 challenger bond: the same token behaves differently
+    ///      at the two amounts, which is why a registry cannot infer the second from the first.
+    ///
+    ///      The test above shows the challenger path is unreachable when the publisher bond is large
+    ///      enough for the fee to bite on it. This one shows where it *is* reachable, which is what
+    ///      the exact-match check exists for: a minimum would let a short bond through, and the bond
+    ///      sizes an incentive, so one that is merely close sizes it wrongly.
+    function test_challenge_refusesABondThatArrivesShort() public {
+        MockFeeOnTransferERC20 leaky = new MockFeeOnTransferERC20("Leaky", "LKY", 6, 1);
+        PremiumRegistry leakyRegistry =
+            new PremiumRegistry(leaky, ARBITER, AUTHORITY, 1, 1e18, STALENESS, BOND_LOCK);
+        leaky.mint(publisher, 1);
+        leaky.mint(challenger, 1e18);
+        vm.prank(publisher);
+        leaky.approve(address(leakyRegistry), type(uint256).max);
+        vm.prank(challenger);
+        leaky.approve(address(leakyRegistry), type(uint256).max);
+
+        // The publisher's bond survives the fee: one unit times one basis point floors to zero.
+        vm.prank(publisher);
+        leakyRegistry.commit(NAME_ID, 1, LAMBDA, PREMIUM, INPUTS_HASH);
+
+        uint256 delivered = 1e18 - (1e18 * 1) / 10_000;
+        vm.prank(challenger);
+        vm.expectRevert(
+            abi.encodeWithSelector(PremiumStore.ChallengeBondMismatch.selector, delivered, 1e18)
+        );
+        leakyRegistry.challenge(NAME_ID, 1);
     }
 
     function test_challenge_refusesAnUncommittedSession() public {
@@ -527,6 +584,36 @@ contract PremiumRegistryTest is Test {
         assertEq(bondToken.balanceOf(publisher) - before, PUBLISHER_BOND, "the bond is released");
     }
 
+    /// @notice A payout the token refuses is refused by the registry too.
+    /// @dev The mirror of `test_commit_refusesABondThatDoesNotArriveInFull`, and it is the harder of
+    ///      the two to reach: the token has to accept the bond on the way in for the registry to owe
+    ///      anything, then refuse to hand it back. `MockFailingPayoutERC20` is exactly that token.
+    ///
+    ///      What the check prevents is specific. Without it the registry would clear `bond`, set
+    ///      `bondWithdrawn` and emit `BondWithdrawn` while the publisher received nothing — the ledger
+    ///      would record a bond returned that was never returned, and the publisher's only remedy
+    ///      would be the event that lied to them.
+    function test_withdrawPublisherBond_refusesATokenThatWillNotPay() public {
+        MockFailingPayoutERC20 stingy = new MockFailingPayoutERC20("Stingy", "STG", 6);
+        PremiumRegistry stingyRegistry = new PremiumRegistry(
+            stingy, ARBITER, AUTHORITY, PUBLISHER_BOND, CHALLENGER_BOND, STALENESS, BOND_LOCK
+        );
+        stingy.mint(publisher, PUBLISHER_BOND);
+        vm.prank(publisher);
+        stingy.approve(address(stingyRegistry), type(uint256).max);
+        vm.prank(publisher);
+        stingyRegistry.commit(NAME_ID, 1, LAMBDA, PREMIUM, INPUTS_HASH);
+
+        // Past the bond lock, so the withdrawal is permitted and the transfer is what fails.
+        for (uint256 i = 0; i < BOND_LOCK; ++i) {
+            vm.prank(AUTHORITY);
+            stingyRegistry.advanceSession();
+        }
+
+        vm.expectRevert(PremiumStore.BondTransferFailed.selector);
+        stingyRegistry.withdrawPublisherBond(NAME_ID, 1);
+    }
+
     function test_withdrawPublisherBond_refusesTwice() public {
         _commit(1);
         for (uint256 i = 0; i < BOND_LOCK; ++i) {
@@ -574,11 +661,30 @@ contract PremiumRegistryTest is Test {
         new PremiumRegistry(bondToken, ARBITER, address(0), PUBLISHER_BOND, CHALLENGER_BOND, 12, 13);
     }
 
-    function test_constructor_refusesAZeroBond() public {
+    /// @dev Split from a single test holding both refusals, because the second one read as uncovered
+    ///      while the first read as covered. A reverting constructor is a frame that gets rolled back,
+    ///      and the counters written inside it go with it; two `new` calls in one function made the
+    ///      attribution ambiguous. One assertion per test removes the ambiguity rather than leaving a
+    ///      reader to wonder whether the refusal fires at all.
+    function test_constructor_refusesAZeroPublisherBond() public {
         vm.expectRevert(abi.encodeWithSelector(PremiumStore.BondTooSmall.selector, 0, 1));
         new PremiumRegistry(bondToken, ARBITER, AUTHORITY, 0, CHALLENGER_BOND, 12, 13);
+    }
+
+    function test_constructor_refusesAZeroChallengerBond() public {
         vm.expectRevert(abi.encodeWithSelector(PremiumStore.ChallengeBondMismatch.selector, 0, 1));
         new PremiumRegistry(bondToken, ARBITER, AUTHORITY, PUBLISHER_BOND, 0, 12, 13);
+    }
+
+    /// @dev The stored bond is a `uint96`, and the narrowing exists so the bond shares a slot with
+    ///      the challenger (DESIGN_NOTES.md F42). A bond that does not fit is refused rather than
+    ///      truncated, because a truncated bond is smaller than the one advertised.
+    function test_constructor_refusesABondThatDoesNotFitAUint96() public {
+        uint256 tooBig = uint256(type(uint96).max) + 1;
+        vm.expectRevert(
+            abi.encodeWithSelector(PremiumStore.BondTooSmall.selector, tooBig, type(uint96).max)
+        );
+        new PremiumRegistry(bondToken, ARBITER, AUTHORITY, tooBig, CHALLENGER_BOND, 12, 13);
     }
 
     // ---------------------------------------------------------------- helpers

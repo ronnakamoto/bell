@@ -40,6 +40,8 @@ contract SessionFactory {
     error ExpiryNotReached(uint256 expiry, uint256 nowTimestamp);
     /// @dev Thrown when the requested seed exceeds what the caller has approved.
     error SeedTransferFailed();
+    /// @dev Thrown when a non-zero seed is too small to split into two non-empty legs.
+    error SeedTooSmall(uint256 seed);
 
     /// @dev Emitted on every listing, with the gates' verdicts recorded so a listing is auditable
     ///      from logs alone.
@@ -110,8 +112,11 @@ contract SessionFactory {
         // the quotient in WAD units can, because 2.999999999999999994 is nearest to three.
         uint256 reciprocal = numerator / capWad;
         uint256 whole = (reciprocal + Constants.WAD / 2) / Constants.WAD;
-        if (whole == 0) revert NotOnHarmonicLattice(capWad);
-
+        // There is no `whole == 0` guard here, and the reason is arithmetic rather than optimism. The
+        // gate at the top of this function establishes `0 < capWad < WAD`, so
+        // `reciprocal = 1e36 / capWad > 1e18` and `whole >= (1e18 + 5e17) / 1e18 = 1`. A check that
+        // cannot fail is a branch that cannot be covered, and a reader should not have to prove that
+        // for themselves -- so the proof is here and the check is gone. See DESIGN_NOTES.md F44.
         lamWad = whole * Constants.WAD;
         // Verified exactly, so a cap that is not a lattice point is refused rather than snapped.
         if (Payoff.saturationGapWad(lamWad) != capWad) revert NotOnHarmonicLattice(capWad);
@@ -141,8 +146,9 @@ contract SessionFactory {
         uint256 spacing = Constants.ROUNDING_LATTICE_WAD;
         for (uint256 capWad = spacing; capWad < Constants.WAD; capWad += spacing) {
             total += 1;
+            // No `whole == 0` case to skip: `capWad` runs over `[spacing, WAD)`, so `1e36 / capWad`
+            // exceeds `1e18` and the quotient in WAD units is at least one.
             uint256 whole = ((Constants.WAD * Constants.WAD) / capWad) / Constants.WAD;
-            if (whole == 0) continue;
             if (Payoff.saturationGapWad(whole * Constants.WAD) == capWad) exact += 1;
         }
     }
@@ -160,8 +166,9 @@ contract SessionFactory {
             uint256 capWad = Payoff.saturationGapWad(lamWad);
             uint256 snapped = ((capWad + spacing - 1) / spacing) * spacing;
             if (snapped >= Constants.WAD) continue;
+            // The skip above leaves `0 < snapped < WAD`, so the quotient is at least one by the same
+            // arithmetic as `latticeCoverage`. There is no zero case to skip.
             uint256 snappedLam = ((Constants.WAD * Constants.WAD) / snapped) / Constants.WAD;
-            if (snappedLam == 0) continue;
             uint256 error = (WadMath.absDiff(snappedLam, units) * Constants.WAD) / units;
             if (error > worst) {
                 worst = error;
@@ -221,6 +228,15 @@ contract SessionFactory {
         if (expiryTimestamp <= block.timestamp) {
             revert ExpiryNotReached(expiryTimestamp, block.timestamp);
         }
+        // A non-zero seed must be splittable. One pair cannot be: `_seedBalanced` returns early when
+        // `longIn == 0`, so the factory would mint the pair, never deposit it, and hold it for ever --
+        // it has no function that could redeem it. The session would be left with an unseeded pool
+        // *and* an outstanding pair, which makes `close()` unreachable once it settles. That is the
+        // stranding the comment on `_seedBalanced` says the odd-unit rule exists to prevent, and the
+        // rule covers an odd seed above one; this is the case it did not.
+        //
+        // Zero remains the documented way to ask for an unseeded session, and is not an error.
+        if (seed == 1) revert SeedTooSmall(seed);
         // Both gates, before anything is deployed. A session that exists but should not is worse
         // than one that was never created, because its address is already being quoted against.
         uint256 capWad = checkListingLam(lamWad);
@@ -302,10 +318,15 @@ contract SessionFactory {
     ///      into the pool. The odd unit, if any, goes to the short leg rather than being left behind:
     ///      a stranded claim is a claim nobody can redeem, and it would make `close()` unreachable
     ///      once the session settled.
+    ///
+    ///      There is no `longIn == 0` early return, and its absence is the fix rather than an
+    ///      omission. The only caller refuses `seed == 1` at the listing gate, so `pairs >= 2` and
+    ///      `longIn >= 1` always. The guard it replaced did not prevent the stranding this comment
+    ///      describes -- it *caused* it, by returning quietly on the one input it covered. See
+    ///      DESIGN_NOTES.md F48.
     function _seedBalanced(address session, uint256 pairs) private {
         uint256 longIn = pairs / 2;
         uint256 shortIn = pairs - longIn;
-        if (longIn == 0) return;
         Session target = Session(session);
         target.longClaim().approve(session, longIn);
         target.shortClaim().approve(session, shortIn);
