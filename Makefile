@@ -93,9 +93,10 @@ deploy-fork: ## Broadcast the deployment to a fork. Requires BELL_RPC_URL and BE
 diagnostics: ## Print the lattice, canonical, AMM and fee diagnostics from the deployed code
 	cd $(CONTRACTS) && forge script script/PrintDiagnostics.s.sol
 
-coverage: ## Branch coverage. The brief requires 100% on libraries/ and >=95% overall
+coverage: ## Print coverage for everything. `make check-coverage` asserts the thresholds
 	cd $(CONTRACTS) && forge coverage --report summary
 	cd $(CALIBRATOR) && $(PYTHON) -m pytest tests -q --cov=bell_calibrator --cov-report=term-missing
+	cd $(SETTLEMENT) && $(PYTHON) -m pytest tests -q --cov=bell_settlement --cov-report=term-missing
 
 gas: ## Per-operation gas report, against the brief's §13.3 budget
 	cd $(CONTRACTS) && forge test --gas-report
@@ -126,7 +127,7 @@ check-layout: ## The §6 layout rules, mechanically
 check-generated: ## Fail if any generated file is stale
 	$(PYTHON) $(TOOLS)/gen_constants.py --check
 
-check-coverage: ## The brief's two coverage rules, asserted rather than eyeballed
+check-coverage: check-python ## Every coverage rule the brief states, asserted rather than eyeballed
 	$(PYTHON) $(TOOLS)/check_coverage.py
 
 # ---------------------------------------------------------------------------- housekeeping

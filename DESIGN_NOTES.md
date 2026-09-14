@@ -1296,6 +1296,85 @@ modifier-inlining artifact as `ReentrancyGuard` in F44, and it is recorded rathe
 
 
 
+## F49 — The Python coverage had never been measured, and the target that would have measured it did not run
+
+The Solidity coverage rules have been measured and asserted since F44. The Python side had not, and
+the reason turned out to be that the target which would have measured it **could not run**.
+
+**`make coverage` failed at its second step.** It invokes
+`pytest --cov=bell_calibrator --cov-report=term-missing`, and `pytest-cov` was in neither workspace's
+declared `dev` extra — so the command died with `unrecognized arguments: --cov=...`. The first step
+(`forge coverage`) succeeded, which is why the target looked like it worked. It also covered only the
+calibrator: the settlement workspace was not mentioned at all.
+
+So three things were wrong at once, and each hid the others: a missing dependency, a target that
+aborted before its later steps, and a workspace absent from the target entirely.
+
+**Fix.** `pytest-cov==7.1.0` added to both `dev` extras, the target extended to both workspaces, and
+both thresholds asserted by `tools/check_coverage.py`, which now measures the services through
+`pytest-cov` — the same measurement `make coverage` prints, rather than a second opinion that could
+disagree with it. `make check-coverage` runs all three rules.
+
+**What the first measurement found.** The calibrator was at 96% and the settlement service at 96%,
+and the gaps were the same shape as every other gap in this build:
+
+- **`domain/digest.py` was at 80%** — the cross-language commitment contract, the module whose own
+  docstring says a divergence "would let a publisher commit one input set and be challenged against
+  another". All eight uncovered statements were its input-validation guards: the 32-byte checks on
+  `nameId` and `inputsHash`, the negative-parameter check, and the four range and length checks in
+  `inputs_preimage`. The fixture test exercises the *happy* path by construction, because a fixture is
+  a set of valid inputs. Added `tests/unit/test_digest.py`, 13 tests; the module is at 100%.
+- **`domain/models.py` was at 84%** and had no unit test file at all. Six validation guards had never
+  fired and three methods (`Wad.to_decimal`, `__add__`, `__neg__`) had never been called. Added
+  `tests/unit/test_models.py`, 17 tests; 100%.
+- **`bell_settlement.domain.ports` was at 0%** because **nothing imported it**. The two protocols were
+  declared and unreferenced, so nothing checked that they are *satisfiable*. Added
+  `tests/unit/test_ports.py`, which asserts a conforming object satisfies each port, that an object
+  without the member does not, and that the two ports are not interchangeable — the last because both
+  declare one method taking one argument, so a copy-paste giving them the same method name would let
+  an adapter for one silently satisfy the other.
+- Smaller ones, each a refusal never observed to fire: `cap_for_leverage`'s positivity guard (its twin
+  in `saturation_gap` was tested, which is exactly the shape where one of a pair goes untested),
+  `truncated_abs_moment_at_cap`'s zero-sigma guard, the `OSError` branch of the gap-source reader that
+  a missing file cannot reach because `FileNotFoundError` is a subclass, R5's third rationale case
+  (challenged *with* a fallback registered), and `adjusted_gap_wad`'s zero-multiplier guard.
+
+**Two measurement decisions, both stated rather than assumed.**
+
+`coverage.py` is configured with `branch = true` and an `exclude_also` list covering `...`,
+`if TYPE_CHECKING:`, `raise NotImplementedError` and `@overload`. Each is a declaration no input can
+reach. A `Protocol` method body is the clearest case: a protocol is never instantiated and never
+called, so counting its body makes every ports module read as uncovered and hides the modules that
+are not. The alternative — a `# pragma: no cover` on every protocol method — puts the same
+justification in twenty places instead of one. This is not a way to raise a number; it is a way to
+stop counting declarations as behaviour.
+
+**Two modules still report 0% and are correct to.** `bell_settlement.adapters.__init__` and
+`bell_settlement.application.__init__` each contain a docstring and `__all__: list[str] = []`, and
+nothing imports them because there are no adapters or use cases yet. Coverage is telling the truth:
+they are declarations waiting for code. They will be covered when there is something to cover, and no
+test asserting `__all__ == []` was written, because that would be a change detector — which
+`tests/unit/test_moments.py`'s own docstring already argues against.
+
+**Four branches in `moments.py` are unreachable in the routed domain, and are not removable.** Two are
+the loop-exhaustion branches of `_erf_series` and `_erfc_continued_fraction`: `_erf` routes by
+`SERIES_BREAKPOINT = 4`, and within that domain both iterations converge long before
+`_SERIES_MAX_TERMS = 200`. They are the natural exit of a bounded `for` loop, not guards, so there is
+nothing to delete — restructuring to remove them would be worse. The other two are the modified Lentz
+algorithm's `d == 0` and `c == 0` fallbacks, which are part of the published algorithm and are
+required for the fraction to be numerically stable at all. Recorded rather than chased with a
+contrived input, which would be a test asserting an implementation detail rather than a behaviour.
+
+**One guard is left uncovered for the same reason as `SessionFactory`'s `approve` check.**
+`routes.best_quotable_route` raises when no shipping route has a quotable cost, and `cost_report()`
+takes no arguments, so the condition cannot arise with the current five routes. It is a diagnostic
+that converts `min()` on an empty sequence into a named error, not the only check on a value.
+
+**Result.** Calibrator 99.09%, settlement 99.03%, with 16 of the calibrator's 18 modules and 11 of the
+settlement service's 14 at 100%. The two workspaces went from 130 + 77 tests to 164 + 83.
+
+
+
 ## Still open
 
 | # | Item | Blocking |

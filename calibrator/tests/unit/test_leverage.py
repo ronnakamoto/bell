@@ -64,6 +64,20 @@ class TestCapAndLeverage:
         with pytest.raises(ValueError, match="positive"):
             leverage.leverage_for_cap(Wad(0))
 
+    def test_cap_for_leverage_rejects_a_non_positive_leverage(self) -> None:
+        """The same guard as `saturation_gap`'s, and it had no test.
+
+        `TestSaturationGap.test_rejects_a_non_positive_leverage` covers the threshold function; the
+        reciprocal carries the identical check and nothing exercised it. Two functions with one rule
+        between them is exactly the shape where one of the two goes untested, because the suite
+        looks like it covers the rule.
+        """
+        with pytest.raises(ValueError, match="a leverage must be positive"):
+            leverage.cap_for_leverage(Wad(0))
+
+        with pytest.raises(ValueError, match="a leverage must be positive"):
+            leverage.cap_for_leverage(Wad(-1))
+
 
 class TestSaturationGap:
     """The threshold the saturation predicate uses, which rounds the other way to the reciprocal."""

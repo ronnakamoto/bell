@@ -105,3 +105,28 @@ name = "the calibrator never imports the settlement service"
 type = "forbidden"
 source_modules = ["bell_calibrator"]
 forbidden_modules = ["bell_settlement"]
+
+# --------------------------------------------------------------------------- coverage
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+# What is excluded, and why each one is not a path a test could take:
+#
+#   `...`              a `Protocol` method body. A protocol is a declaration, never instantiated and
+#                      never called, so its body is not executable code. Counting it makes every
+#                      ports module read as uncovered and hides the modules that are.
+#   `if TYPE_CHECKING` an import guard, which by construction does not run at runtime.
+#   `raise NotImplementedError` and `@overload`  the same argument as `...`.
+#
+# Excluding these is not a way to raise a number. Each is a declaration that no input can reach, and
+# the alternative -- a `# pragma: no cover` on every protocol method -- would put the same
+# justification in twenty places instead of one.
+[tool.coverage.report]
+exclude_also = [
+  '\.\.\.',
+  'if TYPE_CHECKING:',
+  'raise NotImplementedError',
+  '@overload',
+]

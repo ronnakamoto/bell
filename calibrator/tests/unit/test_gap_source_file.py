@@ -57,6 +57,22 @@ class TestReading:
         with pytest.raises(GapSourceUnavailable, match="no gap series"):
             CsvGapSource(root=tmp_path).daily_bars(Symbol("TSLA"))
 
+    def test_an_unreadable_path_is_unavailable_rather_than_malformed(self, tmp_path: Path) -> None:
+        """The `OSError` branch that a missing file does not reach.
+
+        `FileNotFoundError` is a subclass of `OSError`, so the missing-file test above is caught by
+        the first handler and never touches the second. A directory where the file should be is the
+        simplest error that is not a missing file: the path exists, so the first handler does not
+        catch it, and reading it raises `IsADirectoryError`.
+
+        The distinction is load-bearing. Both outcomes are `GapSourceUnavailable` -- a datum the
+        service cannot obtain -- rather than `GapSourceMalformed`, which would blame the data and
+        route the session differently.
+        """
+        (tmp_path / "NVDA.csv").mkdir()
+        with pytest.raises(GapSourceUnavailable, match="could not read"):
+            CsvGapSource(root=tmp_path).daily_bars(NVDA)
+
     def test_a_file_for_one_symbol_is_not_returned_for_another(self, tmp_path: Path) -> None:
         write(tmp_path, NVDA, "2026-09-10,100.00,102.00\n")
         with pytest.raises(GapSourceUnavailable):

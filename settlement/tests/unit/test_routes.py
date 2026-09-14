@@ -7,6 +7,7 @@ has only been tested with a print present is a route whose distinguishing behavi
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -203,6 +204,37 @@ class TestTheFallbackBranches:
         assert plain.payoff_wad is challenged.payoff_wad is None
         assert "challenge" in challenged.rationale
         assert "challenge" not in plain.rationale
+
+    def test_r5_distinguishes_a_challenged_commitment_with_a_fallback(self) -> None:
+        """The third state: challenged *and* a trailing-realised fallback registered.
+
+        R5's rationale has three cases and the test above reaches two of them -- no challenge, and a
+        challenge with no fallback. The middle one is the state the fallback mechanism exists to
+        produce: the commitment is under dispute, so the pool cannot price on it, but a registered
+        fallback means it can price on something rather than halting. All three defer, so the payoff
+        cannot tell them apart; the rationale is the only thing that can, so it is what is
+        asserted.
+        """
+        with_fallback = route_for(RouteId.R5).evaluate(
+            inputs(challenge_open=True, fallback_registered=True)
+        )
+        without_fallback = route_for(RouteId.R5).evaluate(inputs(challenge_open=True))
+
+        assert with_fallback.action is SettlementAction.DEFER
+        assert with_fallback.payoff_wad is None
+        assert "fallback" in with_fallback.rationale
+        assert with_fallback.rationale != without_fallback.rationale
+
+    def test_the_adjusted_gap_refuses_a_zero_multiplier(self) -> None:
+        """The ex-date adjustment divides by the current multiplier, so a zero leaves it undefined.
+
+        `RouteInputs` does not refuse a zero at construction: a route that never asks for the
+        adjusted gap should not be made to care, and the four routes that do not are the majority.
+        The refusal belongs where the division is.
+        """
+        zeroed = replace(inputs(drifted=True), multiplier_now=Decimal(0))
+        with pytest.raises(ValueError, match="zero multiplier"):
+            zeroed.adjusted_gap_wad(WAD)
 
 
 class TestRouteDeclarations:

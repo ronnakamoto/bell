@@ -10,6 +10,7 @@ dependencies = []
 [project.optional-dependencies]
 dev = [
   "pytest==9.1.1",
+  "pytest-cov==7.1.0",
   "mypy==2.3.1",
   "ruff==0.16.7",
   "pycryptodome==3.23.0",
@@ -113,4 +114,29 @@ layers = [
   "bell_calibrator.adapters",
   "bell_calibrator.application",
   "bell_calibrator.domain",
+]
+
+# --------------------------------------------------------------------------- coverage
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+# What is excluded, and why each one is not a path a test could take:
+#
+#   `...`              a `Protocol` method body. A protocol is a declaration, never instantiated and
+#                      never called, so its body is not executable code. Counting it makes every
+#                      ports module read as uncovered and hides the modules that are.
+#   `if TYPE_CHECKING` an import guard, which by construction does not run at runtime.
+#   `raise NotImplementedError` and `@overload`  the same argument as `...`.
+#
+# Excluding these is not a way to raise a number. Each is a declaration that no input can reach, and
+# the alternative -- a `# pragma: no cover` on every protocol method -- would put the same
+# justification in twenty places instead of one.
+[tool.coverage.report]
+exclude_also = [
+  '\.\.\.',
+  'if TYPE_CHECKING:',
+  'raise NotImplementedError',
+  '@overload',
 ]

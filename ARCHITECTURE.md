@@ -56,13 +56,23 @@ The contracts live in each workspace's `pyproject.toml` under `[tool.importlinte
 untracked `TODO`. It walks every Python workspace, so a new one is covered by adding a row to
 `WORKSPACES` in `tools/check_layout.py`.
 
-`make check-coverage` asserts the brief's two coverage rules: 100% on every metric for
-`contracts/src/libraries/`, and at least 95% lines for `src/**`. It parses `forge coverage`'s
-per-file rows rather than its `Total` row, and the reason is worth knowing before reading any
-coverage number in this repository: `Total` sums every instrumented contract including the test
-helpers and mocks, so it reports **81.07%** on a source tree that is at **95.72%**. Both figures are
-accurate; only one answers the brief. `tools/check_coverage.py` applies the rules to the sources and
-exits non-zero on either, and it was checked against a known-failing report before being trusted.
+`make check-coverage` asserts every coverage rule the brief states. For the contracts: 100% on every
+metric for `contracts/src/libraries/`, and at least 95% lines for `src/**`. For the services: at
+least 95% each on `coverage.py`'s combined line-and-branch measure, run through `pytest-cov` so the
+measurement is the one `make coverage` prints rather than a second opinion that could disagree with it.
+
+For the contracts it parses `forge coverage`'s per-file rows rather than its `Total` row, and the
+reason is worth knowing before reading any coverage number in this repository: `Total` sums every
+instrumented contract including the test helpers and mocks, so it reports **81.07%** on a source tree
+that is at **99.46%**. Both figures are accurate; only one answers the brief.
+
+Two exclusions are configured in each workspace's `pyproject.toml`, and both are declarations rather
+than behaviour: `...` (a `Protocol` method body, which is never instantiated or called) and
+`if TYPE_CHECKING:`. Counting a declaration as behaviour makes every ports module read as uncovered
+and hides the modules that are not.
+
+`tools/check_coverage.py` applies all three rules and exits non-zero on any of them. It was checked
+against a known-failing report before being trusted.
 
 ## The ports
 

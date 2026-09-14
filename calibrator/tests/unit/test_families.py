@@ -146,6 +146,18 @@ class TestTheEmpiricalSeed:
         assert fit.family == "empirical"
         assert fit.observations == 7
 
+    def test_the_published_premium_is_the_fit_premium(self) -> None:
+        """`premium_per_unit_wad` is what the registry publishes, so it must be the fit's premium.
+
+        Two names for one quantity, and they exist because the fit speaks in premium terms while the
+        commitment speaks per unit of notional. Pinned because a divergence between what a publisher
+        committed and what its own fit produced is the failure the commitment mechanism exists to
+        detect -- and a property that drifted would make it silent.
+        """
+        fit = FAMILIES["empirical"].fit(15 * WAD, GapSample((wad("0.01"),) * 100))
+        assert fit.premium_per_unit_wad == fit.premium_wad
+        assert fit.premium_per_unit_wad == wad("0.15")
+
 
 class TestTheGaussianRejection:
     def test_the_gaussian_is_not_the_seed(self) -> None:

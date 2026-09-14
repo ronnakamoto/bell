@@ -71,6 +71,17 @@ class TestTruncatedAbsMoment:
     def test_zero_sigma_is_zero(self) -> None:
         assert moments.truncated_abs_moment(wad("15"), Decimal(0), Decimal(0)) == Decimal(0)
 
+    def test_the_cap_form_refuses_a_zero_sigma(self) -> None:
+        """The cap form divides by sigma, so it refuses a zero rather than raising a division error.
+
+        `truncated_abs_moment` handles `sigma == 0` before it delegates, so this guard is reachable
+        only by calling the cap form directly -- which is why it had never fired. It is public API:
+        a caller holding a cap rather than a leverage is meant to use it, and it should fail with a
+        message that says what is wrong.
+        """
+        with pytest.raises(ValueError, match="non-zero sigma"):
+            moments.truncated_abs_moment_at_cap(wad("0.05"), Decimal(0))
+
     def test_zero_leverage_is_the_untruncated_mean(self) -> None:
         # The paper's stated c -> infinity limit: the moment tends to sigma * sqrt(2/pi), the
         # expected absolute move. This is what makes the two branches continuous at the boundary,
