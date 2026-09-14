@@ -1432,6 +1432,96 @@ settlement service's 14 at 100%. The two workspaces went from 130 + 77 tests to 
 
 
 
+## F50 — The brief scopes three artifacts, and none of them is the surface a participant touches
+
+Raised by a question rather than by the build: *"So BELL won't have a UI? If so, how would users
+interact?"* It is worth recording because the answer is not "it was out of scope" — it is that the
+paper argues the interface is load-bearing, and the brief does not scope one.
+
+**What the brief scopes.** §3 names three deployable artifacts: the contracts, the calibrator and the
+settlement service. All three are built and tested. None of them is user-facing in the sense a
+participant means. The contracts are a machine interface. The two services are operational
+infrastructure: the calibrator is a scheduled batch job — it must run *before* a session opens, since
+a commitment has to precede the session it is for — and the settlement service evaluates routes and
+adjudicates challenges. Neither is something a holder "uses".
+
+**Why that is a gap rather than a scoping choice.** The paper is explicit about who the participants
+are, and it justifies its central design property by them. From §4.2, immediately after the solvency
+theorem:
+
+> "In a market whose participants are **largely retail**, holding positions across a 65-hour weekend
+> with no ability to monitor a margin call, this is not a convenience feature — it is the difference
+> between a product that can be offered and one that cannot."
+
+The no-liquidation design exists *because* the users cannot be expected to monitor positions. That is
+an argument that the interface is part of the product rather than decoration: the participant who
+cannot watch a margin call is not going to call `cast send` on a Saturday. Note that "65-hour weekend"
+is not rhetorical — the weekend session in `spec/constants.yaml` is 65.5 hours, and it is the flagship
+term.
+
+**What exists today.** Everything on chain is permissionless and complete: `mintPair`, `buyLong`,
+`buyShort`, `swapShortForLong`, `swapLongForShort`, `seedPool`, `redeemPair`, `withdrawPool`, `claim`,
+`close`, and on the pricing side `commit`, `challenge`, `resolve` and `quote`. A technical user can
+drive all of it through a block explorer's write tab or `cast`.
+
+**What does not exist is discovery, and discovery is a read problem.** `SessionFactory.sessionDeployed`
+is a mapping keyed by `salt = (referenceToken, lamWad, expiryTimestamp)`, so it answers *"does this
+session exist"* and not *"which sessions exist"*. `predictSession` derives an address from those three
+values, so a client can find a session whose parameters it already knows. But there is no enumerable
+list — no session registry, no indexer, no subgraph, no API. To browse what is available today a client
+would compute the cross product of every name, every listed leverage (`listedLadder()`) and every
+expiry, and make an RPC call per candidate. That is precisely what an indexer is for, and it is the
+single missing piece: the contracts are fully usable *if you already know the address*, and nothing
+tells you the address.
+
+**The surfaces the protocol needs, by actor.**
+
+| Actor | What they need | Right surface |
+|---|---|---|
+| Holder hedging inventory | browse sessions, see the premium, buy a leg, see the position, claim after settlement | web app |
+| Liquidity provider | pool depth and price, provide at a neutral ratio, withdraw after settlement | web app |
+| Publisher | run the fit, commit with a bond, withdraw after the lock | CLI (the calibrator) |
+| Challenger | fetch a commitment's inputs, re-run the fit, challenge, read the ruling | CLI plus a web view |
+| Arbiter | the deterministic re-run and its inputs | CLI |
+| Session authority | advance the counter, register fallbacks | CLI or ops script |
+
+So it is two audiences and two surfaces rather than one: a web app for holders and liquidity
+providers, and the existing command-line services for the operators. That is also why D4's answer is
+not "Python instead of Next.js" — the web app is the tier Next.js is for.
+
+**What the web app must do that a block explorer cannot**, which is the actual specification:
+
+- **Render `quote`'s three-valued verdict honestly.** `Usable`, `Fallback`, `Refuse` — and `Refuse`
+  means *do not price at all*. An interface that rendered a refusal as a number would mint a free
+  claim. This is a correctness requirement on the UI, not a presentation preference, and it is the
+  sharpest one.
+- **Set the slippage floor knowingly.** `buyLong(collateralIn, minOut)` — `minOut` is the user's only
+  protection against the pool moving, and it is a parameter a person has to choose rather than a
+  default.
+- **Batch the multi-step transactions.** Buying Long is `approve` then `buyLong`; providing liquidity
+  is `mintPair` then `approveClaims` then `seedPool`. Raw wallets make this error-prone in a way that
+  loses money when it goes wrong.
+- **Show the position after settlement.** Once the payoff is fixed, a holder needs both balances, their
+  value at that payoff, and then `claim`.
+- **Make challenging practical.** A challenger needs the committed `inputsHash`, the raw inputs from a
+  `CommittedInputStore`, and a re-run of the fit to compare against. This is the trust mechanism's
+  weakest operational link: if verification is inconvenient, the bond is the only deterrent left, and
+  the paper's whole argument is that the bond polices discretion *because* verification is cheap.
+
+**The constraint the interface must respect: it must be optional for correctness.** The claims are
+ERC-20s and the payoff is fixed on chain, so a holder can always `claim` directly. The app must never
+hold keys or funds, and there is no liquidation engine for it to be the sole access to — which is the
+paper's own point. A frontend outage is therefore an inconvenience rather than a loss, and that is what
+makes shipping the interface *after* the protocol the correct order rather than a shortcut.
+
+**Not built, and deliberately not built in this pass.** The brief scoped three artifacts; this is a
+fourth, and building it would mean inventing scope. Recorded so the gap is a decision rather than an
+oversight, and so the next pass has a specification to build against. The order that follows from the
+above is: indexer first (the discovery layer is what the app reads), then the web app, then the
+challenge tooling.
+
+
+
 ## Still open
 
 | # | Item | Blocking |

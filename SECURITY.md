@@ -16,7 +16,11 @@ make it visible rather than to hide it.
 Measuring showed that costs 685,590 gas against 2,640 for a storage read, a factor of about 260. The
 oracle publishes the *transformed result* — a leverage and a premium — and the discretion that
 creates is policed by a commitment, a bond and a deterministic re-run. `PremiumRegistry` is that
-policing mechanism; it is specified in the paper's §7.11 and is not yet built here.
+policing mechanism: specified in the paper's §7.11 and built in `contracts/src/pricing/`
+(`PremiumStore` holds the record, `PremiumRegistry` the decisions). Its authority is narrow by
+construction — it cannot alter a parameter, only rule on whether a committed one matches its
+committed inputs — which is why `inputsHash` is load-bearing and why the ruling is a deterministic
+re-run rather than a matter of testimony.
 
 ## What the design protects, and how
 
@@ -38,19 +42,24 @@ problem, and that feeding it measured data delivers the stated rate.
 
 ## The guard set
 
-Five settlement guards, under the paper's identifiers. None is built yet — this table is the
-specification they will be held to, and each needs both a positive and a negative test.
+Five settlement guards, under the paper's identifiers. **All five are built**, each with a positive
+and a negative test, and the table records where each lives so a reader can check it rather than take
+it on trust. This section previously read "none is built yet" — it was written before the stateful
+core existed and was never updated, which is worse than useless in a security document: a reader would
+conclude the protocol ships without G3, G8, G9, G10 or G10b.
 
-| ID | Guard | Behaviour | Failure mode it prevents |
+| ID | Guard | Where it lives | Failure mode it prevents |
 |---|---|---|---|
-| G3 | Tier-1 halt band | reject a print whose absolute gap exceeds the configured band; ±5% is the correct band for this universe | a feed fault or a bad print entering the print set |
-| G8 | Multiplier drift | detect a reference-token multiplier change between deployment and settlement and route to the terminal branch | a spurious gap recorded on every ex-date, roughly quarterly per name |
-| G9 | Collateral decimals | assert `decimals()` at construction | an 18-decimal collateral producing a session wrong by 1e12 with no revert, no event and no signal |
-| G10 | Issuer pause | refuse to settle on a paused reference token, **opt-in per token** | settling on a feed frozen while a corporate action is processed |
-| G10b | Sequencer uptime | refuse to settle while the L2 sequencer is down, or within a grace period after it returns | settling on stale L2 state |
+| G3 | Tier-1 halt band | `ReferencePrintBook.submitPrint` against `haltBandWad` | a feed fault or a bad print entering the print set |
+| G8 | Multiplier drift | `ReferenceRegistry._multiplierDrifted`, routing to `Branch.CorporateActionTerminal` | a spurious gap recorded on every ex-date, roughly quarterly per name |
+| G9 | Collateral decimals | asserted in the `SessionPool` constructor | an 18-decimal collateral producing a session wrong by 1e12 with no revert, no event and no signal |
+| G10 | Issuer pause | `ReferenceRegistry._requireIssuerNotPaused`, opt-in through `pauseChecked` | settling on a feed frozen while a corporate action is processed |
+| G10b | Sequencer uptime | `ReferencePrintBook._requireSequencerUp` | settling on stale L2 state |
 
 Plus a plausibility check at the **ingestion** boundary, which is not one of the five: it rejects an
-implausible gap before it can enter the print set.
+implausible gap before it can enter the print set. It is deliberately checked *before* the G3 halt
+band, because the plausibility band is the wider of the two and a gross feed fault would otherwise be
+reported as a halt — naming the wrong defect to whoever has to act on it. See DESIGN_NOTES.md F31.
 
 ### The pitfall the guard set must design against
 
@@ -61,8 +70,11 @@ exactly this and taking two passing settlement scenarios red against the real ch
 revert, but with a storage error at the RPC layer, before the return value was ever inspected.
 
 The guard is therefore a **registry** (`setPauseChecked(token, bool)`): an unregistered reference is
-never probed and settles exactly as it did before the guard existed. The required test is that an
-unregistered token is not probed.
+never probed and settles exactly as it did before the guard existed. That is implemented, and the test
+that matters — that an unregistered token is not probed, and settles on the live branch regardless —
+is in `contracts/test/unit/ReferenceRegistry.t.sol`. The registry's own configuration surface
+(authority-only, and refusing the zero address, which is the mapping's "not registered" value) is
+tested alongside it.
 
 ## Residual risks, stated rather than glossed
 

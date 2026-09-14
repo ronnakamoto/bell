@@ -82,13 +82,20 @@ The fork suite is the one item that cannot run here: the brief requires tests ag
 block on chain 4663 but supplies no RPC endpoint, so `make test-fork` skips with an explanation
 (F6). Everything else in the brief is executable and executed.
 
-`DESIGN_NOTES.md` carries 49 findings. Most are defects the build found in itself rather than
+`DESIGN_NOTES.md` carries 50 findings. Most are defects the build found in itself rather than
 objections to the brief, and most of those were surfaced by reading the coverage report as a
 diagnostic rather than by reading code: a pool-draining swap path in `Amm` (F44), a missing depth
 guard in `SessionPool` (F45), three files with no tests at all (F46), a `resolve`/`preview`
 divergence that panicked and left a session permanently unsettleable (F47), a one-pair seed that
 stranded a claim and made `close()` unreachable (F48), and a coverage target that could not run
 because its dependency was never declared (F49).
+
+F50 records the one gap that is a matter of scope rather than defect: the brief's three artifacts are
+the protocol and its two services, and none of them is the surface a participant touches. The paper
+justifies no-liquidation by participants who are "largely retail" and cannot monitor a margin call
+over a 65-hour weekend (§4.2), which makes the interface part of the product rather than a
+convenience. What is missing is discovery — the factory cannot enumerate sessions — so the order is
+an indexer, then a web app, then the challenge tooling.
 
 ## Deploy
 
