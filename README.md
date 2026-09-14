@@ -60,9 +60,17 @@ inside a recipe with `No module named pytest`.
 | Suite | Tests |
 |---|---|
 | Solidity — unit, fuzz, invariant, differential, gas, adversarial | 353 |
-| Calibrator — Python | 164 |
-| Settlement — Python | 83 |
-| **Total** | **600** |
+| TypeScript — calibrator (in progress) | 14 |
+| Calibrator — Python (being ported to TypeScript) | 164 |
+| Settlement — Python (being ported to TypeScript) | 83 |
+| **Total** | **614** |
+
+**The stack is Solidity for the contracts and TypeScript for everything around them** (ruling R5),
+which supersedes the brief's §6. The port is in progress: the workspace scaffold, the gates and the
+calibrator's `domain/digest` are done and verified against the committed fixture; `moments`, the rest
+of the domain, the application layer, the adapters, the settlement service, `tools/` and the 247
+ported tests remain. Both stacks are present while the port runs, and `make test` / `make check` cover
+both.
 
 `make build`, `make test` and `make check` all pass. Every coverage rule the brief states is met and
 asserted by `make check-coverage` rather than eyeballed:
