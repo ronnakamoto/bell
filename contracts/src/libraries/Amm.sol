@@ -16,12 +16,18 @@ import {WadMath} from "./WadMath.sol";
 ///      the settlement contract, which is what keeps the sum-to-one invariant exact rather than
 ///      approximate (paper §4.4).
 library Amm {
-    /// @dev Thrown when a denominator would be zero.
-    error DivByZero();
-
     /// @dev Thrown when the invariant is degenerate, i.e. one reserve is empty. With `k = 0` the
     ///      cost function is unbounded: the pool would hand over its entire reserve for an
     ///      arbitrarily small deposit.
+    ///
+    ///      **This is the only degenerate-input error the library declares**, and every function
+    ///      that divides by a reserve checks it. There was previously a second error, `DivByZero`,
+    ///      guarding a `denominator == 0` test in four places. All four were dead. In
+    ///      `longReceived` and `shortReceived` the `a == 0 || b == 0` test above them already
+    ///      guarantees a non-zero denominator, and in `longOutForShortIn` and `shortOutForLongIn`
+    ///      the denominator is a reserve plus a quantity, which is zero only if the reserve is --
+    ///      the case this error already names. An error that cannot be thrown is an untested path,
+    ///      and the brief forbids those, so it was removed rather than tested around.
     error PoolDepthZero();
 
     /// @dev Thrown when a price is requested for a zero quantity, where the average is undefined.
@@ -52,14 +58,20 @@ library Amm {
     /// @param shortIn short claims deposited.
     /// @return Long claims out: `a * shortIn / (b + shortIn)`.
     /// @dev From `(a - out) * (b + shortIn) = a * b`.
+    ///
+    ///      The depth guard is not decoration. Without it, `b == 0` and `shortIn > 0` returns
+    ///      `a * shortIn / shortIn`, i.e. the *entire* long reserve, for an arbitrarily small short
+    ///      deposit -- a pool-draining trade, and the same failure `PoolDepthZero` names above.
+    ///      `SessionPool` rejects a zero reserve before it calls in, so this cannot be reached
+    ///      through the protocol; the guard is here because a library that is only safe when its
+    ///      caller is careful is not a library that is safe.
     function longOutForShortIn(uint256 a, uint256 b, uint256 shortIn)
         internal
         pure
         returns (uint256)
     {
-        uint256 denominator = b + shortIn;
-        if (denominator == 0) revert DivByZero();
-        return (a * shortIn) / denominator;
+        if (a == 0 || b == 0) revert PoolDepthZero();
+        return (a * shortIn) / (b + shortIn);
     }
 
     /// @notice Short received for a given Long deposit, holding `k` fixed.
@@ -67,14 +79,15 @@ library Amm {
     /// @param b short reserve at WAD scale.
     /// @param longIn long claims deposited.
     /// @return Short claims out: `b * longIn / (a + longIn)`.
+    /// @dev The mirror of `longOutForShortIn`, and the guard is there for the mirror reason: with
+    ///      `a == 0` the expression collapses to `b`, draining the short reserve.
     function shortOutForLongIn(uint256 a, uint256 b, uint256 longIn)
         internal
         pure
         returns (uint256)
     {
-        uint256 denominator = a + longIn;
-        if (denominator == 0) revert DivByZero();
-        return (b * longIn) / denominator;
+        if (a == 0 || b == 0) revert PoolDepthZero();
+        return (b * longIn) / (a + longIn);
     }
 
     /// @notice Collateral required to acquire `longOut` Long claims, in the rationalised form.
@@ -130,15 +143,18 @@ library Amm {
     ///      `Q(x + b) = x^2 + x(a + b)`. Kept as the closed form rather than as a root-finder:
     ///      the paper measures the closed form at 1.80e-15 against 2.48e-08 for a numerical root
     ///      finder on the same quantity (check M2).
+    ///
+    ///      There is no `denominator == 0` check here, and the reason is arithmetic rather than
+    ///      optimism: the depth guard above establishes `b != 0`, `collateralIn >= 0`, and Solidity
+    ///      0.8 arithmetic reverts on overflow rather than wrapping, so `collateralIn + b >= 1`
+    ///      always. A check that cannot fail is a branch that cannot be covered.
     function longReceived(uint256 a, uint256 b, uint256 collateralIn)
         internal
         pure
         returns (uint256)
     {
         if (a == 0 || b == 0) revert PoolDepthZero();
-        uint256 denominator = collateralIn + b;
-        if (denominator == 0) revert DivByZero();
-        return (collateralIn * (collateralIn + a + b)) / denominator;
+        return (collateralIn * (collateralIn + a + b)) / (collateralIn + b);
     }
 
     /// @notice Total Short claims received for a collateral deposit, by symmetry.
@@ -152,9 +168,7 @@ library Amm {
         returns (uint256)
     {
         if (a == 0 || b == 0) revert PoolDepthZero();
-        uint256 denominator = collateralIn + a;
-        if (denominator == 0) revert DivByZero();
-        return (collateralIn * (collateralIn + a + b)) / denominator;
+        return (collateralIn * (collateralIn + a + b)) / (collateralIn + a);
     }
 
     /// @notice The average price paid per Long claim.

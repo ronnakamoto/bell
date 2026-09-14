@@ -209,7 +209,15 @@ abstract contract SessionPool is ReentrancyGuard {
     /// @notice Swap short claims already held for long claims from the pool.
     /// @dev The pool's price is unaffected by the pair accounting, so this path is available to any
     ///      holder and is the one that requires an allowance.
+    ///
+    ///      The depth guard is here for the same reason it is in `_acquireLong`, `_acquireShort` and
+    ///      `_poolPriceLongWad`, and its absence was a real hole rather than a missing line: with one
+    ///      reserve empty, `Amm.longOutForShortIn` would price the swap against a pool that has
+    ///      nothing on one side, and the trade would take the whole of the other. Found by the
+    ///      invariant handler once `Amm` began refusing the degenerate case; the pool should never
+    ///      have been the second line of defence here.
     function _swapShortForLong(address trader, uint256 shortIn) internal returns (uint256 longOut) {
+        if (longReserve == 0 || shortReserve == 0) revert PoolDepthZero();
         longOut = Amm.longOutForShortIn(longReserve, shortReserve, shortIn);
         longReserve -= longOut;
         shortReserve += shortIn;
@@ -218,7 +226,10 @@ abstract contract SessionPool is ReentrancyGuard {
     }
 
     /// @notice Swap long claims already held for short claims from the pool.
+    /// @dev Guarded for the mirror reason. This is the direction that can *create* the degenerate
+    ///      state, because it draws its payout out of the short reserve while adding to the long one.
     function _swapLongForShort(address trader, uint256 longIn) internal returns (uint256 shortOut) {
+        if (longReserve == 0 || shortReserve == 0) revert PoolDepthZero();
         shortOut = Amm.shortOutForLongIn(longReserve, shortReserve, longIn);
         longReserve += longIn;
         shortReserve -= shortOut;

@@ -283,6 +283,103 @@ contract SessionTest is Test {
         );
     }
 
+    /// @notice The Short side of the trade, which is the mirror of `buyLong` and was untested.
+    /// @dev Found by reading the branch-coverage report rather than by reading the tests: the whole
+    ///      of `SessionPool._acquireShort` had zero hits, because nothing in the unit suite ever
+    ///      bought a Short. The invariant suite calls `buyShort`, but an invariant handler picks a
+    ///      branch per run, so a path can stay cold for a long time and report as covered only in
+    ///      the aggregate. A mirror of the Long test is cheap and it is the only thing that pins the
+    ///      direction.
+    function test_buyShort_deliversTheMintedLegPlusTheSwappedOne() public {
+        _seed(alice, SEED_LONG, SEED_SHORT);
+        uint256 collateralIn = 1_000 * UNIT;
+        uint256 expectedSwap =
+            Amm.shortOutForLongIn(session.longReserve(), session.shortReserve(), collateralIn);
+        uint256 before = session.shortClaim().balanceOf(bob);
+
+        _approve(bob, collateralIn);
+        vm.prank(bob);
+        session.buyShort(collateralIn, 0);
+
+        assertEq(
+            session.shortClaim().balanceOf(bob) - before,
+            collateralIn + expectedSwap,
+            "minted plus swapped"
+        );
+        assertEq(session.totalPairSupply(), SEED_LONG + SEED_SHORT + collateralIn);
+        assertTrue(session.isCollateralised(), "solvency holds through a short-side trade");
+    }
+
+    function test_buyShort_enforcesTheSlippageFloor() public {
+        _seed(alice, SEED_LONG, SEED_SHORT);
+        uint256 collateralIn = 1_000 * UNIT;
+        uint256 expectedSwap =
+            Amm.shortOutForLongIn(session.longReserve(), session.shortReserve(), collateralIn);
+        uint256 impossible = collateralIn + expectedSwap + 1;
+
+        _approve(bob, collateralIn);
+        vm.prank(bob);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SessionPool.SlippageExceeded.selector, collateralIn + expectedSwap, impossible
+            )
+        );
+        session.buyShort(collateralIn, impossible);
+    }
+
+    /// @notice Buying a Short moves the pool the opposite way from buying a Long.
+    /// @dev The assertion that makes this test worth having rather than a second copy of the one
+    ///      above: it pins the *direction* of each reserve. A sign error in `_acquireShort` --
+    ///      `longReserve -= collateralIn` instead of `+=` -- would satisfy every other test in this
+    ///      file, because each of them only ever checks the leg the trader received and the
+    ///      invariant `k`, and `k` is preserved by the wrong sign too.
+    function test_buyShort_movesThePoolTheOppositeWayFromBuyLong() public {
+        _seed(alice, SEED_LONG, SEED_SHORT);
+        uint256 collateralIn = 1_000 * UNIT;
+        uint256 a = session.longReserve();
+        uint256 b = session.shortReserve();
+        uint256 swap = Amm.shortOutForLongIn(a, b, collateralIn);
+
+        _approve(bob, collateralIn);
+        vm.prank(bob);
+        session.buyShort(collateralIn, 0);
+
+        assertEq(session.longReserve(), a + collateralIn, "the long reserve grows by the deposit");
+        assertEq(session.shortReserve(), b - swap, "the short reserve falls by what was paid out");
+    }
+
+    function test_swapLongForShort_movesThePoolAndPreservesK() public {
+        _seed(alice, SEED_LONG, SEED_SHORT);
+        _mintPairAs(bob, 5_000 * UNIT);
+        _approveClaims(bob, 5_000 * UNIT);
+
+        uint256 kBefore = Amm.k(session.longReserve(), session.shortReserve());
+        uint256 shortBefore = session.shortClaim().balanceOf(bob);
+        vm.prank(bob);
+        session.swapLongForShort(5_000 * UNIT, 0);
+
+        assertGt(session.shortClaim().balanceOf(bob), shortBefore, "received short");
+
+        // `k` can only rise, because the pool floors the payout it hands over. That inequality is
+        // the invariant; the relative bound below is the floor's contribution and nothing more.
+        //
+        // It is looser here than in `swapShortForLong` above, and the reason is not sloppiness: the
+        // seeded pool's short reserve is about five times smaller than its long reserve, so a payout
+        // drawn from it floors a correspondingly larger fraction. Measured drift is 3.1e-10% against
+        // 1e-10% for the other direction, which is why one tolerance cannot serve both.
+        uint256 kAfter = Amm.k(session.longReserve(), session.shortReserve());
+        assertGe(kAfter, kBefore, "k never decreases");
+        assertApproxEqRel(kAfter, kBefore, 1e8, "k is preserved to within the integer floor");
+    }
+
+    /// @notice `poolDepth()` is the denominator of the slippage law, so it must be the sum.
+    function test_poolDepth_isTheSumOfTheReserves() public {
+        _seed(alice, SEED_LONG, SEED_SHORT);
+        assertEq(
+            session.poolDepth(), session.longReserve() + session.shortReserve(), "depth is a + b"
+        );
+    }
+
     // ---------------------------------------------------------------- lifecycle
 
     function test_expire_revertsBeforeTheExpiry() public {

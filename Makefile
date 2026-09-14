@@ -22,7 +22,7 @@ TOOLS := tools
 
 .PHONY: help venv build test test-contracts test-calibrator test-settlement test-fork check \
         check-format check-lint check-types check-architecture check-layout check-generated \
-        deploy deploy-fork diagnostics gas coverage clean
+        check-coverage deploy deploy-fork diagnostics gas coverage clean
 
 help: ## List every target
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -102,7 +102,7 @@ gas: ## Per-operation gas report, against the brief's §13.3 budget
 
 # ---------------------------------------------------------------------------- check
 
-check: check-format check-lint check-types check-architecture check-layout check-generated ## Everything CI runs
+check: check-format check-lint check-types check-architecture check-layout check-generated check-coverage ## Everything CI runs
 
 check-format: ## Formatter check
 	cd $(CONTRACTS) && forge fmt --check
@@ -125,6 +125,9 @@ check-layout: ## The §6 layout rules, mechanically
 
 check-generated: ## Fail if any generated file is stale
 	$(PYTHON) $(TOOLS)/gen_constants.py --check
+
+check-coverage: ## The brief's two coverage rules, asserted rather than eyeballed
+	$(PYTHON) $(TOOLS)/check_coverage.py
 
 # ---------------------------------------------------------------------------- housekeeping
 

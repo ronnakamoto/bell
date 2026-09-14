@@ -64,6 +64,40 @@ contract AmmTest is Test {
         assertApproxEqRel((A + longIn) * (B - out), Amm.k(A, B), 1e6, "k is preserved");
     }
 
+    /// @notice Both swap directions reject a pool with an empty reserve.
+    /// @dev These two tests exist because the branch coverage report said so. `longOutForShortIn`
+    ///      and `shortOutForLongIn` were the only functions in this library without the
+    ///      `PoolDepthZero` guard the other three carry, and the gap was invisible: `SessionPool`
+    ///      rejects a zero reserve before it calls in, so nothing in the protocol ever reached the
+    ///      unguarded path. Calling the library directly does.
+    ///
+    ///      The consequence is worth stating, because it is why this is a fix rather than a
+    ///      coverage chore. With `b == 0` and `shortIn > 0`, `a * shortIn / (b + shortIn)` reduces
+    ///      to `a * shortIn / shortIn`, i.e. the *whole* long reserve for an arbitrarily small
+    ///      deposit. That is the pool-draining trade `PoolDepthZero` is documented to prevent.
+    function test_longOutForShortIn_revertsOnDegeneratePool() public {
+        vm.expectRevert(Amm.PoolDepthZero.selector);
+        this.externalLongOutForShortIn(0, B, 1e18);
+        vm.expectRevert(Amm.PoolDepthZero.selector);
+        this.externalLongOutForShortIn(A, 0, 1e18);
+    }
+
+    function test_shortOutForLongIn_revertsOnDegeneratePool() public {
+        vm.expectRevert(Amm.PoolDepthZero.selector);
+        this.externalShortOutForLongIn(0, B, 1e18);
+        vm.expectRevert(Amm.PoolDepthZero.selector);
+        this.externalShortOutForLongIn(A, 0, 1e18);
+    }
+
+    /// @notice A zero deposit into a deep pool is not a drain: the guard is on depth, not on size.
+    /// @dev The counterpart to the two tests above, and it pins what the guard is *not* doing. A
+    ///      guard that also rejected a zero deposit would be a different rule, and the pool's own
+    ///      `ZeroAmount` check is where that belongs.
+    function test_longOutForShortIn_aZeroDepositIsNotADrain() public pure {
+        assertEq(Amm.longOutForShortIn(A, B, 0), 0, "no claims for no deposit");
+        assertEq(Amm.shortOutForLongIn(A, B, 0), 0, "no claims for no deposit");
+    }
+
     // ---------------------------------------------------------------- the cost function
 
     /// @dev The paper's worked example (its §4.4), reproduced exactly: with a = 1,000, b = 200 and
@@ -153,6 +187,22 @@ contract AmmTest is Test {
 
     function externalPriceLongWad(uint256 a, uint256 b) external pure returns (uint256) {
         return Amm.priceLongWad(a, b);
+    }
+
+    function externalLongOutForShortIn(uint256 a, uint256 b, uint256 shortIn)
+        external
+        pure
+        returns (uint256)
+    {
+        return Amm.longOutForShortIn(a, b, shortIn);
+    }
+
+    function externalShortOutForLongIn(uint256 a, uint256 b, uint256 longIn)
+        external
+        pure
+        returns (uint256)
+    {
+        return Amm.shortOutForLongIn(a, b, longIn);
     }
 
     function externalCostLongWad(uint256 a, uint256 b, uint256 q) external pure returns (uint256) {

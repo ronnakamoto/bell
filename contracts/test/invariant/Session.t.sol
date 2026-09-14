@@ -100,9 +100,17 @@ contract SessionHandler is Test {
     }
 
     /// @dev Move an existing holding across the pool.
+    ///
+    ///      The depth guard is not optional here, and its absence was a bug in this handler rather
+    ///      than in the contract. `redeem`, `seed` and `buy` all check the reserves before acting;
+    ///      this one did not, so once `Amm` and `SessionPool` began refusing to quote against an
+    ///      empty reserve, the handler drove a sequence straight into that refusal and `fail_on_revert`
+    ///      reported it. A handler is meant to explore reachable states, and an unseeded pool is not
+    ///      a state a swap can act on.
     function swap(uint256 actorSeed, uint256 amount, bool shortIn) external {
         address actor = actors[actorSeed % actors.length];
         if (session.state() != Session.State.Open) return;
+        if (session.longReserve() == 0 || session.shortReserve() == 0) return;
         uint256 held =
             shortIn ? session.shortClaim().balanceOf(actor) : session.longClaim().balanceOf(actor);
         if (held == 0) return;

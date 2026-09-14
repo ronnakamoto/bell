@@ -56,6 +56,14 @@ The contracts live in each workspace's `pyproject.toml` under `[tool.importlinte
 untracked `TODO`. It walks every Python workspace, so a new one is covered by adding a row to
 `WORKSPACES` in `tools/check_layout.py`.
 
+`make check-coverage` asserts the brief's two coverage rules: 100% on every metric for
+`contracts/src/libraries/`, and at least 95% lines for `src/**`. It parses `forge coverage`'s
+per-file rows rather than its `Total` row, and the reason is worth knowing before reading any
+coverage number in this repository: `Total` sums every instrumented contract including the test
+helpers and mocks, so it reports **81.07%** on a source tree that is at **95.72%**. Both figures are
+accurate; only one answers the brief. `tools/check_coverage.py` applies the rules to the sources and
+exits non-zero on either, and it was checked against a known-failing report before being trusted.
+
 ## The ports
 
 Declared in `bell_calibrator/domain/ports.py`; implemented in `adapters/`.

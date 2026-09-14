@@ -1018,6 +1018,104 @@ deployment would need migrating.
 
 
 
+## F44 — The coverage requirement had never been measured, and measuring it found three separate problems
+
+The brief states two coverage rules: 100% branch coverage on `contracts/src/libraries/`, and at
+least 95% overall. Neither had ever been measured. `make coverage` existed and printed a table, but
+nothing asserted anything about it, so the requirement was — in the brief's own words from §5.3 — a
+preference rather than an architecture. Measuring it was worth the six seconds.
+
+**What the first measurement found.** `src/libraries/Amm.sol` was at **55.56% branch coverage
+(5/9)** against a rule of 100%, and the source tree as a whole was at **91.01% lines (678/745)**
+against a rule of 95%. Both were violations. Both were invisible to every other check in the
+repository.
+
+**The four uncovered branches were two different problems wearing the same shape.**
+
+- **Two were dead code.** `longReceived` and `shortReceived` each carry
+  `if (a == 0 || b == 0) revert PoolDepthZero();` and then a `denominator == 0` check. The first
+  guard establishes `b != 0` (resp. `a != 0`), the numerator is unsigned, and Solidity 0.8 arithmetic
+  reverts on overflow rather than wrapping — so `collateralIn + b >= 1` always and the second check
+  can never fire. An error that cannot be thrown is an untested path, and the brief forbids those, so
+  the checks and the `DivByZero` error were removed rather than tested around. The reasoning is in
+  the NatSpec, and this is the same resolution as `sqrt`'s absent `SqrtNegative` above.
+- **Two were a real hole.** `longOutForShortIn` and `shortOutForLongIn` had *no* depth guard at all —
+  the only two functions in the library without one. With `b == 0` and `shortIn > 0`,
+  `a * shortIn / (b + shortIn)` reduces to `a * shortIn / shortIn`, i.e. **the entire long reserve for
+  an arbitrarily small deposit**. That is precisely the pool-draining trade `PoolDepthZero` is
+  documented to prevent; the library simply did not apply its own rule to its two swap functions.
+  `SessionPool` rejects a zero reserve before every call in, which is why nothing had ever reached it.
+  The guard is now there, and the two tests that cover it exist because the coverage report said so.
+
+**The uncovered *lines* were worse than the uncovered branches.** `SessionPool._acquireShort` and
+`_swapLongForShort` had **zero hits**: no unit test had ever bought a Short or swapped Long into
+Short. The invariant suite calls `buyShort`, but an invariant handler picks a branch per run, so a
+path can stay cold indefinitely and only ever appear in an aggregate. Added: a mirror of the `buyLong`
+tests, a `swapLongForShort` test, a `poolDepth()` test, and — the one that earns its place — a test
+asserting that the two buy directions move the reserves in *opposite* directions. A sign error in
+`_acquireShort` would satisfy every other test in that file, because each of them checks only the leg
+the trader received and the invariant `k`, and `k` is preserved by the wrong sign too.
+
+**The `forge coverage` `Total` row is a trap, and it is why this is a script.** That row sums *every*
+instrumented contract, including `test/mocks/` and the test contracts themselves, so it reads
+**81.07%** on a tree whose sources are at 95.72%. Both numbers are correct and only one of them
+answers the brief. `tools/check_coverage.py` therefore parses the per-file rows, applies the library
+rule to `src/libraries/` and the 95% rule to `src/**` and nothing else, and exits non-zero on either.
+It is wired into `make check` as `check-coverage`. It was verified to fail on the pre-fix report and
+on a synthetic one, because a checker that has never failed is a checker nobody has tested.
+
+**Result.** All five libraries are at 100% on lines, statements, branches and functions — the brief
+names branches, but a library at 100% branches and 80% lines has branches nobody reached. `src/**` is
+at 95.72% lines (713/745), meeting the 95% rule.
+
+**One number is an artifact and is stated rather than chased.** `ReentrancyGuard.sol` reports
+`0.00% (0/1)` branches for the `nonReentrant` modifier body, and `ClaimToken.sol` reports
+`11.11% (1/9)`. Both are exercised heavily — the adversarial suite asserts that a re-entrant call
+reverts with `ReentrancyGuard.Reentered` itself, and the invariant suite drives ~16,000 handler calls
+through guarded entry points. `forge coverage` inlines modifier bodies and attributes the hits to the
+caller, so the modifier's own source location reads zero. The evidence that the path is taken is the
+assertion on the revert *data*, which is stronger than a hit counter. Recorded rather than
+suppressed: no `--ir-minimum` and no coverage exclusion was used to make the number look better.
+
+
+
+## F45 — Making a library refuse a degenerate input exposed a pool-drain hole the missing guard had been hiding
+
+This is the direct sequel to F44, and it is the reason the `Amm` fix was a fix rather than a coverage
+chore. Adding the depth guard to `longOutForShortIn` and `shortOutForLongIn` turned a *silent* wrong
+answer into a *loud* revert — and the invariant suite immediately failed.
+
+**The failure.** `invariant_claimsAlwaysMatchThePairLedger` replayed a two-call sequence,
+`mint(115, 1617)` then `swap(2.844e17, 2687, true)`, and reverted with `PoolDepthZero()`. The
+invariant profile sets `fail_on_revert = true`, which is the right setting: a handler that swallows
+reverts explores a much smaller state space than it appears to.
+
+**Two separate defects, one of them mine to fix and one of them the pool's.**
+
+1. **The handler was inconsistent with itself.** `SessionHandler`'s own documentation says *"Every
+   action is guarded so it cannot revert."* `redeem`, `seed` and `buy` each begin with
+   `if (session.longReserve() == 0 || session.shortReserve() == 0) return;`. `swap` did not. An
+   unseeded pool is not a state a swap can act on, so the guard belongs there for the same reason it
+   is in the other three.
+2. **`SessionPool._swapShortForLong` and `_swapLongForShort` had no depth guard.** `_acquireLong`,
+   `_acquireShort` and `_poolPriceLongWad` all have one; the two swap paths did not. That is not
+   merely inconsistent — `_swapLongForShort` draws its payout out of the short reserve while adding
+   to the long one, so it is the direction that can *create* the degenerate state, and the next
+   `_swapShortForLong` against that pool would have taken the whole long reserve. The pool was
+   relying on the library to catch something it had no business delegating.
+
+**Both are fixed, and the confirmation is stronger than a passing test.** The invariant suite now
+runs to completion with **0 reverts across all seven handlers** over roughly 16,000 calls. A
+`fail_on_revert` campaign that reaches zero reverts is a statement that the handler can no longer
+reach a state the contract refuses — which is exactly the property the guard was added to establish.
+
+**The lesson worth keeping.** The guard in `Amm` was correct on its own terms and found a defect two
+layers up. That is an argument for putting a rule where the invariant lives rather than where it is
+convenient: had the guard been added only to the caller, the library would still have been unsafe for
+the next caller, and this hole would still be open.
+
+
+
 ## Still open
 
 | # | Item | Blocking |

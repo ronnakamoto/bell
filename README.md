@@ -36,7 +36,7 @@ saturation happens by construction rather than by accident.
 make venv        # create .venv and install both workspaces' dev dependencies
 make build       # generate spec-derived artifacts, then compile
 make test        # Solidity + Python suites
-make check       # formatter, linters, mypy --strict, import-linter, layout rules
+make check       # formatter, linters, mypy --strict, import-linter, layout, coverage
 make test-fork   # fork suite; needs BELL_RPC_URL, skipped if unset
 make diagnostics # print the lattice, canonical, AMM and fee numbers from the deployed code
 ```
@@ -59,18 +59,26 @@ inside a recipe with `No module named pytest`.
 
 | Suite | Tests |
 |---|---|
-| Solidity — unit, fuzz, invariant, differential, gas, adversarial | 231 |
+| Solidity — unit, fuzz, invariant, differential, gas, adversarial | 239 |
 | Calibrator — Python | 130 |
 | Settlement — Python | 77 |
-| **Total** | **438** |
+| **Total** | **446** |
 
-`make build`, `make test` and `make check` all pass. One brief requirement is not met and is recorded
-rather than hidden: `commit` costs 158,247 gas against a §13.3 cap of 150,000 — see F42 in
-`DESIGN_NOTES.md` and `GAS_REPORT.md` for the attribution and the recommended remedy.
+`make build`, `make test` and `make check` all pass. The brief's two coverage rules are met and are
+asserted by `make check-coverage` rather than eyeballed: all five libraries in `contracts/src/libraries/`
+are at 100% on lines, statements, branches and functions, and `src/**` is at 95.72% lines.
+
+One brief requirement is not met and is recorded rather than hidden: `commit` costs 158,247 gas against
+a §13.3 cap of 150,000 — see F42 in `DESIGN_NOTES.md` and `GAS_REPORT.md` for the attribution and the
+recommended remedy.
 
 The fork suite is the one item that cannot run here: the brief requires tests against a pinned
 block on chain 4663 but supplies no RPC endpoint, so `make test-fork` skips with an explanation
 (F6). Everything else in the brief is executable and executed.
+
+`DESIGN_NOTES.md` carries 45 findings. Several are defects the build found in itself rather than
+objections to the brief — F44 and F45 are a pool-draining swap path in `Amm` and a missing depth
+guard in `SessionPool`, both surfaced by measuring coverage rather than by reading code.
 
 ## Deploy
 
