@@ -1,0 +1,51 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+test = "test"
+script = "script"
+solc = "0.8.26"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 200
+
+# `spec/` holds the shared JSON fixtures and the single source of truth for domain constants.
+# Tests read them through vm.readFile, so the read path must be granted explicitly.
+fs_permissions = [{ access = "read", path = "../spec" }]
+
+# ffi stays off. It is not needed: fixtures are read with vm.readFile + vm.parseJson, which is
+# sufficient and does not hand arbitrary shell execution to a test file.
+ffi = false
+
+fuzz = { runs = 1024 }
+invariant = { runs = 256, depth = 64, fail_on_revert = true }
+
+gas_reports = ["*"]
+
+[profile.ci]
+fuzz = { runs = 10000 }
+invariant = { runs = 1024, depth = 128 }
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = false
+int_types = "long"
+multiline_func_header = "attributes_first"
+
+[lint]
+# `internal-function-used-once` is excluded deliberately. The build brief requires several of these
+# to exist as *named* functions with their own property tests -- `Stat.dpDlambda` ("must be
+# implemented as named functions with property tests, not inlined"), `Amm.linearisedCostLongWad`
+# ("must both exist as separate functions"), `Stat.erf` and `Stat.standardNormalCdf` (each carries
+# a documented error bound). Inlining them to satisfy the linter would delete the tests the brief
+# asks for.
+#
+# `unsafe-typecast` is excluded because its premise does not hold in a fixed-point math library.
+# The lint asks whether a `uint256 <-> int256` conversion can truncate; in `Stat` and `Amm` that
+# conversion *is* the subject matter, and every instance is bounded by a documented domain
+# restriction (a WAD scale, a radicand below 2^127, or a value already proven non-negative one line
+# above). The alternative -- a disable comment at each of the roughly twenty sites -- would put the
+# justification further from the bound it defends than this note does. Recorded as a suppression in
+# DESIGN_NOTES.md, per the brief's rule for suppressions.
+exclude_lints = ["internal-function-used-once", "unsafe-typecast"]

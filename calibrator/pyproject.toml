@@ -1,0 +1,116 @@
+[project]
+name = "bell-calibrator"
+version = "0.1.0"
+description = "BELL off-chain calibration and publishing service"
+requires-python = ">=3.12"
+# Runtime dependencies: none. `domain/` may not take one at all (brief §7.4), and the application
+# layer is not yet built. Every entry below is a development tool.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest==9.1.1",
+  "mypy==2.3.1",
+  "ruff==0.16.7",
+  "pycryptodome==3.23.0",
+  "pyyaml==6.0.3",
+  "import-linter==2.15",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# --------------------------------------------------------------------------- type checking
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+disallow_any_explicit = true
+files = ["src", "tests"]
+
+# The contract tests read JSON fixtures, and a JSON decode is `Any` by construction. Rather than
+# sprinkle casts, the rule is relaxed for tests only: `src` keeps it, which is where the brief's
+# "no bare Any outside an adapter boundary" rule is aimed.
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_any_explicit = false
+
+# --------------------------------------------------------------------------- linting
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "W",    # pycodestyle warnings
+  "F",    # pyflakes
+  "I",    # import sorting
+  "N",    # pep8 naming
+  "UP",   # pyupgrade
+  "ANN",  # annotations on every signature, including `-> None`
+  "B",    # bugbear
+  "A",    # builtin shadowing
+  "C4",   # comprehensions
+  "DTZ",  # naive datetimes
+  "T20",  # print statements
+  "SIM",  # simplifications
+  "PTH",  # pathlib over os.path
+  "RUF",
+]
+ignore = [
+  # `Decimal` is the domain's numeric type and ruff's default is to prefer the builtin `float`.
+  # The brief forbids `float` in the domain, so the suggestion is inverted here.
+  "RUF046",
+  # The brief's §9.2 names the adapter errors itself -- "`GapSourceUnavailable`, `CalendarMalformed`"
+  # -- and neither carries an `Error` suffix. Renaming them to satisfy the linter would break the
+  # names the specification uses, so the rule is off rather than the names being wrong.
+  "N818",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN201"] # test functions are annotated, but `-> None` on every one is noise
+
+# --------------------------------------------------------------------------- architecture
+
+[tool.importlinter]
+root_package = "bell_calibrator"
+# Required because the domain contract forbids *external* packages (`Crypto`, `requests`, ...) as
+# well as the sibling layers. Without it import-linter only considers in-repo modules, and the
+# "no third-party dependency in domain" half of the rule would be unenforced.
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "domain depends on nothing but the standard library and itself"
+type = "forbidden"
+source_modules = ["bell_calibrator.domain"]
+forbidden_modules = [
+  "bell_calibrator.application",
+  "bell_calibrator.adapters",
+  "Crypto",
+  "requests",
+  "web3",
+  "yaml",
+]
+
+[[tool.importlinter.contracts]]
+name = "application does not import adapters"
+type = "forbidden"
+source_modules = ["bell_calibrator.application"]
+forbidden_modules = ["bell_calibrator.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "the layer stack"
+type = "layers"
+layers = [
+  "bell_calibrator.adapters",
+  "bell_calibrator.application",
+  "bell_calibrator.domain",
+]

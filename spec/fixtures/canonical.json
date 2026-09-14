@@ -1,0 +1,171 @@
+{
+  "_generated": "GENERATED FILE - DO NOT EDIT BY HAND.",
+  "_source": "spec/constants.yaml (paper §7.8 Table 13, §7.11 Table 18)",
+  "_note": "pLWad is the EMPIRICAL truncated mean, the seed model. gaussian_pL is the differential reference computed from sigmaWad and lambdaWad via the paper's Eq (12): pL = lambda * E[min(|G|, 1/lambda)].",
+  "cells": [
+    {
+      "name": "NVDA",
+      "session": "E",
+      "n": 1965,
+      "sigmaWad": 18800000000000000,
+      "q99Wad": 63400000000000000,
+      "lambdaWad": 15000000000000000000,
+      "capWad": 66666666666666666,
+      "pLWad": 174000000000000000
+    },
+    {
+      "name": "NVDA",
+      "session": "W",
+      "n": 452,
+      "sigmaWad": 21500000000000000,
+      "q99Wad": 89600000000000000,
+      "lambdaWad": 11000000000000000000,
+      "capWad": 90909090909090909,
+      "pLWad": 141300000000000000
+    },
+    {
+      "name": "NVDA",
+      "session": "H",
+      "n": 96,
+      "sigmaWad": 16200000000000000,
+      "q99Wad": 43700000000000000,
+      "lambdaWad": 22000000000000000000,
+      "capWad": 45454545454545454,
+      "pLWad": 255500000000000000
+    },
+    {
+      "name": "TSLA",
+      "session": "E",
+      "n": 1965,
+      "sigmaWad": 21800000000000000,
+      "q99Wad": 87600000000000000,
+      "lambdaWad": 11000000000000000000,
+      "capWad": 90909090909090909,
+      "pLWad": 146500000000000000
+    },
+    {
+      "name": "TSLA",
+      "session": "W",
+      "n": 452,
+      "sigmaWad": 25700000000000000,
+      "q99Wad": 96900000000000000,
+      "lambdaWad": 10000000000000000000,
+      "capWad": 100000000000000000,
+      "pLWad": 169300000000000000
+    },
+    {
+      "name": "TSLA",
+      "session": "H",
+      "n": 96,
+      "sigmaWad": 27200000000000000,
+      "q99Wad": 83700000000000000,
+      "lambdaWad": 11000000000000000000,
+      "capWad": 90909090909090909,
+      "pLWad": 179900000000000000
+    },
+    {
+      "name": "AAPL",
+      "session": "E",
+      "n": 1965,
+      "sigmaWad": 10900000000000000,
+      "q99Wad": 43500000000000000,
+      "lambdaWad": 22000000000000000000,
+      "capWad": 45454545454545454,
+      "pLWad": 144000000000000000
+    },
+    {
+      "name": "AAPL",
+      "session": "W",
+      "n": 452,
+      "sigmaWad": 14500000000000000,
+      "q99Wad": 61000000000000000,
+      "lambdaWad": 16000000000000000000,
+      "capWad": 62500000000000000,
+      "pLWad": 130600000000000000
+    },
+    {
+      "name": "AAPL",
+      "session": "H",
+      "n": 96,
+      "sigmaWad": 11200000000000000,
+      "q99Wad": 30900000000000000,
+      "lambdaWad": 32000000000000000000,
+      "capWad": 31250000000000000,
+      "pLWad": 235600000000000000
+    }
+  ],
+  "gaussian_pL": [
+    {
+      "name": "NVDA",
+      "session": "E",
+      "pLWad": 224700000000000000
+    },
+    {
+      "name": "NVDA",
+      "session": "W",
+      "pLWad": 188300000000000000
+    },
+    {
+      "name": "NVDA",
+      "session": "H",
+      "pLWad": 283700000000000000
+    },
+    {
+      "name": "TSLA",
+      "session": "E",
+      "pLWad": 191400000000000000
+    },
+    {
+      "name": "TSLA",
+      "session": "W",
+      "pLWad": 205400000000000000
+    },
+    {
+      "name": "TSLA",
+      "session": "H",
+      "pLWad": 238600000000000000
+    },
+    {
+      "name": "AAPL",
+      "session": "E",
+      "pLWad": 191300000000000000
+    },
+    {
+      "name": "AAPL",
+      "session": "W",
+      "pLWad": 185700000000000000
+    },
+    {
+      "name": "AAPL",
+      "session": "H",
+      "pLWad": 284600000000000000
+    }
+  ],
+  "event_session": {
+    "pooledShapeQWad": 2294000000000000000,
+    "gaussianShapeReferenceWad": 2576000000000000000
+  },
+  "bond_sizing": [
+    {
+      "name": "NVDA",
+      "lambdaWad": 15000000000000000000,
+      "dpDlambdaWad": 11119000000000000,
+      "notionalUsd": 94849,
+      "oneSessionGainUsd": 94849
+    },
+    {
+      "name": "TSLA",
+      "lambdaWad": 11000000000000000000,
+      "dpDlambdaWad": 12646000000000000,
+      "notionalUsd": 17577,
+      "oneSessionGainUsd": 17577
+    },
+    {
+      "name": "AAPL",
+      "lambdaWad": 22000000000000000000,
+      "dpDlambdaWad": 6146000000000000,
+      "notionalUsd": 4610,
+      "oneSessionGainUsd": 4610
+    }
+  ]
+}

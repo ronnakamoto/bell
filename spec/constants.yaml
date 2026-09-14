@@ -1,0 +1,410 @@
+# spec/constants.yaml
+#
+# The single place a BELL domain constant is written down (§6 of the build brief).
+# The Solidity side reads a generated header from this file at build time; the Python side loads
+# it directly. A number that appears in two source files is a bug waiting to diverge.
+#
+# Every entry carries a `source:` field naming where the number came from.
+#   paper  — docs/BELL_research_paper.pdf, with the section or table that states it
+#   brief  — the production build brief, Appendix A
+#   derived— computed in this repository; the derivation is named
+#
+# Where the brief and the paper disagree the paper governs, and the disagreement is recorded in
+# DESIGN_NOTES.md. Those entries carry `conflict:` alongside `source:`.
+
+meta:
+  version: 1
+  specification_of_record: docs/BELL_research_paper.pdf
+  wad: 1000000000000000000 # 1e18, the fixed-point scale used by every Solidity quantity
+  wad_source: paper §2 / brief Appendix A
+
+# ---------------------------------------------------------------------------- protocol parameters
+
+protocol:
+  alpha:
+    value: "0.01"
+    meaning: saturation probability; the single risk-appetite dial
+    source: paper §6.1 (Eq 14), brief Appendix A
+
+  saturation_point:
+    value: derived
+    derivation: "c = 1 / lambda, per session and per name"
+    source: paper §5.1 (Eq 12), Table 6
+
+  tier1_halt_band:
+    value: "0.05"
+    meaning: Tier-1 price band, the correct regulatory band for this universe
+    source: paper §12.4 Table 31, §9.4 G3 (Limit Up-Limit Down, Tier 1 = +/-5%)
+    conflict: >
+      The brief's §4.1.4 guard table calls this "5% (default 25%)" without distinguishing the two.
+      The paper is explicit that 25% is the legacy default and 5% is the correction; the brief's
+      Appendix A states both, which is correct.
+
+  halt_band_default:
+    value: "0.25"
+    meaning: the configurable default before the Tier-1 correction is applied
+    source: paper §9.4 G3 ("Present with a 25% default; the 5% setting untested")
+
+  collateral_decimals:
+    value: 6
+    meaning: USDG base units; asserted at construction (guard G9)
+    source: paper Table 6, check D1 ("chainId 4663; USDG 6 dec; equity tokens 18 dec")
+    conflict: >
+      The brief's §4.1.7 writes the bonds as 500,000e18 and 50,000e18. With a 6-decimal collateral
+      and a native-ETH msg.value, neither is $500,000. See DESIGN_NOTES.md F4.
+
+  equity_token_decimals:
+    value: 18
+    source: paper check D1
+
+# ---------------------------------------------------------------------------- fee model
+
+fee:
+  protocol_fee_annualised:
+    value: "0.12"
+    meaning: eta_ann; prorated by term, never charged flat
+    source: paper §6.3 (Eq 17), brief Appendix A
+
+  protocol_fee_hours_per_year:
+    value: 8760
+    derivation: "365 * 24"
+    source: paper §6.3 (Eq 17), brief Appendix A
+
+  protocol_fee_cap_of_premium:
+    value: "0.05"
+    meaning: "eta_k <= 0.05 * p_L(k); the backstop that binds only under stress"
+    source: paper §6.3 (Eq 18), brief Appendix A
+
+  blended_fee_target_bp:
+    value: "4.106"
+    meaning: blended protocol fee across the session mix, in basis points of open interest
+    source: paper §11.2, brief Appendix A
+
+  blended_fee_by_session_bp:
+    overnight: "2.397"
+    weekend: "8.97"
+    holiday: "12.26"
+    source: paper §11.2
+    conflict: >
+      The brief's Appendix A carries only the blended 4.106 bp. The per-session split is required
+      to reproduce the revenue model and the fee table of paper §6.3.
+
+  ramp_phi_0:
+    value: "0.001"
+    meaning: trading fee at the close, phi(0)
+    source: paper §6.3 (Eq 19), brief Appendix A
+
+  ramp_phi_1:
+    value: "0.01"
+    meaning: trading fee at the open, phi(1)
+    source: paper §6.3 (Eq 19), brief Appendix A
+
+  ramp_time_average_ceiling:
+    value: "0.007"
+    meaning: >
+      phi_0 + (phi_1 - phi_0) * 2/3. The time-average of the ramp is bounded by this whatever the
+      intraday shape, which is what makes the high anchor of §6.4 unreachable by reweighting.
+    source: paper §6.3, brief Appendix A
+
+  trading_fee_reference:
+    value: "0.0055"
+    meaning: >
+      phi_ref = 0.55%: the trading fee at the calibration reference, which is the time-average of
+      the ramp and the value that reproduces the low anchor of the §6.4 tolerance range exactly.
+      Note this is a FEE, not a volatility. The reference volatility it is scaled against is a
+      parameter of the calibrator and is not pinned by the paper; see DESIGN_NOTES.md F11.
+    source: paper §6.3 Eq 20, §6.4
+
+# ---------------------------------------------------------------------------- settlement routes
+
+settlement_routes:
+  R1:
+    description: void at 0.50 (the intuitive fallback)
+    expected_cost_bp: "29.7"
+    monotone: false
+    free_option: true
+    ships: false
+    source: paper §8.4 Table 22
+  R2:
+    description: deferred settlement on the first valid print
+    expected_cost_bp: "0.021"
+    monotone: true
+    free_option: false
+    ships: true # the recommended architecture; the free option is removed exactly
+    source: paper §8.4 Table 22, §12.4 Table 31 (P0 gate)
+  R3:
+    description: corporate-action-adjusted terminal branch
+    expected_cost_bp: null # name-specific
+    monotone: true
+    free_option: false
+    source: paper §8.4 Table 22
+    conflict: >
+      The brief §4.3 calls R3 "deferred terminal". The paper's description is the one that carries
+      the measured cost and the multiplier-drift behaviour of guard G8.
+  R4:
+    description: constant refund with a plausibility band
+    expected_cost_bp: "1.37"
+    monotone: false
+    free_option: reduced
+    source: paper §8.4 Table 22
+    conflict: 'The brief §4.3 calls R4 "multi-source void".'
+  R5:
+    description: optimistic challenge window; wired to the premium publisher
+    expected_cost_bp: "1.37"
+    monotone: true
+    free_option: false
+    source: paper §8.4 Table 22, §7.11, §12.4 Table 31
+  _note: >
+    The brief's Appendix A supplies only routeR5Cost = 1.37 bp, but its own §4.3 requires the cost
+    of every route to be reported. All five are therefore recorded here. See DESIGN_NOTES.md F7.
+
+# ---------------------------------------------------------------------------- premium registry
+
+premium_registry:
+  staleness_sessions:
+    value: 12
+    meaning: horizon at which expected mispricing reaches the half-spread
+    derivation: >
+      Measured per session type; the holiday session binds at 12, the overnight at 29 and the
+      weekend at 40. The holiday figure governs because a shorter refresh is the safe direction.
+    source: paper §7.11 Table 19, Table 20, brief Appendix A
+
+  min_publisher_bond_usd:
+    value: 500000
+    derivation: "3x the largest one-session mispricing gain ($94,849 on NVDA); raw $284,548, rounded UP"
+    source: paper §7.11 Table 19, brief Appendix A
+    rounding_direction: up # a publisher bond is a lower bound
+
+  challenger_bond_usd:
+    value: 50000
+    derivation: "B_pub * p/(1-p) at a 10% prior = $55,556, rounded DOWN"
+    source: paper §7.11 Table 19, brief Appendix A
+    rounding_direction: down # an upper bound on what a guessing challenger should risk
+
+  publisher_keys_per_name:
+    value: 1
+    source: paper §7.11 Table 19, brief Appendix A
+
+  bond_lock_sessions:
+    value: 13
+    derivation: "rotation period (12) plus the challenge window (1)"
+    source: paper §7.11 Table 19, brief Appendix A
+
+  fallback_window_sessions:
+    overnight: 504
+    overnight_aapl: 378
+    weekend: 126
+    source: paper §7.11 Table 19
+
+# ---------------------------------------------------------------------------- leverage lattice
+
+lattice:
+  rounding_lattice:
+    value: "0.0025"
+    meaning: >
+      The cap grid. The raw leverage's cap is rounded UP to this grid and the published leverage is
+      floor(1/cap). 0.25% reproduces the published values; 1% gives 16 and 0.5% gives 18.
+    source: paper §6.1, Table 26, §12.4 Table 31 (P1 gate)
+    conflict: >
+      Absent from the brief's Appendix A entirely, although the paper's P1 launch gate requires it
+      to be stated. The brief instead invents a "harmonic lattice of integer leverages" that
+      rejects its own golden fixture. See DESIGN_NOTES.md F2.
+
+  rounding_lattice_sensitivity:
+    "0.01": 16
+    "0.005": 18
+    "0.0025": 19
+    source: paper §6.1
+
+  traded_strike_set: harmonic_ladder
+  traded_strike_set_note: >
+    The traded strikes are the harmonic ladder (caps of the form 1/n), not the rounding grid: on the
+    published 0.25% grid, 68 of 79 caps are not listed markets.
+  traded_strike_set_source: paper Table 26, §12.4 Table 31
+
+# ---------------------------------------------------------------------------- calibration windows
+
+calibration_windows:
+  E_overnight:
+    sessions: 504
+    per_name_override:
+      AAPL: 378
+    selected_by: forward error
+    source: paper §7.9 Table 15, brief Appendix A
+  W_weekend:
+    sessions: 126
+    note: the longest window the 452-observation weekend sample supports
+    source: paper §7.9 Table 15, brief Appendix A
+  H_holiday:
+    sessions: 126
+    note: pooled with the weekend; 96 observations cannot support a per-name window
+    source: paper §7.9, brief Appendix A
+  C_event:
+    sessions: per_name
+    typical_n: 34
+    shape: pooled
+    scale: shrunk_per_name
+    source: paper §7.10, brief Appendix A
+
+  forward_error:
+    note: >
+      Mean absolute relative error of the trailing 99th percentile, scored against the realised 99th
+      percentile of the following window. Regenerated by the calibrator.
+    source: paper §7.9 Table 15
+    overnight:
+      NVDA: { "126": "42.1%", "252": "26.7%", "378": "23.6%", "504": "16.9%", best: 504, bias: 0.98 }
+      TSLA: { "126": "36.7%", "252": "32.8%", "378": "24.4%", "504": "20.7%", best: 504, bias: 1.10 }
+      AAPL: { "126": "45.1%", "252": "29.3%", "378": "28.8%", "504": "32.9%", best: 378, bias: 1.09 }
+    weekend:
+      NVDA: { "126": "53.9%", best: 126, bias: 1.13 }
+      TSLA: { "126": "63.0%", best: 126, bias: 1.21 }
+      AAPL: { "126": "122.6%", best: 126, bias: 1.75 }
+
+# ---------------------------------------------------------------------------- golden fixture
+
+canonical_parameters:
+  # name, session, n, sigma, Q_0.99(|G|), lambda*, c = 1/lambda*, p_L = lambda* E[min(|G|,c)]
+  # p_L is the EMPIRICAL truncated mean (the seed model), not the Gaussian closed form.
+  # The Gaussian value is carried separately as the differential-test reference.
+  source: paper §7.8 Table 13
+  note: >
+    This is the fixture the brief calls "the golden fixture" (Appendix A). lambda and p_L agree with
+    the brief exactly. sigma and Q_0.99 are added from the paper because the brief does not carry
+    them and they are needed to reproduce the fixture at all.
+  cells:
+    - { name: NVDA, session: E, n: 1965, sigma: "0.0188", q99: "0.0634", lambda: 15, cap: "0.0667", pL: "0.1740" }
+    - { name: NVDA, session: W, n: 452,  sigma: "0.0215", q99: "0.0896", lambda: 11, cap: "0.0909", pL: "0.1413" }
+    - { name: NVDA, session: H, n: 96,   sigma: "0.0162", q99: "0.0437", lambda: 22, cap: "0.0455", pL: "0.2555" }
+    - { name: TSLA, session: E, n: 1965, sigma: "0.0218", q99: "0.0876", lambda: 11, cap: "0.0909", pL: "0.1465" }
+    - { name: TSLA, session: W, n: 452,  sigma: "0.0257", q99: "0.0969", lambda: 10, cap: "0.1000", pL: "0.1693" }
+    - { name: TSLA, session: H, n: 96,   sigma: "0.0272", q99: "0.0837", lambda: 11, cap: "0.0909", pL: "0.1799" }
+    - { name: AAPL, session: E, n: 1965, sigma: "0.0109", q99: "0.0435", lambda: 22, cap: "0.0455", pL: "0.1440" }
+    - { name: AAPL, session: W, n: 452,  sigma: "0.0145", q99: "0.0610", lambda: 16, cap: "0.0625", pL: "0.1306" }
+    - { name: AAPL, session: H, n: 96,   sigma: "0.0112", q99: "0.0309", lambda: 32, cap: "0.0313", pL: "0.2356" }
+
+  gaussian_reference_pL:
+    # lambda * E[min(|G|, 1/lambda)] for G ~ N(0, sigma^2), the differential-test reference.
+    source: paper §7.11 Table 18 (Gaussian column)
+    cells:
+      NVDA: { E: "0.2247", W: "0.1883", H: "0.2837" }
+      TSLA: { E: "0.1914", W: "0.2054", H: "0.2386" }
+      AAPL: { E: "0.1913", W: "0.1857", H: "0.2846" }
+    reproduced_here: "worst deviation 0.32%, limited by sigma being published to 2 dp"
+
+# ---------------------------------------------------------------------------- event session (C)
+
+event_session:
+  pooled_shape_q_C:
+    value: "2.294"
+    meaning: median over names of Q_0.99(|G_C|) / sigma_C
+    source: paper §7.10, brief Appendix A
+  gaussian_shape_reference:
+    value: "2.576"
+    meaning: "z at 99% one-sided; q_C sits 11.0% below it"
+    source: paper §7.10
+  multiplier_r_range:
+    min: "1.71" # XOM
+    max: "8.88" # NFLX
+    source: paper §7.10, Table 17, brief Appendix A
+  cross_sectional_tau:
+    value: "1.596"
+    source: brief Appendix A
+    conflict: >
+      The paper's §7.10 body states tau = 1.58 with a between/within ratio of 6.7x; its Table 19 note
+      says "about seven". The brief states 1.596 and 7.6x. See DESIGN_NOTES.md F9.
+  shrinkage_weights:
+    min: "0.693"
+    max: "0.984"
+    source: brief Appendix A
+    conflict: "Paper §7.10 body states 0.67 to 0.98."
+  lambda_C_range:
+    min: 4
+    max: 21
+    median: 6
+    source: paper §7.10, Table 17, brief Appendix A
+  excess_kurtosis_event:
+    value: "-0.08"
+    se: "0.48"
+    source: paper §7.10, brief Appendix A
+  excess_kurtosis_non_event:
+    value: "13.24"
+    se: "0.06"
+    source: paper §7.10, brief Appendix A
+
+# ---------------------------------------------------------------------------- measured depth
+
+notional_depth:
+  # Measured reference-market depth, all fee tiers combined, read through the Uniswap V3 factory
+  # at the fork block. These are the denominators of the bond sizing.
+  source: paper §7.6 Table 11, brief Appendix A
+  NVDA: { usd: 8530000, pool_count: 2 }
+  TSLA: { usd: 1390000, pool_count: 2 }
+  AAPL: { usd: 750000,  pool_count: 2 }
+
+# ---------------------------------------------------------------------------- bond sizing identity
+
+bond_sizing:
+  identity: "dp/dlambda = E[|G| * 1{|G| <= 1/lambda}]"
+  note: >
+    The truncated FIRST moment: what one lattice step of leverage error is worth per unit of
+    notional. Evaluated at the published leverage on the empirical sample, not the Gaussian.
+  source: paper §7.11 Table 19, brief Appendix A
+  rows:
+    - { name: NVDA, lambda: 15, dp_dlambda: "0.011119", pct_of_notional: "1.1119%", one_session_gain_usd: 94849 }
+    - { name: TSLA, lambda: 11, dp_dlambda: "0.012646", pct_of_notional: "1.2646%", one_session_gain_usd: 17577 }
+    - { name: AAPL, lambda: 22, dp_dlambda: "0.006146", pct_of_notional: "0.6146%", one_session_gain_usd: 4610 }
+  reproduced_here: >
+    gains recomputed from dp_dlambda x notional give $94,845 / $17,578 / $4,610, within rounding of
+    the published $94,849 / $17,577 / $4,610. The identity is self-consistent with the empirical
+    p_L and implies P(saturate) = 0.72-0.88%, consistent with alpha = 1%.
+
+# ---------------------------------------------------------------------------- regression targets
+
+model_comparison:
+  # Do not re-derive; these are regression targets. All from the paper's per-name leverage table.
+  source: paper §7.11 Table 18, §7.10, brief Appendix A
+  gaussian_premium_error_vs_empirical: { min: "+0.291", max: "+0.421", verdict: rejected as a seed }
+  nig_premium_error_vs_empirical:      { min: "-0.011", max: "+0.024", verdict: accepted }
+  merton_jd_premium_error_vs_empirical: { min: "+0.001", max: "+0.072", verdict: accepted }
+  student_t4_premium_error_vs_empirical: { min: "-0.039", max: "+0.249", verdict: rejected }
+  conflict: >
+    The brief's Appendix A quotes the t(4) range as "+4.5% to +24.9%". The paper's Table 18 also
+    contains NVDA H at -3.9%, so the full range is -3.9% to +24.9%. The brief has dropped the
+    negative cell. Cosmetic, but the regression band must be stated correctly.
+  nig_log_likelihood_nvda_overnight: { nig: 5419.7, merton_jd: 5400.9, student_t4: 5376.2, gaussian: 5023.4 }
+  n_observations_nvda_overnight: 1965
+
+# ---------------------------------------------------------------------------- chain and deployment
+
+deployment:
+  chain_id: 4663
+  chain_name: Robinhood Chain
+  gas_token: ETH
+  fork_block_l2: 61228000
+  source: paper §1, §9.2
+  conflict: >
+    The brief requires fork tests against a pinned block but supplies no RPC endpoint. See
+    DESIGN_NOTES.md F6.
+  usdg_is_collateral: true
+  uniswap_v3_factory: "0x1f7d7550B1b028f7571E69A784071F0205FD2EfA"
+  uniswap_v3_factory_source: paper §7.6
+
+# ---------------------------------------------------------------------------- gas budget
+
+gas_budget:
+  # The brief's §13.3 budget, against the paper's measured baselines.
+  source: brief §13.3; baselines from paper §7.11
+  truncated_moment_closed_form:
+    baseline: 37439
+    budget_multiplier: 2.0
+  premium_read_from_storage:
+    baseline: 2640
+    budget_multiplier: 1.5
+  nig_quadrature_32_terms:
+    baseline: 685590
+    note: not built on-chain; recorded as the measurement that justifies the trust shift
+  registry_operations_max:
+    commit: 150000
+    challenge: 150000
+    resolve: 150000
+    quote: 150000

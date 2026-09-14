@@ -1,0 +1,40 @@
+# --- reconnaissance scratch (DESIGN_NOTES.md D3); not repository content ---
+.recon/
+
+# --- agent working memory: notes and daily logs, not repository content ---
+.workbuddy-ai/
+
+# --- Solidity / Foundry ---
+contracts/out/
+contracts/cache/
+contracts/broadcast/
+contracts/lib/*/out/
+contracts/lib/*/cache/
+*.gas-snapshot.tmp
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.import_linter_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.mutmut-cache/
+
+# --- editors / OS ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# --- secrets ---
+.env
+.env.*
+!.env.example

@@ -1,0 +1,67 @@
+{
+  "_generated": "GENERATED FILE - DO NOT EDIT BY HAND.",
+  "_source": "tools/gen_digest_fixture.py",
+  "_spec": "paper Appendix B, and DESIGN_NOTES.md on the serialisation of inputsHash",
+  "_note": "The digest is keccak256 of the concatenation: nameId (bytes32), forSession (uint64 right-aligned in 32 bytes), lambdaWad (uint256), premiumWad (uint256), inputsHash (bytes32). The Python side builds that preimage in bell_calibrator.domain.digest; the Solidity side uses abi.encode.",
+  "cases": [
+    {
+      "label": "overnight",
+      "symbol": "NVDA",
+      "nameId": "0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb",
+      "forSession": 12345,
+      "sessionCode": "E",
+      "windowSessions": 504,
+      "sourceIds": [
+        "nasdaq-daily-ohlc"
+      ],
+      "rowCount": 1965,
+      "rowsSeed": "NVDA/E/504",
+      "rowsDigest": "0x1baed360a8d4f272682bb92702a08c95e16d563ef6d2470a65d0b137158ba8fc",
+      "lambdaWad": "15000000000000000000",
+      "premiumWad": "174000000000000000",
+      "inputsHash": "0xba1940ba1e74225e3f3b13b7579e0920e64c04e6ff859f9649d95dec39ab0903",
+      "digest": "0x429155bab47a9b07adc772d9618086c40250666a95248c97024d64782ff7b939",
+      "preimageLength": 160
+    },
+    {
+      "label": "weekend-multi-source",
+      "symbol": "TSLA",
+      "nameId": "0x0a8f1f385fed9c77a2e0daa363ccc865e971bdbe4458bb570cc0acb068d7c0f2",
+      "forSession": 4294967296,
+      "sessionCode": "W",
+      "windowSessions": 126,
+      "sourceIds": [
+        "nasdaq-daily-ohlc",
+        "nyse-consolidated"
+      ],
+      "rowCount": 452,
+      "rowsSeed": "TSLA/W/126",
+      "rowsDigest": "0x1bbc714fdfb92171e4657b1d0c46aa6391a97c3124f34b8b7ebc5f4d2d60d441",
+      "lambdaWad": "10000000000000000000",
+      "premiumWad": "169300000000000000",
+      "inputsHash": "0x7b3ee8d0519fe921a640f79a3e53ecf9f77b1c44b34db591321cc03ae98481ff",
+      "digest": "0x23f72a3e5d9243cd5fcd39c253ddbaa51308ea0817071d5db5e26b7344317b69",
+      "preimageLength": 160
+    },
+    {
+      "label": "event",
+      "symbol": "AAPL",
+      "nameId": "0x3a54a9a690616fbc26cfc409bf11f89d51f1d57a4ab2791fb86026cee74ed2f3",
+      "forSession": 18446744073709551615,
+      "sessionCode": "C",
+      "windowSessions": 34,
+      "sourceIds": [
+        "nasdaq-earnings-calendar"
+      ],
+      "rowCount": 35,
+      "rowsSeed": "AAPL/C/34",
+      "rowsDigest": "0x8eb766a2e2553c397f46ddaab408c04330fc15238b2fb82e5f4006f71daa273d",
+      "lambdaWad": "11000000000000000000",
+      "premiumWad": "361300000000000000",
+      "inputsHash": "0x26e705989f8a8b2b6aeb974d37d8bb308769ce041a32e664b4ff167e2c1fae37",
+      "digest": "0x4c936d7cfdc00f7dce21f113faf21db95fa6a8ce41bd02bd99cf7cd1c1b5cb09",
+      "preimageLength": 160
+    }
+  ],
+  "caseCount": 3
+}
