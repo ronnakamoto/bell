@@ -360,6 +360,63 @@ F3, F6, F7, F8, F9 and F10 remain open and are listed at the foot of this file.
 | D1 | The paper is treated as the specification of record where it and the brief conflict. | Implementing the brief literally | The brief's own Appendix A fixture and its own `dp/dlambda` identity both agree with the paper and both contradict the brief's §2.4 formula (F1). |
 | D2 | Nothing is built on a formula under objection until F1 and F4 are ruled on. | Building the pricing path and patching later | The pricing primitive is the on-chain payoff and the off-chain calibration target; a wrong primitive invalidates the differential suite, the golden fixture and the gas budget together. |
 | D3 | Reconnaissance artifacts are kept in `.recon/`, not committed as repository content. | Committing them to `tools/` | They are throwaway verification, and §6 forbids unnamed utility modules. `.recon/` is gitignored. |
+| D4 | The two off-chain services are Python 3.12+, not TypeScript/Next.js. | One language across the stack, with a Next.js backend | Three reasons, in order of weight — see below. Recorded because the choice was previously undocumented and was therefore the first question a reviewer asked. |
+
+### D4, in full: why the services are Python and not Next.js
+
+**1. The brief specifies it, and the brief's own rule is to comply and object rather than deviate.**
+§6 names the three artifacts with their languages: `bell-contracts` (Solidity 0.8.26), `bell-calibrator`
+(Python 3.12+) and `bell-settlement` (Python 3.12+). Both workspaces declare
+`requires-python = ">=3.12"`. This is the weakest of the three reasons on its own — an instruction is
+not an argument — but it is the reason the question is "why is it this way" rather than "why did you
+change it".
+
+**2. The domain must take no third-party dependency, and it needs exact decimal arithmetic to 50
+digits.** This is the load-bearing reason. `domain/moments.py` sets `WORKING_PRECISION = 50` and
+evaluates the truncated absolute moment with a Maclaurin series for `erf` and the modified Lentz
+algorithm for `erfc`, all in `decimal.Decimal`. That reference is what the on-chain `Stat` library is
+differentially checked against, over the 112 points in `spec/fixtures/moments.json`. `decimal` is in
+Python's **standard library**; Node has no arbitrary-precision decimal in its standard library, so
+`decimal.js` or `big.js` would be a dependency. And the dependency is not merely discouraged — it is
+mechanically forbidden: `calibrator/pyproject.toml` declares `dependencies = []`, and an
+`import-linter` contract named *"domain depends on nothing but the standard library and itself"*
+rejects `Crypto`, `requests`, `web3`, `yaml` and, with `include_external_packages = true`, any other
+external package. Verified by inspection: the domain's only imports are `__future__`, `collections`,
+`dataclasses`, `datetime`, `decimal`, `enum`, `re` and `typing`, plus itself.
+
+**3. Next.js is a web framework, and neither service is a web service.** The calibrator is a batch
+job — read daily bars, estimate a quantile, fit a family, hash the inputs, publish a commitment. The
+settlement service evaluates five route strategies and adjudicates a challenge. Neither renders HTML,
+serves a route or holds a session, so a Next.js deployment would carry a bundler, a React runtime and
+a request/response model with nothing to serve. Both are `pip install -e`-able with **no runtime
+dependencies at all** and deploy as a cron job or a small container.
+
+**What consolidating would not buy.** The usual argument for one language is that it removes drift at
+the boundary. Here the boundary is already explicit and mechanically tested: two things cross it — the
+WAD encoding and the commitment digest — and both are specified once and checked on both sides, by
+`spec/digest.json` and `spec/fixtures/moments.json`. More to the point, the *riskiest* seam is
+Solidity ↔ off-chain, and that seam is JSON fixtures plus `keccak256(abi.encode(...))`, which is
+identical whichever off-chain language you pick. The choice does not move the risk that exists.
+
+**What consolidating would buy, stated fairly.** One toolchain, one dependency manager, one CI setup,
+and shared types between a web frontend and its backend. Those are real, and they are the reason the
+question is reasonable.
+
+**Where Next.js is the right tool, and the answer is not "instead".** The protocol has no UI yet. When
+it has one — a dashboard for publishing a parameter set, watching a session's state, posting a bond,
+challenging a commitment — Next.js is the correct choice for that tier, and a Next.js BFF (route
+handlers) fronting the Python services is a sound architecture. The honest framing is **Next.js for
+the web tier, Python for the two numerical and operational services**, because they are different
+jobs. If the calibrator later needs to serve requests to a frontend directly rather than through a
+BFF, that is the point at which consolidating starts to pay.
+
+**The counter-argument, conceded.** Python is not *uniquely* capable of this arithmetic; a
+TypeScript implementation with a decimal library would work. So the real claim is narrower than "only
+Python can do it": it is that the reference implementation can be **exactly precise and
+dependency-free** in Python, and in TypeScript it can be exactly precise *or* dependency-free, not
+both. Given that the brief forbids dependencies in `domain/` and that this module's entire purpose is
+to be an authoritative reference, that is the deciding consideration.
+
 
 ---
 
