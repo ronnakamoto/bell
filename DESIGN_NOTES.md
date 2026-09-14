@@ -1522,6 +1522,38 @@ challenge tooling.
 
 
 
+## F51 — `pytest-cov` was declared in one workspace and not the other, and a commit message claimed otherwise
+
+Found by inspection while answering "what is our tech stack?", which is a question that makes you read
+the declarations rather than the code.
+
+F49 established that `make coverage` could not run because `pytest-cov` was in neither workspace's
+`dev` extra. The fix added it to `calibrator`'s and — as the commit message for that change states —
+"to both workspaces' `dev` extras". That was **false**. It was added to the calibrator only.
+
+**Why it did not fail.** `make venv` installs both workspaces in a single command
+(`pip install -e calibrator[dev] -e settlement[dev]`), so `pytest-cov` resolved from the calibrator's
+extra and satisfied the settlement workspace's coverage step. The declaration was wrong; the
+environment happened to be right. A developer running `pip install -e settlement[dev]` on its own, or
+any CI step that installed the workspaces separately, would have hit exactly the `unrecognized
+arguments: --cov` error F49 was about.
+
+**Fix.** `pytest-cov==7.1.0` added to the settlement workspace's extra, so the two declarations are
+now identical. Verified by building a virtual environment from the declared extras alone — in a fresh
+`python3 -m venv`, installing only `-e "calibrator[dev]" -e "settlement[dev]"`, and running the
+settlement coverage step, which now passes.
+
+**The lesson, which is about method rather than about dependencies.** The original fix was correct and
+incomplete at the same time, and the incompleteness survived because the *environment* masked it. Two
+things would have caught it and neither was done: reading both declarations side by side, or building
+an environment from the declarations alone rather than reusing the one that already worked. The commit
+message then recorded the intent rather than the outcome, which is the more serious half — a claim of
+completion that was never checked is worse than no claim, because it stops the next reader from
+looking. `make venv` installs both extras into one environment by design, and that is right for a
+developer; it is not evidence that either extra is sufficient on its own.
+
+
+
 ## Still open
 
 | # | Item | Blocking |

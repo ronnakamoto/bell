@@ -82,7 +82,7 @@ The fork suite is the one item that cannot run here: the brief requires tests ag
 block on chain 4663 but supplies no RPC endpoint, so `make test-fork` skips with an explanation
 (F6). Everything else in the brief is executable and executed.
 
-`DESIGN_NOTES.md` carries 50 findings. Most are defects the build found in itself rather than
+`DESIGN_NOTES.md` carries 51 findings. Most are defects the build found in itself rather than
 objections to the brief, and most of those were surfaced by reading the coverage report as a
 diagnostic rather than by reading code: a pool-draining swap path in `Amm` (F44), a missing depth
 guard in `SessionPool` (F45), three files with no tests at all (F46), a `resolve`/`preview`
