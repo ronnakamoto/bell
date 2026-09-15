@@ -1822,11 +1822,99 @@ the tables to fit a 100-character line, was tried and does not work: the longest
 (`ROUNDING_LATTICE_WAD`, `RAMP_TIME_AVERAGE_CEILING_WAD`) exceed the budget by a few characters in every
 field order, so the result would be a ragged table that a single note edit could reflow at random.
 
+## F57 — A pure function returned a different value depending on what had been imported earlier
+
+`domain/leverage.py`'s module docstring ends *"Pure: a sequence of gaps in, a leverage out."*
+`realised_saturation_rate` is the one function in it that is not pure, and the cause is one line:
+
+```python
+return Decimal(saturated) / Decimal(len(observations))
+```
+
+`Decimal.__truediv__` with no `context` argument divides in the **ambient** context — the thread-local
+one `decimal.getcontext()` returns, default precision 28. The return value is therefore a property of
+the caller's process state rather than of the arguments. Measured, on a three-element sample of which
+exactly one element crosses the threshold:
+
+| call site | precision | returned |
+|---|---|---|
+| a plain call | 28 | `0.3333333333333333333333333333` |
+| inside `localcontext(prec=50)` | 50 | `0.33333333333333333333333333333333333333333333333333` |
+
+and the two values are not equal.
+
+**This is not hypothetical, and the module that proves it is in this repository.**
+`tools/gen_constants.py` line 28 is `getcontext().prec = 60`, at *module scope* — a permanent mutation
+of the thread's context for the remainder of the process. So:
+
+```
+precision before import : 28
+rate before             : 0.3333333333333333333333333333                          (28 digits)
+
+import gen_constants
+
+precision after import  : 60
+rate after              : 0.333333333333333333333333333333333333333333333333333333333333   (60 digits)
+```
+
+Same arguments, same function, different value, because something unrelated was imported.
+`moments.py` is the other half of the story and gets it right: every division there is wrapped in
+`with localcontext() as context: context.prec = WORKING_PRECISION`, which is scoped and restored.
+`leverage.py` is the module that assumed the ambient context would never move, in a repository that
+moves it.
+
+**Why the suite never caught it.** `test_leverage.py`'s three saturation-rate tests assert
+`== Decimal(1)`, `== Decimal(0)`, and a raised error. One and zero are exact at every precision, so
+there is no precision at which those assertions could fail — they are correct and vacuous with respect
+to this defect. A precision-dependent bug needs a precision-dependent assertion, and the module's only
+non-terminating fraction was never asserted by value.
+
+**The port cannot reproduce it, by construction.** `domain/moments.ts` declares
+`D = Decimal.clone({ precision: WORKING_PRECISION })`, and a `decimal.js` clone is a *separate
+constructor* carrying its own precision, not a view of a shared setting. Verified directly: after
+`Decimal.set({ precision: 20 })` — which does move the default, a fresh `Decimal` then yielding 20
+digits — a value built through `D` still yields 50 digits and compares equal to one built before the
+call. So the port states the precision instead of inheriting it, `leverage.test.ts` asserts the digit
+string is `'3'.repeat(50)`, and no import order can change that.
+
+**One departure, stated because it is a departure rather than a reproduction.** The TypeScript and the
+Python disagree on this function's value whenever the ambient precision is not 50. That is not a port
+defect and it is not fixable by matching the Python, because "the Python's value" is not well defined —
+it is a function of the process. The port takes the precision as declared rather than as ambient, which
+is the only reading under which the docstring's "pure" is true. The Python is not corrected, for the
+same reason no other Python is corrected while it is the oracle: an edit that makes the two agree is an
+edit that destroys the evidence that they were compared.
+
+## F58 — `.recon/` was out of scope for git and in scope for eslint
+
+The tracker's convention is that reconnaissance scratch lives in `.recon/` and is gitignored — "not
+repository content". `.gitignore` enforced that. Nothing else did.
+
+eslint's typed linting resolves every linted file through the project service, and a file that belongs to
+no `tsconfig` is a hard error rather than a skip:
+
+```
+.recon/probe_clone.ts
+  0:0  error  Parsing error: ... was not found by the project service
+```
+
+So a scratch probe broke `make check` — from a file that was never going to be committed, and whose whole
+purpose was to be disposable. The directory had held only `.py` and `.txt` files until now, which is why
+this had never surfaced: eslint only lints what its own config matches, so a scratch Python probe was
+always invisible while a scratch TypeScript probe is fatal.
+
+Fixed by adding `.recon/**` to `ignores` in `eslint.config.js`, and then probed in **both** directions,
+because a gate that has been *loosened* needs the same treatment as one that has been added: a
+deliberately broken `.ts` file in `.recon/` now lints clean, and a deliberately unused binding in
+`calibrator/src/domain/leverage.ts` is still reported. Without the second probe, "the ignore works" and
+"the ignore is too broad" look identical — and the second failure would be silent, which is the one thing
+a gate must never be.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` is written and verified against the committed fixtures — `digest`, `moments` and `constants`; `leverage`, `sessions`, `families`, the application layer, the adapters, the settlement service, the remaining tools and the remaining ported tests follow | the port |
+| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` is written and verified against the committed fixtures — `digest`, `moments`, `constants` and `leverage`; `sessions`, `families`, the application layer, the adapters, the settlement service, the remaining tools and the remaining ported tests follow | the port |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |

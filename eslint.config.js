@@ -23,6 +23,11 @@ export default tseslint.config(
       '**/dist/**',
       '**/coverage/**',
       '**/node_modules/**',
+      // Reconnaissance scratch. Gitignored, and the tracker's convention is that it is not
+      // repository content -- but git is the only thing that enforced that, and eslint's project
+      // service fails outright on a `.ts` file it cannot find in a tsconfig. A scratch probe here
+      // broke `make check` from a file that was never committed.
+      '.recon/**',
       // Solidity, and the vendored Forge standard library.
       'contracts/**',
       // Generated from `spec/`; checked for freshness by `make check-generated`.
