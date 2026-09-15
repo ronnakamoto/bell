@@ -94,16 +94,18 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const CONTRACTS = join(REPO_ROOT, 'contracts');
 
-/** The two workspaces' sources: the roots §8.1's length rule and rule 6 both read. */
+/** The three workspaces' sources: the roots §8.1's length rule and rule 6 both read. */
 const WORKSPACE_SOURCE_ROOTS: readonly string[] = [
   join(REPO_ROOT, 'calibrator/src'),
   join(REPO_ROOT, 'settlement/src'),
+  join(REPO_ROOT, 'indexer/src'),
 ];
 
-/** The two workspaces' test trees. Subject to the naming and marker rules, and to nothing else. */
+/** The three workspaces' test trees. Subject to the naming and marker rules, and to nothing else. */
 const WORKSPACE_TEST_ROOTS: readonly string[] = [
   join(REPO_ROOT, 'calibrator/tests'),
   join(REPO_ROOT, 'settlement/tests'),
+  join(REPO_ROOT, 'indexer/tests'),
 ];
 
 /** The build scripts: type-checked by `tools/tsconfig.json` and linted, but not `src/`. */
@@ -126,6 +128,7 @@ const TYPESCRIPT_MODULE_ROOTS: readonly string[] = [
 const DOMAIN_ROOTS: readonly string[] = [
   join(REPO_ROOT, 'calibrator/src/domain'),
   join(REPO_ROOT, 'settlement/src/domain'),
+  join(REPO_ROOT, 'indexer/src/domain'),
 ];
 
 const MAX_SOURCE_LINES = 400;

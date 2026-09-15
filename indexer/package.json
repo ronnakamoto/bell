@@ -1,0 +1,16 @@
+{
+  "name": "@bell/indexer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "BELL discovery indexer — folds the session lifecycle's logs into a catalogue",
+  "exports": {
+    "./domain/*.js": {
+      "types": "./dist/domain/*.d.ts",
+      "default": "./dist/domain/*.js"
+    }
+  },
+  "dependencies": {
+    "@bell/calibrator": "0.1.0"
+  }
+}

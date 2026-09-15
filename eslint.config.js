@@ -126,7 +126,11 @@ export default tseslint.config(
     // rank, which is an array index. Every one of those is an exact small integer, so no current call
     // site is wrong — but the rule is narrower than the paragraph above the file used to claim, and
     // DESIGN_NOTES.md F77 records the gap rather than leaving a comment to overstate the enforcement.
-    files: ['calibrator/src/domain/**/*.ts', 'settlement/src/domain/**/*.ts'],
+    files: [
+      'calibrator/src/domain/**/*.ts',
+      'settlement/src/domain/**/*.ts',
+      'indexer/src/domain/**/*.ts',
+    ],
     rules: {
       'no-restricted-properties': [
         'error',

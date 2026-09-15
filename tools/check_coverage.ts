@@ -100,7 +100,11 @@ const TYPESCRIPT_REQUIRED_PERCENT = 95;
  * workspace carry a badly-covered one — the same reason the contracts' rule is per library rather
  * than a figure for `src/` as a whole.
  */
-const TYPESCRIPT_WORKSPACES: readonly string[] = ['calibrator/src', 'settlement/src'];
+const TYPESCRIPT_WORKSPACES: readonly string[] = [
+  'calibrator/src',
+  'settlement/src',
+  'indexer/src',
+];
 
 /**
  * The TypeScript analogue of `contracts/src/libraries/`, and the bar every file under it must meet.
@@ -113,6 +117,7 @@ const TYPESCRIPT_WORKSPACES: readonly string[] = ['calibrator/src', 'settlement/
 const TYPESCRIPT_DOMAIN_ROOTS: readonly string[] = [
   'calibrator/src/domain',
   'settlement/src/domain',
+  'indexer/src/domain',
 ];
 const TYPESCRIPT_DOMAIN_REQUIRED_PERCENT = LIBRARY_REQUIRED_PERCENT;
 

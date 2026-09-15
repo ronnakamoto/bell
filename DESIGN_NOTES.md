@@ -3554,6 +3554,61 @@ change the same run rewrote it.
 `make build` does not run a Solidity test — so the instruction had never worked. It now names the flag and
 the test, and `make check-generated` is what enforces it.
 
+## F96 — the architecture gate was blind to the only spelling this repository uses
+
+`.dependency-cruiser.cjs` stated its own mechanism in its header: *"a package-name specifier stays
+UNRESOLVED in the graph, so `to.path` sees the bare `@bell/settlement/domain/x.js` and never the path it
+would resolve to."* Measured, that is true for exactly one of the three workspaces — the one with no
+`exports` map.
+
+**The calibrator and the indexer both map their `exports` onto `./dist/…`**, so a cross-workspace
+specifier does not stay bare: it resolves, to the target's build output. And `options.exclude` contained
+`dist`, which — by the mechanism the same header describes for `node_modules` — removes the module from
+the graph *and the edge with it*. The edge therefore never reached any pattern.
+
+The measurement, on a two-line probe importing `@bell/indexer/domain/log.js` from
+`calibrator/src/domain/`:
+
+| Configuration | Dependencies found on the probe file |
+|---|---|
+| `exclude` contains `dist` (as shipped) | **none at all** |
+| `dist` not excluded | six |
+
+**What that cost.** Three rules were affected, and the shape of the damage is what makes it hard to
+notice: the gate reported *no violations*, which is what a working gate reports.
+
+| Rule | Effect of the blindness |
+|---|---|
+| `nothing-imports-the-indexer` | fired on nothing, in **any** spelling — it was written first and had never worked |
+| `application-does-not-import-adapters` | the `^@bell/…/adapters` pattern could never match; only the relative spelling reached it |
+| `the-calibrator-never-imports-the-settlement-service` | worked, **by accident**: `@bell/settlement` is the one workspace with no `exports` map, so its specifier stays bare and the bare pattern matched |
+| the two `domain/` allow-lists | unaffected — they are `pathNot`, so they catch anything not on the list however it was written, which is F85's observation and the reason the gate looked healthy |
+
+**Two configurations, two different failures, and neither is acceptable.** Excluding `dist` deletes the
+edge; keeping the edges without widening the patterns makes the allow-lists fire on *permitted* edges —
+`settlement/src/domain/routes/settle.ts → calibrator/dist/domain/constants.js` was reported as a
+violation of the rule that exists to permit it.
+
+**The fix.** `dist` moved from `exclude` to `doNotFollow`, which keeps the edge and declines to descend
+into it — build output is not source and needs no rule applied, but the edge is the whole subject. And
+every pattern that names a layer now accepts both spellings, `(src|dist)`, at all five sites. The
+alternation is written out rather than produced by a helper because this is a `.cjs`: a TypeScript
+return annotation is a syntax error there, and the lint rule requiring one cannot be satisfied, so five
+repetitions of a two-word pattern are cheaper than a lint exemption.
+
+**Probed, nine checks.** Seven fire — the indexer's application→adapters edge, `@bell/indexer` imported
+from both the calibrator and the settlement, `@bell/settlement` and the relative `src` and resolved
+`dist` spellings of the calibrator→settlement edge, and `node:fs` in the indexer's domain. Two negative
+controls stay silent: the settlement's and the indexer's permitted reads of
+`@bell/calibrator/domain/models.js`. The graph grew from **36 modules and 86 dependencies to 41 and
+101** — that difference is the count of edges the gate could not previously see.
+
+**The lesson is F85's, one layer out.** F85 found a rule whose `to.path` named a spelling nobody writes.
+This is the same failure with the opposite cause: the rule named the spelling everybody writes, and the
+*resolver* turned it into a third one that the exclusion list had deleted. A gate written against paths
+has to be checked against the paths the resolver produces, and the way to check it is to probe every
+spelling rather than the one the author had in mind.
+
 ## Still open
 
 | # | Item | Blocking |

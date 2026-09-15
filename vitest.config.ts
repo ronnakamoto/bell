@@ -19,10 +19,14 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
-    include: ['calibrator/tests/**/*.test.ts', 'settlement/tests/**/*.test.ts'],
+    include: [
+      'calibrator/tests/**/*.test.ts',
+      'settlement/tests/**/*.test.ts',
+      'indexer/tests/**/*.test.ts',
+    ],
     coverage: {
       provider: 'v8',
-      include: ['calibrator/src/**/*.ts', 'settlement/src/**/*.ts'],
+      include: ['calibrator/src/**/*.ts', 'settlement/src/**/*.ts', 'indexer/src/**/*.ts'],
       exclude: [
         // Generated from `spec/constants.yaml`; its freshness is checked separately.
         'calibrator/src/domain/constants.ts',

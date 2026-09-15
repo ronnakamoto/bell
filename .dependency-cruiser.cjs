@@ -13,7 +13,25 @@
  * import is not how this repository crosses a package boundary. Two rules below therefore name both
  * spellings. The allow-list rules are unaffected, because `pathNot` catches everything not on the list
  * however it was written, which is why the two `domain/` rules were never blind (F85).
+ *
+ * **`dist` is the second spelling, and it was invisible (F96).** Each workspace's `package.json` maps
+ * its `exports` onto `./dist/…`, so a cross-workspace specifier does not stay bare — it *resolves*,
+ * to the target's build output. The graph therefore contains `indexer/dist/domain/log.js` where every
+ * rule in this file was written about `indexer/src`. The first configuration excluded `dist`, which
+ * deletes the edge along with the module, so a rule whose `to.path` names a workspace could never fire
+ * on the one spelling anyone writes; the second kept the edges without widening the patterns, and the
+ * `pathNot` allow-lists then fired on *permitted* edges. The resolution is to stop excluding `dist`
+ * and stop following into it — `doNotFollow` keeps the edge and declines to descend — and to write
+ * every layer pattern against both spellings, which `layer` and `layers` below do once.
+ *
+ * Three rules were probed in four spellings to establish that, and the probe is recorded in
+ * `DESIGN_NOTES.md` F96 rather than described here.
+ *
+ * The `(src|dist)` alternation is written out at each site rather than produced by a helper: this is
+ * a `.cjs` file, so a TypeScript return annotation is a syntax error and the lint rule that requires
+ * one cannot be satisfied. Six repetitions of a two-word pattern are cheaper than a lint exemption.
  */
+
 module.exports = {
   forbidden: [
     {
@@ -27,7 +45,7 @@ module.exports = {
         'nothing. A deny-list of categories fails open on the category nobody thought of.',
       severity: 'error',
       from: { path: '^calibrator/src/domain' },
-      to: { pathNot: ['^calibrator/src/domain', 'node_modules/decimal\\.js'] },
+      to: { pathNot: [`^calibrator/(src|dist)/domain`, 'node_modules/decimal\\.js'] },
     },
     {
       name: 'settlement-domain-takes-only-the-shared-core',
@@ -38,38 +56,85 @@ module.exports = {
       severity: 'error',
       from: { path: '^settlement/src/domain' },
       to: {
-        pathNot: ['^settlement/src/domain', '^calibrator/src/domain', 'node_modules/decimal\\.js'],
+        pathNot: [
+          `^settlement/(src|dist)/domain`,
+          `^calibrator/(src|dist)/domain`,
+          'node_modules/decimal\\.js',
+        ],
+      },
+    },
+    {
+      name: 'indexer-domain-takes-only-the-shared-core',
+      comment:
+        'indexer/src/domain may import itself, the shared calibrator domain, and decimal.js -- ' +
+        'nothing else. **The port is the point here rather than a formality**: an indexer reads ' +
+        'logs, and the way that goes wrong is a domain module that reaches an RPC client, a socket ' +
+        'or `node:fs` directly. `LogSource` is the seam, and this rule is what makes it one. ' +
+        'decimal.js is on the list for the same reason it is everywhere else; nothing in this ' +
+        'workspace uses it yet, and the allow-list is one entry long on purpose.',
+      severity: 'error',
+      from: { path: '^indexer/src/domain' },
+      to: {
+        pathNot: [
+          `^indexer/(src|dist)/domain`,
+          `^calibrator/(src|dist)/domain`,
+          'node_modules/decimal\\.js',
+        ],
       },
     },
     {
       name: 'application-does-not-import-adapters',
       comment:
-        'The high-level policy must not reach a low-level driver. Two spellings for the same reason ' +
-        'as the rule below: a package-name specifier is left unresolved, so the relative form alone ' +
-        'would not name the target. `@bell/calibrator/adapters/*` is unreachable at run time -- the ' +
-        "calibrator's `exports` map exposes `./domain/*.js` and nothing else -- and the settlement " +
-        'has no `adapters/` layer at all, so the second pattern guards a spelling that does not ' +
-        'resolve today. It is here because the rule names a *target*, not a way of writing it.',
+        'The high-level policy must not reach a low-level driver. THREE spellings now, and the ' +
+        'third is the one F96 added: a *resolved* cross-workspace specifier lands in `dist/`, so ' +
+        'the `@bell/…/adapters` pattern alone would have missed `../adapters/x.js` in the other ' +
+        'workspace even though the edge is right there in the graph. The bare-specifier pattern ' +
+        'guards a spelling that does not resolve today, because no workspace `exports` an ' +
+        '`adapters` path; it is here because the rule names a *target*, not a way of writing it.',
       severity: 'error',
-      from: { path: '^(calibrator|settlement)/src/application' },
+      from: { path: '^(calibrator|settlement|indexer)/src/application' },
       to: {
-        path: ['^@bell/(calibrator|settlement)/adapters', '^(calibrator|settlement)/src/adapters'],
+        path: [
+          '^@bell/(calibrator|settlement|indexer)/adapters',
+          '^(calibrator|settlement|indexer)/src/adapters',
+          '^(calibrator|settlement|indexer)/dist/adapters',
+        ],
       },
     },
     {
       name: 'the-calibrator-never-imports-the-settlement-service',
       comment:
-        'The two services share a domain core, and the direction is one-way. The settlement service ' +
+        'The services share a domain core, and the direction is one-way. The settlement service ' +
         'may read bell-calibrator/domain; the calibrator may not reach back. ' +
         'TWO SPELLINGS, and the second was found by probing rather than by reading (F85): a ' +
-        'package-name specifier stays UNRESOLVED in the graph, so `to.path` sees the bare ' +
+        'package-name specifier that does not resolve stays BARE in the graph, so `to.path` sees ' +
         '`@bell/settlement/domain/x.js` and never the path it would resolve to. Until B3 this rule ' +
         'named only `^settlement/src`, which matches a relative import and nothing else -- and a ' +
-        'relative import is not how this repository crosses a package boundary. The rule passed ' +
-        'every check while missing the only spelling anyone would write.',
+        'relative import is not how this repository crosses a package boundary. ' +
+        '**`@bell/settlement` is the one workspace with no `exports` map, which is why this rule ' +
+        'fired while `nothing-imports-the-indexer` did not (F96)** -- and why both now name all ' +
+        'three spellings rather than relying on that accident.',
       severity: 'error',
       from: { path: '^calibrator/src' },
-      to: { path: ['^@bell/settlement', '^settlement/src'] },
+      to: {
+        path: ['^@bell/settlement', '^settlement/src', '^settlement/dist'],
+      },
+    },
+    {
+      name: 'nothing-imports-the-indexer',
+      comment:
+        'The indexer is a consumer at the edge: it reads the other workspaces and nothing reads it. ' +
+        'A shared domain module that the indexer happened to need belongs in the calibrator, which ' +
+        'is where the shared core already lives -- so an import edge pointing *into* the indexer is ' +
+        'either a misplaced module or a cycle in the making, and both should be moved rather than ' +
+        'allowed. All three spellings, for the reason F96 records: this rule was written first and ' +
+        'fired on nothing, because the indexer *does* `export` a `domain/` path, so the specifier ' +
+        'resolved into `dist/` and the edge was deleted before any pattern could see it.',
+      severity: 'error',
+      from: { path: '^(calibrator|settlement)/src' },
+      to: {
+        path: ['^@bell/indexer', '^indexer/src', '^indexer/dist'],
+      },
     },
     {
       name: 'no-circular',
@@ -92,15 +157,23 @@ module.exports = {
     // violations, so the gate passed while enforcing nothing. Found by probing the gate with a
     // two-line file rather than by reading it. Its own resolver handles the `.js` → `.ts` mapping
     // correctly, so the option is not needed for that either.
-    doNotFollow: { path: 'node_modules' },
+    //
+    // **`dist` is here rather than in `exclude`, and that is F96's fix.** `doNotFollow` keeps a
+    // dependency edge and declines to descend into it; `exclude` removes the module from the graph
+    // entirely, which removes the *edge* with it. Every cross-workspace specifier resolves through
+    // the target's `exports` map into `dist/`, so excluding `dist` deleted exactly the edges the
+    // rules about cross-workspace imports exist to see. Not descending is all that is wanted here:
+    // build output is not source, and nothing in it needs a rule applied.
+    doNotFollow: { path: '(node_modules|dist)' },
     // `node_modules` is deliberately **not** in this exclude list, and the distinction is the whole
     // reason the gate works. `doNotFollow` keeps a dependency edge and declines to descend into it;
     // `exclude` removes the module from the graph entirely, which removes the *edge* with it. With
     // `node_modules` excluded, a domain file importing `@noble/hashes` produced no edge and
     // therefore no violation — the gate passed while enforcing nothing, for exactly the case it
     // exists to catch. `node:fs` was caught throughout, because a core module does not live under
-    // `node_modules`, which is what made the failure look like success.
-    exclude: { path: '(^|/)(dist|coverage)/' },
+    // `node_modules`, which is what made the failure look like success. `dist` was in this list for
+    // the same reason and with the same effect; see F96.
+    exclude: { path: '(^|/)(coverage)/' },
     enhancedResolveOptions: {
       exportsFields: ['exports'],
       conditionNames: ['import', 'require', 'node', 'default'],
