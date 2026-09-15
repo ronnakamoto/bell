@@ -1910,11 +1910,44 @@ deliberately broken `.ts` file in `.recon/` now lints clean, and a deliberately 
 "the ignore is too broad" look identical — and the second failure would be silent, which is the one thing
 a gate must never be.
 
+## F59 — A declared constant that nothing reads, sitting next to a catch-all that makes it a trap
+
+`sessions.py` declares `HOLIDAY_SPANS_DAYS = frozenset({2, 4, 5})`. **Nothing reads it** — not the module
+it is declared in, not the tests, not any other module in either workspace. Verified by grepping the
+whole tree for the name: one hit, the declaration.
+
+It is not merely unused, it is misleading, and the reason is the function beside it:
+
+```python
+if span.calendar_days == OVERNIGHT_SPAN_DAYS: return SessionKind.OVERNIGHT
+if span.calendar_days == WEEKEND_SPAN_DAYS:   return SessionKind.WEEKEND
+return SessionKind.HOLIDAY                    # every other span, including 6, 7, 8, ...
+```
+
+`classify` reaches `HOLIDAY` by falling through, so this set is a strict **subset** of what the function
+returns. The constant reads like a validation rule — a reviewer sees `{2, 4, 5}` and concludes that a
+holiday is exactly a two-, four- or five-day span. A refactorer who "tightens" `classify` to
+`HOLIDAY_SPANS_DAYS.has(span.calendar_days)` would introduce a hole for every span above five, and
+**the existing tests would still pass**, because no test constructs a span outside 1–5.
+
+The port keeps the constant, with the hazard stated at the declaration rather than silently deleted: a
+faithful translation of a file should not quietly lose a declaration, and the discrepancy between what
+the design enumerated and what the function implements is itself information. `DESIGN_NOTES.md` F53
+records the same shape in a gate — a check that looked like it enforced something and enforced nothing.
+
+**A second thing the module's public surface does not do.** `classify`, `is_pooled_with_weekend` and
+`expected_tail_observations` have no production caller in either language; the only importer of
+`sessions.py` anywhere is its own test file. The session reaches the application layer as *data* —
+`calibrate.py` takes a `session: SessionKind` and `window_for` switches on it — so this is the rule that
+ingestion is expected to apply upstream of the calibrator, and nothing asserts that ingestion does.
+Recorded because it is the kind of thing a reader of the pipeline assumes is wired: the classification
+is tested, and tested well, but the label on a session in the pipeline does not come from here yet.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` is written and verified against the committed fixtures — `digest`, `moments`, `constants` and `leverage`; `sessions`, `families`, the application layer, the adapters, the settlement service, the remaining tools and the remaining ported tests follow | the port |
+| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` is written and verified against the committed fixtures — `digest`, `moments`, `constants`, `leverage` and `sessions`; `families`, the application layer, the adapters, the settlement service, the remaining tools and the remaining ported tests follow | the port |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
