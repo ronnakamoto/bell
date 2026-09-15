@@ -11,21 +11,16 @@
  * for whether something belongs in this layer rather than in `domain/`.
  *
  * **The one piece of Python's standard library this module has to reproduce is `date.toordinal()`**,
- * and it is the reason `dateOrdinal` is exported rather than private. The Python's `DailyBar` holds a
- * `datetime.date`, so `rows_digest` reached for `bar.trading_date.toordinal().to_bytes(4, "big")` and
- * got both the proleptic Gregorian day number and its range check from the standard library. The
- * port's `DailyBar` holds a **string**, so the same four bytes have to be computed here — and a
- * disagreement is silent, because `rowsDigest` feeds `inputsHash`, which the registry stores and
- * nothing on chain recomputes. A wrong day number produces a well-formed 32-byte digest that a
- * challenger would simply never be able to match, which looks exactly like a dishonest publisher.
- * See `DESIGN_NOTES.md` F63.
+ * and it now lives in `domain/dates.ts` rather than here. It moved because it has two callers and only
+ * one of them is in this layer: `rowsDigest` needs the day number, and the CSV adapter needs the
+ * refusal — the Python validated the date in the adapter, with `date.fromisoformat`. An adapter may
+ * not import the application layer, so the rule lives where both may reach it and neither can hold a
+ * private copy. This module imports it and does not restate it.
  *
- * **The Python validated the date nowhere, either.** Its `DailyBar` is a `@dataclass(frozen=True)`,
- * and dataclasses do not check declared types at runtime: `DailyBar(trading_date="garbage", …)`
- * constructs successfully and fails later at `.toordinal()` with an `AttributeError`. Measured rather
- * than assumed. So the port is not worse than its oracle here — but it is the port's job to be
- * *specific* about where the failure lands, which is why `dateOrdinal` refuses a non-date with a named
- * error rather than letting an `undefined` reach a byte buffer.
+ * The consequence is that a non-date reaching `dateOrdinal` now raises `DomainError` rather than
+ * `CalibrationError`. That is not observable in a calibration run — the adapter is the only producer
+ * of a `DailyBar`'s date, so a malformed one never gets this far — and it is more accurate: the
+ * refusal is the domain rejecting a value, not this use case rejecting an input. See F63.
  */
 
 import { type Decimal } from 'decimal.js';
@@ -38,6 +33,7 @@ import {
   WAD,
   WEEKEND_WINDOW_SESSIONS,
 } from '../domain/constants.js';
+import { dateOrdinal } from '../domain/dates.js';
 import { inputsHash, uintToBytes } from '../domain/digest.js';
 import { type DistributionFamily, GapSample, SEED_FAMILY } from '../domain/families/index.js';
 import { latticeLeverage } from '../domain/leverage.js';
@@ -261,80 +257,4 @@ export function windowFor(session: SessionKind, symbol: Symbol): number {
   throw new CalibrationError(
     `the ${session} session has no pooled window; event sessions are calibrated per name`,
   );
-}
-
-/**
- * The proleptic Gregorian ordinal of an ISO 8601 date, as Python's `date.toordinal()` means it.
- *
- * Day 1 is `0001-01-01`, and `1970-01-01` is day 719163. Computed arithmetically rather than through
- * `Date`, and that is deliberate rather than fussy:
- *
- * - `new Date('2020-1-6')` is invalid in every engine but `new Date('2020-01-06')` is parsed as
- *   **UTC** while `new Date('2020-01-06T00:00')` is parsed as **local** — so the same string can
- *   denote two different days depending on a suffix that is not there. A day number that depends on
- *   the host's timezone is not a cross-language contract.
- * - `Date.UTC` maps a year in 0–99 to 1900+year, so `Date.UTC(20, 0, 6)` is 1920.
- * - The algorithm below is exact integer arithmetic with no epoch, no timezone and no `Date` object.
- *
- * **The accepted format is narrowed to `YYYY-MM-DD`, and the narrowing is stated rather than
- * implied.** Python's `date.fromisoformat` also accepts `YYYYMMDD`, an ISO week date (`2020-W02-1`)
- * and an ordinal date (`2020-006`). Only the first form is reachable here — it is the form the CSV
- * adapter's own header documents and the only one any test or fixture uses — and the port refuses the
- * others loudly rather than reimplementing three more grammars whose disagreement would be silent.
- * A refusal is the right failure: a wrong day number is not.
- */
-export function dateOrdinal(isoDate: string): number {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
-  if (match === null) {
-    throw new CalibrationError(
-      `not an ISO 8601 calendar date: ${JSON.stringify(isoDate)} (expected YYYY-MM-DD)`,
-    );
-  }
-  const year = Number(isoDate.slice(0, 4));
-  const month = Number(isoDate.slice(5, 7));
-  const day = Number(isoDate.slice(8, 10));
-
-  // Python's `date.MINYEAR` is 1, and `date.fromisoformat('0000-01-01')` refuses a year of zero.
-  if (year < 1) {
-    throw new CalibrationError(`not a calendar date: ${isoDate} (year 0 is out of range)`);
-  }
-  if (month < 1 || month > 12) {
-    throw new CalibrationError(`not a calendar date: ${isoDate} (month must be in 1..12)`);
-  }
-  const monthLength = month === 2 && isLeapYear(year) ? 29 : DAYS_IN_MONTH[month - 1];
-  if (monthLength === undefined || day < 1 || day > monthLength) {
-    throw new CalibrationError(
-      `not a calendar date: ${isoDate} (day is out of range for the month)`,
-    );
-  }
-
-  return daysFromCivil(year, month, day) + EPOCH_ORDINAL;
-}
-
-const DAYS_IN_MONTH: readonly number[] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-/** The proleptic Gregorian ordinal of `1970-01-01`, which is what `daysFromCivil` counts from. */
-const EPOCH_ORDINAL = 719163;
-
-function isLeapYear(year: number): boolean {
-  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-}
-
-/**
- * Days from `1970-01-01` to `year-month-day`, by Howard Hinnant's `days_from_civil`.
- *
- * Exact for every proleptic Gregorian date, and it handles the century rules through the era
- * decomposition rather than through four separate branches. `Math.floor` is the correct rounding
- * rather than `Math.trunc`: the era and year-of-era terms are computed as floored quotients so that
- * the formula stays a bijection across a negative year, which is why the formula is worth copying
- * exactly instead of deriving.
- */
-function daysFromCivil(year: number, month: number, day: number): number {
-  const adjustedYear = month <= 2 ? year - 1 : year;
-  const era = Math.floor(adjustedYear / 400);
-  const yearOfEra = adjustedYear - era * 400;
-  const dayOfYear = Math.floor((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5) + day - 1;
-  const dayOfEra =
-    yearOfEra * 365 + Math.floor(yearOfEra / 4) - Math.floor(yearOfEra / 100) + dayOfYear;
-  return era * 146097 + dayOfEra - 719468;
 }

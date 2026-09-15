@@ -8,12 +8,20 @@
  * `Wad` holds a **`bigint`**, not a `Decimal`. Its raw value is an exact integer at 1e18 — 19 digits,
  * and intermediate products reach 38 — which is exactly what `bigint` is for. `Decimal` is reserved
  * for the modules that need a transcendental function or a configurable rounding mode, which is
- * `moments` and nothing else. Keeping the two apart means the common path is integer arithmetic, and
- * it means the one module that needs arbitrary-precision *decimal* is the one module you can point
- * at when asking whether the numerics are sound.
+ * `moments`, the families, `leverage`, and this module's two *conversions* to and from a decimal
+ * literal. Keeping the two apart means the common path is integer arithmetic, and it means the few
+ * modules that need arbitrary-precision *decimal* are the ones you can point at when asking whether
+ * the numerics are sound.
+ *
+ * The conversions import the domain's single `Decimal.clone` from `moments.ts` rather than declaring a
+ * second one, so a value that enters as a decimal literal and leaves as one cannot be rounded at a
+ * precision no other module uses.
  */
 
+import { type Decimal } from 'decimal.js';
+
 import { WAD } from './constants.js';
+import { D } from './moments.js';
 
 /** The closed-session taxonomy. Mirrors `contracts/src/types/SessionKind.sol`. */
 export const SessionKind = {
@@ -36,6 +44,12 @@ export type SessionKind = (typeof SessionKind)[keyof typeof SessionKind];
  * it from there; re-exporting it from here would put a second name on the one value.
  */
 const WAD_BIGINT = WAD;
+
+/** The number of decimal places a `Wad` holds exactly. The scale it is fixed at, as a count. */
+const WAD_DECIMALS = 18;
+
+/** `WAD` as a decimal, for the two conversions below. Derived, never written down a second time. */
+const WAD_DECIMAL = new D(WAD.toString());
 
 /**
  * Thrown by a value object that refuses its input.
@@ -97,6 +111,62 @@ export class Wad {
     if (fraction === 0n) return `${negative ? '-' : ''}${String(whole)}`;
     const padded = fraction.toString().padStart(18, '0').replace(/0+$/, '');
     return `${negative ? '-' : ''}${String(whole)}.${padded}`;
+  }
+
+  /**
+   * Exact conversion from a decimal, refusing one that is not representable at WAD scale.
+   *
+   * **The `decimalPlaces` check is what makes this precision-independent, and it is not redundant with
+   * the integrality check below.** The Python's `from_decimal` multiplies by 1e18 in `decimal`'s
+   * *ambient* context and compares against `to_integral_value()`, so for a value with more than
+   * ~28 significant digits the multiply rounds first and the comparison then succeeds on a *rounded*
+   * result. Measured: `Wad.from_str("123456789012345678.123456789012345678").raw` is
+   * `123456789012345678123456789000000000` where the exact answer is
+   * `123456789012345678123456789012345678` — wrong in the last eight digits, silently, and with the
+   * check passing. That is `DESIGN_NOTES.md` F60's second observable member, and this is where it is
+   * fixed: a value with more than eighteen decimal places is refused *before* the multiply, so the
+   * multiply never has to be trusted for exactness.
+   *
+   * A non-finite value falls through to the integrality check rather than to a check of its own, so
+   * that `NaN` produces the same message the Python produces.
+   */
+  static fromDecimal(value: Decimal): Wad {
+    if (value.isFinite() && value.decimalPlaces() > WAD_DECIMALS) {
+      throw new DomainError(
+        `${value.toExponential().toUpperCase()} is not exactly representable at WAD scale`,
+      );
+    }
+    const scaled = value.times(WAD_DECIMAL);
+    if (!scaled.isInteger()) {
+      throw new DomainError(
+        `${value.toExponential().toUpperCase()} is not exactly representable at WAD scale`,
+      );
+    }
+    return new Wad(BigInt(scaled.toFixed(0)));
+  }
+
+  /**
+   * Exact conversion from a decimal literal, e.g. `"0.0188"`.
+   *
+   * **One deliberate narrowing, and it is not the one this comment used to name.** The claim was that
+   * `decimal.js` refuses underscore separators where Python's `Decimal` accepts them. Measured, that is
+   * backwards: `new Decimal("1_000.00")` is `1000`, exactly as `Decimal("1_000.00")` is `1000.00`. What
+   * `decimal.js` *does* refuse is a literal carrying surrounding whitespace — `new Decimal("  100.00  ")`
+   * and `new Decimal("\u00a0100")` both throw, where Python's `Decimal` returns `100.00`. So a caller
+   * passing a padded literal is refused by the port and accepted by the oracle.
+   *
+   * The CSV adapter is unaffected, because it trims every cell before calling this — and the trimming
+   * is where the two languages genuinely diverge, in both directions. See F65 and the adapter's header.
+   * Recorded rather than reproduced: reproducing Python's parser would mean writing one, and a padded
+   * literal is not a format any exchange emits.
+   *
+   * A non-numeric literal throws `decimal.js`'s own error, which the CSV adapter catches and renames.
+   * That mirrors the Python, where `Decimal("one hundred")` raises `InvalidOperation` — a
+   * `decimal.DecimalException` and *not* a `ValueError`, which is why the adapter's handler has to
+   * name both.
+   */
+  static fromStr(text: string): Wad {
+    return Wad.fromDecimal(new D(text));
   }
 
   /** WAD multiplication: `(a * b) / 1e18`, truncated toward zero. */

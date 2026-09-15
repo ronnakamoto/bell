@@ -29,11 +29,11 @@ import {
   CalibrationError,
   CalibrationRequest,
   calibrate,
-  dateOrdinal,
   rowsDigest,
   windowFor,
 } from '../../src/application/calibrate.js';
 import { WAD } from '../../src/domain/constants.js';
+import { dateOrdinal } from '../../src/domain/dates.js';
 import { type DistributionFamily, FAMILIES } from '../../src/domain/families/index.js';
 import { isOnHarmonicLadder } from '../../src/domain/leverage.js';
 import { DailyBar, SessionKind, Symbol, Wad } from '../../src/domain/models.js';

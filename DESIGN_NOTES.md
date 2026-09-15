@@ -2136,11 +2136,116 @@ same zero) with a named `DomainError`. Whether the union should gain a `Degenera
 question for whoever owns `domain/models.ts` next, and it is recorded here rather than decided silently
 in an application-layer port.
 
+## F65 — The two languages disagree about what whitespace is, in both directions, and the adapter trims with one of them
+
+A5 ported the CSV gap source and ran a differential of 58 fixtures against the Python oracle. Eleven
+behavioural differences came out. Four were refusals the port chose (F64a's negative open, the short
+row, the date narrowing), one was F60's second observable member, and **two were a class nobody had
+looked at: `String.prototype.trim()` and `str.strip()` do not mean the same thing, and neither do the
+two line readers.** Both are silent. Neither is reachable from a real exchange feed. Both are in the one
+layer whose entire contract is that a file's problems live there.
+
+Measured on the two standard libraries as they ship:
+
+| character | `"…x".trim()` (JS) | `"…x".strip()` (Python) |
+|---|---|---|
+| `U+FEFF` byte-order mark | strips | **keeps** |
+| `U+0085` next line | **keeps** | strips |
+| `U+001C` file separator | **keeps** | strips |
+| `U+000B` vertical tab | strips | strips |
+| `U+00A0` no-break space | strips | strips |
+| `U+2028` line separator | strips | strips |
+
+and on the readers:
+
+| separator | the port's `parseCsv` | Python's `str.splitlines` |
+|---|---|---|
+| `LF`, `CRLF` | a terminator | a terminator |
+| a lone `CR` | a terminator, **after the fix below** | a terminator |
+| `U+0085`, `U+000B`, `U+001C`, `U+2028`, `U+2029` | **not** a terminator | a terminator |
+
+**Two consequences, in opposite directions.**
+
+- **The port reads a file the oracle refuses.** A cell carrying a BOM — `\ufeff2026-09-10` — is trimmed
+  to a date here and kept as an unparseable string there, so the fixture `bom` is `OK` on one side and
+  `GapSourceMalformed` on the other. That is the *better* behaviour and it is what a spreadsheet export
+  produces; recorded rather than corrected, because reproducing Python's answer would mean writing a
+  `strip()` deliberately narrower than the language's.
+- **The port refuses a file the oracle leaks out of.** `U+0085`, `U+000B`, `U+001C` and `U+2028` end a
+  line for Python and do not for the port, so `2026-09-10\u0085,100.00,102.00` is one row here and two
+  there — and on the Python side the first of those two rows is short, which is F64's `AttributeError`
+  escaping the adapter a second time. The port refuses it as a malformed date, which is at least a named
+  refusal.
+
+**And the reader bug the differential caught before any of that.** The first version of `parseCsv`
+discarded `\r` outright instead of treating it as a terminator. On a file using bare `CR` — which
+`str.splitlines` reads as several lines — the port produced one malformed record. It was caught by the
+`cr_only` fixture, and **the ported 24-test suite was green with it**: the probe direction
+`cr_not_a_terminator` reproduces the bug and leaves the entire suite passing. The suite now has a test
+for it, which is the right response to a probe that only the differential can see.
+
+Fixed here: the reader treats a lone `CR` as a terminator, so `cr_only` agrees with the oracle.
+Not fixed: the whitespace table. Normalising it would mean writing a `trim` that reproduces Python's
+character set in a language whose own set differs, for inputs no source emits — and the differential now
+names every one of them, so the next reader does not have to rediscover it.
+
+## F66 — Three differences from the oracle that were not differences, and a harness that manufactured one
+
+The port's own docstrings claimed five departures from the Python in the CSV adapter, one narrowing in
+`Wad.fromStr`, and three accepted date grammars. The differential is what checked them, and **four of
+those nine claims were wrong.** All four are corrected in place. None of them changed a line of
+behaviour, which is the point: a false claim about a difference is as expensive as a missing one,
+because it tells the next reader to stop looking.
+
+- **`decimal.js` accepts underscore separators.** `Wad.fromStr`'s comment said the opposite and used it
+  to justify a narrowing. Measured: `new Decimal("1_000.00")` is `1000`, exactly as Python's
+  `Decimal("1_000.00")` is `1000.00`. What `decimal.js` refuses is a literal carrying surrounding
+  whitespace or a no-break space, which Python's `Decimal` strips — the reverse of the claim. The
+  fixture `underscore_number` is one of the 35 the two sides agree on.
+- **`date.fromisoformat` does not accept ordinal dates.** F63 and the adapter both said it accepted
+  `YYYYMMDD`, a week date and `YYYY-DDD`. Measured on CPython 3.13: `2026-006` is refused, exactly as
+  `dateOrdinal` refuses it. The narrowing is three grammars (`2026-W37`, `2026-W37-4`, `20260910`), not
+  four, and the fixture `ordinal_date` is what corrected it.
+- **`csv.reader` reassembles a quoted field across lines.** The adapter's fifth departure said Python's
+  `text.splitlines()` destroys a newline inside a quoted field, so the port would read a file the oracle
+  could not. It does not: `"2026-09-10\n",100.00,102.00` is read identically by both, and the fixture
+  `quoted_date_newline` is one of the 35 agreements. The departure was **removed**, and the test that
+  asserted it kept with its comment corrected — a test asserting an agreement is still worth having, but
+  not for the reason it was written.
+
+**Two things the probes found that are not about the port at all.**
+
+- **A unit test that passed for the wrong reason.** `a blank line is skipped and the row number counts
+  records` asserted `/row 3/`, and the *broken* port satisfies it: with the blank record left in, the
+  blank row is itself the second record and reports "row 3" — about an empty date rather than about
+  `bad`. The probe direction `blanks_not_filtered` left the suite green. The assertion now names the
+  offending value as well as the row.
+- **The probe harness reported its own negative control as caught.** Its first run showed every probe
+  moving 27–29 fixtures, including a De Morgan rewrite that cannot change an answer. The cause was the
+  harness: each fixture is materialised in a fresh temp directory, both messages name that file, and the
+  raw dumps were compared without normalising the path — so every error fixture differed between two
+  runs of identical code. This is the second time in this port that a check has been found enforcing
+  nothing (F53), and it is the same lesson: a harness is code, and code that has never been run against
+  a null input has not been tested.
+
+**One more difference, and it is one where the port is right.** The fixture `thirty_six_digits` reads
+`123456789012345678.123456789012345678` — 36 significant digits, 18 of them after the point. The oracle
+returns `123456789012345678123456789000000000`; the port returns the exact
+`123456789012345678123456789012345678`. That is F60's second observable member, and this is the first
+time it has been seen from *outside* the module that holds it: the two numbers differ in the last eight
+digits, the oracle's own integrality check passes on the rounded value, and none of the Python's twelve
+tests reaches it.
+
+The port does not refuse this one — it has exactly eighteen decimal places, so `fromDecimal`'s
+`decimalPlaces` guard does not fire. It is exact because the domain's single `Decimal.clone` carries 50
+digits where Python's ambient context carries 28. The guard and the precision close the same defect from
+two directions, and only the fixture shows that either is doing anything.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` and `application/` are written and verified against the committed fixtures — `digest`, `moments`, `constants`, `leverage`, `sessions` and `families` — and the application layer against a differential dump; the adapters, the settlement service, the remaining tools and the remaining ported tests follow | the port |
+| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` and `application/` are written and verified against the committed fixtures — `digest`, `moments`, `constants`, `leverage`, `sessions`, `dates` and `families` — the application layer against a 1,203-line differential dump and the CSV adapter against a 58-fixture one; the settlement service, the remaining tools and the remaining ported tests follow | the port |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
