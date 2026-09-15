@@ -11,7 +11,29 @@ optimizer_runs = 200
 
 # `spec/` holds the shared JSON fixtures and the single source of truth for domain constants.
 # Tests read them through vm.readFile, so the read path must be granted explicitly.
-fs_permissions = [{ access = "read", path = "../spec" }]
+#
+# `logs.json` is the one writable path, and the narrowness is the point. The indexer's oracle is the
+# log stream the contracts actually emit, and the producer is Solidity, so that fixture cannot be
+# emitted by a Node tool the way the others are -- see `test/indexer/LogFixture.t.sol`. Every other
+# path stays read-only, so no test can rewrite a fixture by accident.
+fs_permissions = [
+    # The one writable path, and the reason it is a file rather than a directory.
+    #
+    # The indexer's oracle is the log stream the contracts actually emit, so that fixture's producer
+    # is Solidity and it cannot be emitted by a Node tool the way the others are -- see
+    # `test/indexer/LogFixture.t.sol`. Writing it needs `read-write`.
+    #
+    # **A narrower entry cannot be nested inside a broader one.** Granting `read` on `../spec` and
+    # `read-write` on `../spec/fixtures/logs.json` refuses the write: the broader grant on the parent
+    # wins, whatever the order. So the reads below are named individually. That is tighter than the
+    # directory it replaces -- `spec/constants.yaml` is no longer readable from a test, and nothing
+    # read it -- at the cost that a new fixture needs a line here. The failure is a refused
+    # `vm.readFile` naming the path, which is loud.
+    { access = "read-write", path = "../spec/fixtures/logs.json" },
+    { access = "read", path = "../spec/digest.json" },
+    { access = "read", path = "../spec/fixtures/canonical.json" },
+    { access = "read", path = "../spec/fixtures/moments.json" }
+]
 
 # ffi stays off. It is not needed: fixtures are read with vm.readFile + vm.parseJson, which is
 # sufficient and does not hand arbitrary shell execution to a test file.

@@ -143,10 +143,19 @@ check-layout: ts-build ## The §6 layout rules, mechanically
 # check, and both read the *compiled* calibrator, because a bare `node` will not resolve `models.ts`'s
 # relative `'./constants.js'` to `constants.ts` -- hence `ts-build` rather than an assumption that
 # `npm run build` already ran.
+#
+# **The fourth generated file is produced by Solidity, and until F95 it was in no gate at all.**
+# `spec/fixtures/logs.json` comes out of `contracts/test/indexer/LogFixture.t.sol`, so this target ran
+# three of the four generators and the fourth was reached only by `check-coverage` -- that is, only
+# under `forge coverage`, whose instrumentation changes `Session`'s creation code and therefore the
+# CREATE2 address the factory derives for it. The one profile that ran the check was the one profile
+# that could not pass it, and its failure wrote the wrong addresses into the tree. It is asserted here,
+# in the canonical build, and excluded from the coverage run for the same reason (F95).
 check-generated: ts-build ## Fail if any generated file is stale
 	node $(TOOLS)/gen_constants.ts --check
 	node $(TOOLS)/gen_moments_fixture.ts --check
 	node $(TOOLS)/gen_digest_fixture.ts --check
+	cd $(CONTRACTS) && forge test --match-path "test/indexer/*"
 
 check-fixtures: ## Fail if any spec/ fixture carries an integer a JavaScript reader would round
 	node $(TOOLS)/check_fixtures.ts

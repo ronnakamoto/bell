@@ -217,11 +217,32 @@ function parse(report: string): Coverage[] {
   return found;
 }
 
+/**
+ * `forge coverage`, with the fixture emitters excluded.
+ *
+ * **The exclusion is a correctness requirement, not a speed-up (F95).** `forge coverage` instruments
+ * the contracts it measures, and instrumentation changes `Session`'s creation code. `SessionFactory`
+ * deploys a session with CREATE2, so the session's initcode is part of the address preimage: a
+ * different creation code is a different address, and every claim token the session deploys inherits
+ * the difference. `spec/fixtures/logs.json` records those addresses, so it cannot be byte-stable
+ * across two builds, and a coverage run is a second build.
+ *
+ * Left in, the fixture test failed here and -- worse -- rewrote the fixture with the instrumented
+ * addresses before reverting, leaving a corrupted file in a clean tree. The fixture is now asserted
+ * by `make check-generated`, in the canonical build, which is the only build that can reproduce it.
+ *
+ * The exclusion names the one file rather than its directory: a later test placed in `test/indexer/`
+ * should have to make this decision deliberately, not inherit it.
+ */
 function runForge(): string {
-  const result = spawnSync('forge', ['coverage', '--report', 'summary'], {
-    cwd: CONTRACTS,
-    encoding: 'utf8',
-  });
+  const result = spawnSync(
+    'forge',
+    ['coverage', '--report', 'summary', '--no-match-path', 'test/indexer/LogFixture.t.sol'],
+    {
+      cwd: CONTRACTS,
+      encoding: 'utf8',
+    },
+  );
   if (result.status !== 0) {
     console.error('forge coverage failed:');
     console.error(tail(result.stdout, 4000));

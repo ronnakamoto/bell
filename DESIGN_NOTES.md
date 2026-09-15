@@ -3409,6 +3409,151 @@ compares it against a value that is itself exact, so this specific instance fail
 because the rounded value *is* exactly representable at WAD scale. The value is lost one layer earlier
 than the layer that checks it, which is the shape every member of the F52 family has had.
 
+## F93 — `createSession` deploys a session it never registers, and nothing else does either
+
+`SessionFactory.createSession` deploys the session, hands it `referenceRegistry` in the constructor, and
+emits `SessionCreated`. It does **not** call `ReferenceRegistry.registerSession`. Nothing in `src/` calls
+it: `registerSession` is declared `external`, permissionless, and its only reference in the tree is its
+own declaration. `registerSession` is therefore a step the listing path does not perform.
+
+**What that costs.** A freshly created session is `Open` and fully usable — it can be seeded, traded and
+resolved *by the registry* only after registration, because `resolve` opens with
+
+```solidity
+SessionRecord storage record = _sessions[session];
+if (record.referenceToken == address(0)) revert NotRegistered(session);
+```
+
+So between `createSession` and somebody sending `registerSession`, the session is **unsettleable**. Its
+collateral is not at risk: the instrument is fully collateralised, and `claim` and `withdrawPool` both sit
+behind `inState(State.Settled)`, which no path reaches without a `settle` that only the registry can call.
+This is a liveness gap rather than a hole — but it is a gap a participant reaches by following the listing
+path correctly, and it makes the listing **two** transactions when it looks like one.
+
+**Why it is not simply folded in.** `registerSession` reads three things rather than accepting them: the
+session's `expiryTimestamp`, the session's `lamWad`, and the reference token's `multiplier()` — and the
+third is read here *on purpose*, so that the multiplier a session is judged against is the value the token
+reported at registration rather than a value a caller supplied. G8 compares that recorded multiplier
+against the token's multiplier at resolution, so registration time is a load-bearing input and not a
+bookkeeping step. Whether the factory should perform it — and if so, whether that reopens the
+caller-supplied-multiplier question — is a design decision rather than a bug fix, and it is left open.
+
+**Where it was found.** While writing the log fixture (F94). The fixture performs the registration
+explicitly, because a real lifecycle has to; `LogFixture.t.sol` names it at the call site so the fixture
+does not read as though the factory did it.
+
+## F94 — the log fixture's provenance note asserted an event the corpus did not contain
+
+The fixture `spec/fixtures/logs.json` carries a `_note` naming the events it holds: "…PrintSubmitted,
+ReferenceRegistry.Resolved and Settled." The corpus contained **no `Settled` at all**. It regenerated
+byte-for-byte on every run, the test passed, and the note was false.
+
+**The mechanism.** `ReferencePrintBook._trySelect` filters candidates twice:
+
+```solidity
+if (candidate.timestamp < notBefore) continue;              // notBefore is the session's expiry
+if (_ageOf(candidate.timestamp, nowTimestamp) > staleBoundSeconds) continue;
+```
+
+The fixture submitted its only print *before* `vm.warp(expiry + 1)`, so the print was disqualified on
+both counts: it predated the close, and by the time of resolution it was 63,001 s old against a
+`staleBoundSeconds` of 7,200. `_selectOrDefer` returned its `type(uint256).max` sentinel, the branch
+became `Deferred`, and `resolve` skipped the settle entirely:
+
+```solidity
+if (branch != Branch.Deferred) {
+    record.resolved = true;
+    Session(session).settle(payoffWad, stale || branch == Branch.StalePrint);
+}
+emit Resolved(session, branch, gapWad, payoffWad);
+```
+
+The registry emitted its `Resolved` with `branch = Deferred`, `gapWad = 0` and `payoffWad = 0`, the
+session stayed `Expired`, and the corpus was one event short of what its own note described.
+
+**Two things worth keeping.**
+
+The first is domain, and it is the trap for anything a participant touches (F50): **the reference print is
+a closed-session print.** A print taken before the close cannot be the reference print however fresh it
+is, because selection is bounded below by the expiry, not only above by staleness. A UI that submits a
+print and then closes a session has the two the wrong way round; the print belongs *after* the close, and
+within `staleBoundSeconds` of the resolution.
+
+The second is about the evidence. **Byte-identity is the acceptance test for a generator and it cannot
+detect a corpus that is internally inconsistent with the claim made about it.** Unchanged bytes prove the
+generator is safe, not that its output is complete. The remedy is not a more careful note — a note is a
+claim, and this one was unchecked — but an assertion on the property whose absence produced the defect.
+The fixture now ends with
+
+```solidity
+assertEq(
+    uint256(session.state()), uint256(Session.State.Settled), "the session did not settle"
+);
+```
+
+so a lifecycle that stops settling fails loudly instead of quietly regenerating a weaker corpus. This is
+the same shape as F90's lesson one layer over: a copy that cannot be removed has to be *checked*, and a
+claim that nothing verifies is the thing that goes wrong.
+
+**Regenerated.** The corpus is 29 logs across 13 distinct topic0 values and 7 emitting addresses; the
+session now settles on `LivePrint` with `gapWad = 2e16` and `payoffWad = 3e17`, which is
+`min(λ·|G|, 1) = min(15 × 0.02, 1)` — the instrument's own pricing primitive, visible in the logs.
+
+## F95 — the fourth generator was in no gate, and the one place it ran was the wrong build
+
+`spec/fixtures/logs.json` is produced by `contracts/test/indexer/LogFixture.t.sol`, not by a Node tool.
+`make check-generated` ran three `--check` invocations — `gen_constants`, `gen_moments_fixture`,
+`gen_digest_fixture` — and the fourth generator had no entry. The only place it was executed at all was
+`check-coverage`, which runs `forge coverage`.
+
+**That is the one profile that cannot reproduce it.** `forge coverage` instruments the contracts it
+measures. `SessionFactory.createSession` deploys a session with CREATE2, and CREATE2's preimage is
+`keccak(0xff ‖ factory ‖ salt ‖ keccak(initcode))` — so **the session's creation code is part of its
+address**. Instrumentation changes the creation code, the session address moves, and the two claim tokens
+the session deploys move with it. Measured, on the same corpus:
+
+| Contract | `forge test` | `forge coverage` |
+|---|---|---|
+| `SessionFactory` | `0xc7183455…` | `0xc7183455…` (unchanged) |
+| `ReferenceRegistry` | `0xf62849f9…` | `0xf62849f9…` (unchanged) |
+| `PremiumRegistry` | `0x5991a2df…` | `0x5991a2df…` (unchanged) |
+| `Session` | `0x3fc355a5…` | `0x063c3c2e…` |
+| long claim token | `0xadc235f7…` | `0xf17e96dd…` |
+| short claim token | `0x447add36…` | `0x991fe1ec…` |
+
+The four that held are deployed by the test contract with CREATE, whose address and nonce are fixed; the
+three that moved are the CREATE2 chain below it. So **a fixture that records a CREATE2-derived address is
+a function of the compiled bytecode, and "byte-identical" is a claim about one build.** A gate has to
+name which build it is asserting in.
+
+**The failure was worse than a red test.** The fixture test wrote the new bytes *before* reverting — the
+`--check` idiom — so the coverage run left the instrumented corpus in the tree. A check whose purpose is
+to catch a corrupted generated file corrupted the generated file. `make check` then failed on the *next*
+run, with `check-generated` having already passed, which is the shape of a flake rather than of a defect.
+
+**Three fixes.**
+
+The write is now opt-in: the test writes only when `BELL_WRITE_FIXTURES` is set, and otherwise a mismatch
+fails with an error that carries the regeneration command. An unintended run can no longer touch the tree.
+This is the same `--check`/write split the three Node generators use, expressed as an environment variable
+because the producer is Solidity rather than a tool that can take a flag.
+
+The fixture is asserted by `make check-generated`, in the canonical build — so a stale Solidity-produced
+fixture is a `make check` failure like the other three, rather than a failure only under coverage.
+
+`forge coverage` is passed `--no-match-path test/indexer/LogFixture.t.sol`, naming the one file rather than
+its directory so that a later test placed there has to make the decision deliberately.
+
+**Probed.** Corrupting the fixture and running the test without the flag fails with
+`LogFixtureStale("BELL_WRITE_FIXTURES=1 forge test --match-path test/indexer/LogFixture.t.sol")` and
+leaves the corrupted bytes on disk; running with the flag restores it byte-for-byte. And the fixture's
+md5 is unchanged across a full `make check` — which is the measurement that matters, because before this
+change the same run rewrote it.
+
+**A third inaccuracy in the same file.** The fixture's `_note` said "Regenerate with `make build`", and
+`make build` does not run a Solidity test — so the instruction had never worked. It now names the flag and
+the test, and `make check-generated` is what enforces it.
+
 ## Still open
 
 | # | Item | Blocking |
@@ -3419,6 +3564,7 @@ than the layer that checks it, which is the shape every member of the F52 family
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
 | F88 | `erf` computes a continued fraction for arguments above 11, where it is exactly 1 at working precision; measured at 29.2% of the NIG quadrature's calls and a factor of 2.4 on that path | nothing; recorded rather than taken, because `moments.ts` is the Solidity differential's reference and the change is not part of G0 |
 | F92 | `tools/check_fixtures.ts` walks `spec/` for `.json` files only, so `spec/constants.yaml` — the single source for every domain constant — sits outside the guard that exists because three fixtures independently carried WAD-scale integers as bare numbers | nothing today; the one live instance (`meta.wad`) is exactly representable and is now checked by the generator's own scale assertion |
+| F93 | `createSession` deploys a session and never calls `registerSession`, and nothing in `src/` does, so a session is unsettleable until somebody sends a second transaction; the collateral is not at risk, the liveness is | the listing path and anything a participant touches (F50) |
 | F84 | the two services have no entry point, and the brief describes them as services without supplying one | the deployment story |
 | F85 | `ruff`'s `I` had a second half — import *ordering* — and no gate enforces it | nothing; recorded rather than closed, because closing it needs an import-sorting plugin and a tree-wide reformat |
 
