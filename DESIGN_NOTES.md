@@ -1706,6 +1706,53 @@ could not have. Every gate added in this port is now probed the same way before 
 
 
 
+## F54 — A third fixture was lossy, and the check that was supposed to find it compared a value against itself
+
+F52 recorded the digest fixture and then the moments fixture. Porting the constants generator found
+the pattern in a third place, and this one was not merely unsafe by form — it was **actually losing
+data**.
+
+**`spec/fixtures/canonical.json` carried 6 lossy integers.** The `capWad` values for the reciprocals
+of 15, 11 and 22 — `66666666666666666`, `90909090909090909`, `45454545454545454` — read back through a
+JavaScript consumer as `…664`, `…912` and `…456`. Unlike the other two fixtures' values, these have no
+trailing zeros, so they carry no factors of two and a double cannot hold them. Solidity read them
+correctly, Python read them correctly, and the TypeScript port would have silently compared against
+rounded numbers.
+
+**The first attempt to check this was wrong, and wrong in an instructive way.** A script walked the
+parsed document and tested `BigInt(n) === BigInt(n.toFixed(0))`. Both sides are the *already-rounded*
+value, so it reported zero losses on a file with six — it compared a number against itself and called
+it verification. `JSON.parse` destroys the evidence before any consumer can see it, so the only way to
+detect the loss is to compare against the **source text**, which Node exposes through the reviver's
+third argument. That is what `tools/check_fixtures.ts` does.
+
+**The durable fix is a gate, not three repairs.** Three fixtures in one repository were written with
+WAD-scale integers as bare JSON numbers, each found independently. That is not three mistakes; it is a
+missing guard. `make check-fixtures` now walks every `.json` under `spec/` and fails if any integer
+literal does not survive a round trip through a double.
+
+**The rule is exact representability, not a threshold**, and the distinction is not pedantic. A double
+holds some integers above 2^53 exactly — anything of the form `k × 10^n` with a small `k` carries
+enough factors of two — so a rule that failed on "above `MAX_SAFE_INTEGER`" would have failed on the
+60 values in this file that were *fine* and would have said nothing about the 6 that were not. Values
+that are above 2^53 but exact are reported as a warning: not broken today, broken the moment somebody
+edits a digit.
+
+**Consequences.** `canonical.json` now emits every integer as a string, uniformly, including the
+genuinely small ones, for the reason F52 gives: a uniform rule is checkable by reading one line. Two
+count fields were added (`cellCount`, `gaussianCount`) because the Solidity reader can no longer decode
+the arrays wholesale. And `Stat.t.sol`'s reader was rewritten from
+`abi.decode(vm.parseJson(json, ".cells"), (CanonicalCell[]))` to per-field `vm.parseJsonUint` calls —
+which is three fixes in one place: it makes the string encoding work, it adopts the per-path pattern
+F35 recorded as robust, and it removes the construct F21 traced the intermittent fixture failures to.
+`vm.parseJsonUint` accepts a string-encoded number, so no other Solidity reader needed a change.
+
+**A related correction.** The eslint `no-console` rule was global, which made it impossible to write a
+command-line tool — a script under `tools/` exists to print. The rule is now scoped to the services,
+where a stray `console.log` in a library really is an undeclared side effect.
+
+
+
 ## Still open
 
 | # | Item | Blocking |

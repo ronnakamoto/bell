@@ -172,9 +172,8 @@ contract StatTest is Test {
     ///      below is set at 1% -- just above the derived figure, and not chosen to make a test pass.
     function test_truncatedAbsMoment_reproducesThePublishedGaussianColumn() public {
         string memory json = fixtureJson;
-        CanonicalCell[] memory cells = abi.decode(vm.parseJson(json, ".cells"), (CanonicalCell[]));
-        GaussianReference[] memory references =
-            abi.decode(vm.parseJson(json, ".gaussian_pL"), (GaussianReference[]));
+        CanonicalCell[] memory cells = _readCells(json);
+        GaussianReference[] memory references = _readGaussianReferences(json);
         assertEq(cells.length, 9, "the canonical fixture has nine cells");
 
         for (uint256 i = 0; i < cells.length; ++i) {
@@ -197,7 +196,7 @@ contract StatTest is Test {
     ///      quoted cap and the quoted leverage would describe different contracts.
     function test_fixture_capIsTheReciprocalOfLeverage() public {
         string memory json = fixtureJson;
-        CanonicalCell[] memory cells = abi.decode(vm.parseJson(json, ".cells"), (CanonicalCell[]));
+        CanonicalCell[] memory cells = _readCells(json);
         for (uint256 i = 0; i < cells.length; ++i) {
             assertEq(
                 WadMath.divWad(Constants.WAD, cells[i].lambdaWad),
@@ -263,6 +262,61 @@ contract StatTest is Test {
         }
         if (found == type(uint256).max) revert FixtureMissingReferenceCell(name, session);
         return references[found].pLWad;
+    }
+
+    // ---------------------------------------------------------------- fixture readers
+
+    /// @dev Read the canonical cells one field at a time.
+    ///
+    ///      This replaced `abi.decode(vm.parseJson(json, ".cells"), (CanonicalCell[]))`, and the
+    ///      reason is the fixture's encoding rather than a preference. `abi.decode` requires each
+    ///      value to be an *unquoted* number so that `vm.parseJson` encodes it as a `uint256`. Every
+    ///      integer in the fixture is now a string, because three of this repository's fixtures were
+    ///      found carrying WAD-scale values that a JavaScript reader silently rounds (DESIGN_NOTES.md
+    ///      F52) — and this one was genuinely lossy, not merely unsafe by form. A quoted value
+    ///      decodes as a `string`, so the wholesale decode produced garbage: it read `capWad` as 576
+    ///      rather than 66666666666666666, and it did so silently until an assertion failed.
+    ///
+    ///      Reading one path at a time is also what F35 recorded as the robust pattern, and it
+    ///      removes the `abi.decode(vm.parseJson(...))` construct that F21 traced the intermittent
+    ///      fixture failures to. Three fixes in one place, which is worth saying because the change
+    ///      otherwise looks like churn.
+    function _readCells(string memory json) internal pure returns (CanonicalCell[] memory) {
+        uint256 count = vm.parseJsonUint(json, ".cellCount");
+        CanonicalCell[] memory cells = new CanonicalCell[](count);
+        for (uint256 i = 0; i < count; ++i) {
+            string memory base = string.concat(".cells[", vm.toString(i), "]");
+            cells[i] = CanonicalCell({
+                name: vm.parseJsonString(json, string.concat(base, ".name")),
+                session: vm.parseJsonString(json, string.concat(base, ".session")),
+                n: vm.parseJsonUint(json, string.concat(base, ".n")),
+                sigmaWad: vm.parseJsonUint(json, string.concat(base, ".sigmaWad")),
+                q99Wad: vm.parseJsonUint(json, string.concat(base, ".q99Wad")),
+                lambdaWad: vm.parseJsonUint(json, string.concat(base, ".lambdaWad")),
+                capWad: vm.parseJsonUint(json, string.concat(base, ".capWad")),
+                pLWad: vm.parseJsonUint(json, string.concat(base, ".pLWad"))
+            });
+        }
+        return cells;
+    }
+
+    /// @dev Read the Gaussian reference column, one field at a time. See `_readCells`.
+    function _readGaussianReferences(string memory json)
+        internal
+        pure
+        returns (GaussianReference[] memory)
+    {
+        uint256 count = vm.parseJsonUint(json, ".gaussianCount");
+        GaussianReference[] memory references = new GaussianReference[](count);
+        for (uint256 i = 0; i < count; ++i) {
+            string memory base = string.concat(".gaussian_pL[", vm.toString(i), "]");
+            references[i] = GaussianReference({
+                name: vm.parseJsonString(json, string.concat(base, ".name")),
+                session: vm.parseJsonString(json, string.concat(base, ".session")),
+                pLWad: vm.parseJsonUint(json, string.concat(base, ".pLWad"))
+            });
+        }
+        return references;
     }
 
     // ---------------------------------------------------------------- external wrappers

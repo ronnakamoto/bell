@@ -63,8 +63,11 @@ export default tseslint.config(
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
-      // `ruff`'s `T20`: no print statements. A service logs through its adapter or not at all.
-      'no-console': 'error',
+      // `ruff`'s `T20`: no print statements **in the services**. A service logs through its adapter
+      // or not at all, because a stray `console.log` in a library is a side effect nobody declared.
+      // Scoped to `src/` rather than global: a script under `tools/` exists to print, and forbidding
+      // it there would be a rule that its own subject matter cannot satisfy.
+      // `no-console` is set in the `src` block below.
       // `ruff`'s `B` and `SIM`, in the forms that matter here.
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       'prefer-const': 'error',
@@ -75,6 +78,15 @@ export default tseslint.config(
         'error',
         { considerDefaultExhaustiveForUnions: false },
       ],
+    },
+  },
+
+  {
+    // The services: no console output. A library that prints is a library with an undeclared side
+    // effect, and the adapters are where output belongs.
+    files: ['calibrator/src/**/*.ts', 'settlement/src/**/*.ts'],
+    rules: {
+      'no-console': 'error',
     },
   },
 

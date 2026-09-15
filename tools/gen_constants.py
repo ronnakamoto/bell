@@ -185,6 +185,15 @@ def render_canonical(constants: dict) -> str:
     and hand-rolling one in a test would put a second implementation of the fixture's meaning into
     the repository. `capWad` is derived as `1e18 / lambda` rather than taken from the YAML's rounded
     `cap` field, so the fixture carries the exact saturation point.
+
+    **Every integer is emitted as a JSON string**, uniformly, for the reason F52 records: a JSON
+    number is exact only where a double is. This fixture was the third to be found with the defect,
+    and unlike the other two it was genuinely lossy — `capWad` for the reciprocal of 15, 11 and 22
+    (`66666666666666666`, `90909090909090909`, `45454545454545454`) round to `...664`, `...912` and
+    `...456` in a JavaScript reader, because those values have no trailing zeros to carry factors of
+    two. `tools/check_fixtures.ts` is the guard that now makes a fourth occurrence impossible.
+
+    `vm.parseJsonUint` accepts a string-encoded number, so the Solidity readers are unaffected.
     """
     canonical = constants["canonical_parameters"]
 
@@ -195,12 +204,12 @@ def render_canonical(constants: dict) -> str:
             {
                 "name": cell["name"],
                 "session": cell["session"],
-                "n": int(cell["n"]),
-                "sigmaWad": wad(cell["sigma"]),
-                "q99Wad": wad(cell["q99"]),
-                "lambdaWad": wad(str(lam)),
-                "capWad": WAD // lam,
-                "pLWad": wad(cell["pL"]),
+                "n": str(int(cell["n"])),
+                "sigmaWad": str(wad(cell["sigma"])),
+                "q99Wad": str(wad(cell["q99"])),
+                "lambdaWad": str(wad(str(lam))),
+                "capWad": str(WAD // lam),
+                "pLWad": str(wad(cell["pL"])),
             }
         )
 
@@ -208,7 +217,7 @@ def render_canonical(constants: dict) -> str:
     for name, by_session in canonical["gaussian_reference_pL"]["cells"].items():
         for session, value in by_session.items():
             gaussian.append(
-                {"name": name, "session": session, "pLWad": wad(value)}
+                {"name": name, "session": session, "pLWad": str(wad(value))}
             )
 
     payload = {
@@ -217,23 +226,31 @@ def render_canonical(constants: dict) -> str:
         "_note": (
             "pLWad is the EMPIRICAL truncated mean, the seed model. gaussian_pL is the differential "
             "reference computed from sigmaWad and lambdaWad via the paper's Eq (12): "
-            "pL = lambda * E[min(|G|, 1/lambda)]."
+            "pL = lambda * E[min(|G|, 1/lambda)]. Every integer is a STRING: a JSON number is exact "
+            "only where a double is, and three of this repository's fixtures were found carrying "
+            "values that a JavaScript reader silently rounds. See DESIGN_NOTES.md F52."
         ),
         "cells": cells,
         "gaussian_pL": gaussian,
+        # Counts, because a Solidity reader can no longer decode the arrays wholesale. `abi.decode`
+        # over `vm.parseJson` required the JSON values to be numbers; with every integer now a string
+        # the reader walks the array by index and needs to know where it ends. The other two fixtures
+        # carry `pointCount` and `caseCount` for the same reason.
+        "cellCount": len(cells),
+        "gaussianCount": len(gaussian),
         "event_session": {
-            "pooledShapeQWad": wad(constants["event_session"]["pooled_shape_q_C"]["value"]),
-            "gaussianShapeReferenceWad": wad(
-                constants["event_session"]["gaussian_shape_reference"]["value"]
+            "pooledShapeQWad": str(wad(constants["event_session"]["pooled_shape_q_C"]["value"])),
+            "gaussianShapeReferenceWad": str(
+                wad(constants["event_session"]["gaussian_shape_reference"]["value"])
             ),
         },
         "bond_sizing": [
             {
                 "name": row["name"],
-                "lambdaWad": wad(str(row["lambda"])),
-                "dpDlambdaWad": wad(row["dp_dlambda"]),
-                "notionalUsd": row["one_session_gain_usd"] * 10**0,
-                "oneSessionGainUsd": row["one_session_gain_usd"],
+                "lambdaWad": str(wad(str(row["lambda"]))),
+                "dpDlambdaWad": str(wad(row["dp_dlambda"])),
+                "notionalUsd": str(row["one_session_gain_usd"] * 10**0),
+                "oneSessionGainUsd": str(row["one_session_gain_usd"]),
             }
             for row in constants["bond_sizing"]["rows"]
         ],

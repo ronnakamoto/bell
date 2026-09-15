@@ -14,7 +14,7 @@
   },
   "scripts": {
     "build": "tsc -b calibrator/tsconfig.build.json settlement/tsconfig.build.json",
-    "typecheck": "tsc -p calibrator/tsconfig.json && tsc -p settlement/tsconfig.json",
+    "typecheck": "tsc -p calibrator/tsconfig.json && tsc -p settlement/tsconfig.json && tsc -p tools/tsconfig.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
