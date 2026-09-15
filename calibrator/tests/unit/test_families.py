@@ -237,8 +237,8 @@ class TestTheFamilyRegistry:
         assert frozenset({"student_t", "nig", "merton"}) == UNIMPLEMENTED_FAMILIES
 
     def test_an_unimplemented_family_raises_a_specific_refusal(self) -> None:
-        # Not a `KeyError`. A missing key reads as a typo; the absence of NIG is a decision recorded
-        # in DESIGN_NOTES.md, and the error has to say so.
+        # Not a `KeyError`. A missing key reads as a typo; the absence of NIG is F10 (closed) /
+        # tracker G0, and the error has to say so.
         with pytest.raises(NotImplementedError, match="F10"):
             family_for("nig")
 

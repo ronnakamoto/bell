@@ -41,7 +41,7 @@ venv: ## Create .venv and install both workspaces with their development depende
 
 build: ## Generate spec-derived artifacts, then compile everything
 	@echo "== generating from spec/ =="
-	$(PYTHON) $(TOOLS)/gen_constants.py
+	node $(TOOLS)/gen_constants.ts
 	$(PYTHON) $(TOOLS)/gen_moments_fixture.py
 	$(PYTHON) $(TOOLS)/gen_digest_fixture.py
 	@echo "== compiling contracts =="
@@ -125,7 +125,13 @@ check-architecture: check-python ## The §5.3 dependency rule, mechanically
 check-layout: ## The §6 layout rules, mechanically
 	$(PYTHON) $(TOOLS)/check_layout.py
 
+# Both generators, and the pair is the point. The TypeScript one is what `make build` runs, so its
+# check proves the committed files are what it renders. The Python one is the oracle the port was
+# verified against (tracker A0) and is deliberately not edited to agree with its successor, so its
+# check proves that two independent renderings of the same YAML still produce the same bytes. Either
+# one failing is a finding; the Python half goes when the Python does (Phase B).
 check-generated: ## Fail if any generated file is stale
+	node $(TOOLS)/gen_constants.ts --check
 	$(PYTHON) $(TOOLS)/gen_constants.py --check
 
 check-fixtures: ## Fail if any spec/ fixture carries an integer a JavaScript reader would round

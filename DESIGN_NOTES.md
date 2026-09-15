@@ -169,6 +169,11 @@ set: *"a guard that has never been observed to fire has a known cost and an assu
 *"Three of the five guards it named did not exist."* The brief requires a negative test per guard
 (§10.2) but does not require the before-and-after that the paper treats as the deliverable.
 
+**Resolution taken (2026-09-15).** Shipped under the paper's IDs: G3, G8, G9, G10, G10b, each with
+a positive and a negative test; plausibility is an ingestion check on `ReferencePrintBook`, not a
+fifth settlement guard. The brief's two tables disagree with each other and with the paper; D1
+takes the paper. Closing F3: no renaming. The brief tables are transcription errors.
+
 ---
 
 ## F4 — The bond denomination is incoherent.
@@ -314,6 +319,13 @@ which is authoritative.
 **Requested ruling.** Which figures govern, or confirmation that I should re-derive `tau` from the
 per-name `SE(r)` column of the paper's Table 17 (which is fully specified and would settle it).
 
+**Resolution taken (2026-09-15).** Re-derived from Table 17. The method-of-moments estimator
+`τ = sqrt(var(r) − mean(SE(r)²))` over the 22 names is **1.596142**, which is the brief's 1.596
+and which reproduces Table 17's `r*` column (implied weights 0.693–0.984; NFLX 8.883 → 7.499,
+XOM 1.714 → 1.757). The paper's §7.10 body (`τ = 1.58`, 6.7×, 0.67–0.98, NFLX 8.88 → 7.38) is
+the same quantity rounded; Table 17 is the specification. `spec/constants.yaml` keeps `1.596` and
+`0.693–0.984`, sourced as derived from Table 17 rather than from the brief. No further ruling.
+
 ---
 
 ## F10 — The calibrator's control flow is stated differently in the two documents.
@@ -329,6 +341,13 @@ and which model a published parameter set records, so it needs a ruling rather t
 
 **Requested ruling.** NIG as production, or empirical as primary with NIG as the documented
 fallback?
+
+**Resolution taken (2026-09-15).** D1 already takes the paper. Paper §5.3 and Table 31 P0: the
+empirical truncated distribution is the seed; a fitted fat tail is used only where the sample
+cannot place the cap; Gaussian never seeds. The brief's promotion of NIG to production is a
+control-flow transcription, not a second specification. NIG remains unimplemented (`family_for`
+raises `NotImplementedError`); that is now G0 in the tracker — a missing fallback, not an open
+question. No further ruling.
 
 ---
 
@@ -409,7 +428,8 @@ reproduced from data is true, and none is made.** The canonical table is carried
 `canonical_parameters` in `spec/constants.yaml` with `source: paper §7.8 Table 13`, and is used only
 to test the pure functions against the paper's published Gaussian column.
 
-F3, F6, F7, F8, F9 and F10 remain open and are listed at the foot of this file.
+F6, F11 and F42 remain open and are listed at the foot of this file. F3, F9 and F10 are closed
+under D1 (paper governs) at their original entries.
 
 ---
 
@@ -1017,12 +1037,12 @@ finds out before spending a bond rather than after. Both are pure in the brief's
 nothing and are callable with literals -- with the hash and the publisher injected as ports.
 
 **The gap.** Two families are implemented and three are not. The empirical seed and the Gaussian are
-here, so the brief's rejection of the Gaussian as a seed is re-measurable rather than asserted. The
+here, so the paper's rejection of the Gaussian as a seed is re-measurable rather than asserted. The
 Student-t, the NIG and the Merton jump-diffusion are named in the paper's Table 18 and absent from the
-code. That is deliberate: F10 is open on whether NIG is the production model or a fallback for thin
-samples, and implementing a family whose role is undecided would fix the answer by accident.
-`family_for` raises a specific `NotImplementedError` naming F10 rather than a `KeyError`, because a
-missing key reads as a typo and this absence is a decision.
+code. F10 is closed: NIG is the documented fallback, not production. The absence is now tracker G0
+— a missing P0 fallback, not an undecided control flow. `family_for` still raises a specific
+`NotImplementedError` naming F10 rather than a `KeyError`, because a missing key reads as a typo
+and this absence is a decision.
 
 **What is needed to close it.** The Student-t needs only `math.lgamma`; the Merton family is a
 Poisson mixture of normals; the NIG needs a modified Bessel function of the second kind. That last one
@@ -1751,17 +1771,66 @@ F35 recorded as robust, and it removes the construct F21 traced the intermittent
 command-line tool — a script under `tools/` exists to print. The rule is now scoped to the services,
 where a stray `console.log` in a library really is an undeclared side effect.
 
+## F55 — The ported generator is byte-identical, and the banner it reproduces is now out of date
 
+Tracker A0 requires `tools/gen_constants.ts` to emit the three existing files **byte for byte**, and it
+does: run it, and `git diff --exit-code` is silent on `Constants.sol`, `constants.py` and
+`canonical.json`. The criterion earned its place on the first attempt, which failed it.
+
+**The first version was not byte-identical, and the diff said exactly where.** `renderPython` printed
+`undefined: int = 29_700_000_000_000_000_000` for the four route constants, because the TypeScript
+table for those rows carried only the Solidity name while the Python row tuple carries one name that
+both renderers use. Four lines, one missing field — and the byte comparison located it immediately.
+That is the argument for byte-identity over "the tests still pass": every test in the repository passes
+with a `constants.py` full of `undefined`, because nothing reads those four constants by value.
+
+**The banner is now a lie, and is deliberately left as one.** `Constants.sol` and `constants.py` both
+carry `Produced by tools/gen_constants.py from spec/constants.yaml`, and `make build` now runs the
+TypeScript generator. The honest fix is one line in each; it is not made here, because
+`git diff --exit-code` is the only evidence that the port is faithful and a banner edit would consume
+it. The Python generator is also the **oracle** — editing it to agree with its own replacement makes the
+comparison circular, which is the same reason it was not touched when the port's own tables were being
+written.
+
+So the two banners are corrected in one step with the Python generator's deletion (Phase B1), and the
+new `calibrator/src/domain/constants.ts` — which has no counterpart, and therefore nothing to be
+identical to — names `tools/gen_constants.ts` from the start. Until B1 the repository is inconsistent
+about which tool produces a generated file, on purpose, and `make check-generated` runs **both**
+generators so the differential stays live: the TypeScript half proves the committed files are what it
+renders, the Python half proves two independent renderings of one YAML still agree.
+
+## F56 — The ported generator is 626 lines, and §8.1's limit does not reach it
+
+Brief §8.1: *"No source file exceeds 400 lines."* `tools/gen_constants.ts` is 626, so the question is
+whether that is a violation or a scoping accident.
+
+It is a scoping accident, and the reason is mechanical rather than a judgement.
+`tools/check_layout.py` applies the limit by iterating `WORKSPACES`, which is `calibrator/src` and
+`settlement/src`. `tools/` was never in scope — the rule is about the service sources, the ones a reader
+has to hold in their head.
+
+**What the 626 lines are is the more useful question.** About 190 of them are the three emission tables,
+which the formatter expands to one field per line. Those tables are *data*: 27 rows of name, value, note
+and provenance, ported from the Python's longhand tables for the reason the Python states — deriving
+them from YAML keys instead makes a rename a silently missing constant rather than a loud failure. The
+logic is three renderers and a `main` of thirty lines.
+
+Recorded because C0 extends `check_layout` to the TypeScript tree, and whoever does that should decide
+the scope deliberately rather than discover this file. Mirroring the Python's `WORKSPACES` — the two
+service roots — keeps it out of scope, which is the reading taken here. The alternative, reformatting
+the tables to fit a 100-character line, was tried and does not work: the longest rows
+(`ROUNDING_LATTICE_WAD`, `RAMP_TIME_AVERAGE_CEILING_WAD`) exceed the budget by a few characters in every
+field order, so the result would be a ragged table that a single note edit could reflow at random.
 
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` is written and verified against the digest fixture; `moments`, `leverage`, `sessions`, `families`, the application layer, the adapters, the settlement service, `tools/` and the 247 ported tests remain | the port |
-| F3 | guard identifiers inconsistent between brief §4.1.4 and §13.1; `G9` missing from the table, multiplier drift is `G8` | the guard implementation |
+| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` is written and verified against the committed fixtures — `digest`, `moments` and `constants`; `leverage`, `sessions`, `families`, the application layer, the adapters, the settlement service, the remaining tools and the remaining ported tests follow | the port |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
-| F9 | event-session `tau` stated two ways in the paper | the shrinkage estimator |
-| F10 | NIG promoted from fallback to production model in the brief | the calibrator's control flow |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
+| G0 | NIG fallback unimplemented (F10 closed as paper-primary; the family is still missing) | thin-sample calibration |
+| G1 | event-session shrinkage estimator not shipped (F9 constants pinned from Table 17) | event-session `λC` |
+| G2 | BELL-IV inversion and freshness stamp are not built | Table 31 P1 |
 

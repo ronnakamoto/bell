@@ -308,15 +308,20 @@ event_session:
     source: paper §7.10, Table 17, brief Appendix A
   cross_sectional_tau:
     value: "1.596"
-    source: brief Appendix A
+    meaning: >
+      method-of-moments τ = sqrt(var(r) - mean(SE(r)²)) over Table 17's 22 names (1.596142 unrounded).
+      Shrinkage weight for name i is τ² / (τ² + SE(r_i)²).
+    source: derived from paper Table 17
     conflict: >
-      The paper's §7.10 body states tau = 1.58 with a between/within ratio of 6.7x; its Table 19 note
-      says "about seven". The brief states 1.596 and 7.6x. See DESIGN_NOTES.md F9.
+      Paper §7.10 body rounds this to 1.58 and the between/within ratio to 6.7×. Table 17 is the
+      fully specified parameter set: the same MM estimator is 1.596, τ²/mean(SE²) is 7.6×, and the
+      implied weights are 0.693–0.984, which reproduce the published r* column. Table 17 governs;
+      the body is rounded prose. Closed as F9 in DESIGN_NOTES.md.
   shrinkage_weights:
     min: "0.693"
     max: "0.984"
-    source: brief Appendix A
-    conflict: "Paper §7.10 body states 0.67 to 0.98."
+    source: derived from paper Table 17 (weights τ² / (τ² + SE(r)²) at τ = 1.596)
+    conflict: "Paper §7.10 body rounds the same range to 0.67–0.98. Table 17 governs. Closed as F9."
   lambda_C_range:
     min: 4
     max: 21

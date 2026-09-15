@@ -13,6 +13,8 @@
  * at when asking whether the numerics are sound.
  */
 
+import { WAD } from './constants.js';
+
 /** The closed-session taxonomy. Mirrors `contracts/src/types/SessionKind.sol`. */
 export const SessionKind = {
   OVERNIGHT: 'E',
@@ -23,10 +25,16 @@ export const SessionKind = {
 
 export type SessionKind = (typeof SessionKind)[keyof typeof SessionKind];
 
-/** The scale of every fixed-point quantity in the protocol. */
-export const WAD = 10n ** 18n;
-
-/** The scale of a `Wad`, as a `bigint`, for the arithmetic below. */
+/**
+ * The scale of a `Wad`, as a `bigint`, for the arithmetic below.
+ *
+ * **Imported rather than declared.** Until the TypeScript constants module existed this file wrote
+ * the value down as `10n ** 18n`, which was the one place the port departed from the single-source
+ * rule — the same number in two files, which is a bug waiting to diverge (build brief §6). It now has
+ * exactly one definition, in the generated `constants.ts`, and this alias exists only so that the
+ * arithmetic below reads in the scale it operates at. A caller wanting the constant itself imports
+ * it from there; re-exporting it from here would put a second name on the one value.
+ */
 const WAD_BIGINT = WAD;
 
 /**
