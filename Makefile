@@ -110,6 +110,18 @@ check-architecture: ## The §5.3 dependency rule, mechanically
 check-layout: ## The §6 layout rules, mechanically
 	node $(TOOLS)/check_layout.ts
 
+# `dist/` mirrors `src/` is the sixth rule here, and it is the one F82 added. `calibrator/package.json`
+# maps `./domain/*.js` onto `./dist/domain/*.js`, so `dist/` is what `tsc` and node resolve every
+# cross-package specifier to -- and `tsc -b` never removes the output of a file that has been deleted
+# or renamed, so a module `src/` no longer contains stays importable. It is a rule rather than a prune
+# in the build for two measured reasons: `tsc -b --clean` does not remove an orphan (it removes only
+# what its build info records having emitted), and a bulk `rm -rf dist` discards `tsc -b`'s
+# incrementality while being refused outright by a guarded run at 320 targets. The rule is
+# one-directional -- a *missing* output is `tsc`'s business and every test that imports it will say so.
+#
+# This target has no `ts-build` prerequisite, so it also runs on a tree that has never been built, and
+# an absent `dist/` passes: nothing can be orphaned in a directory that does not exist.
+
 # Until B1 this ran both renderings of `spec/constants.yaml` in `--check` mode, and the pair asserted
 # that two independent implementations agreed -- the differential that accepted the port. The Python
 # generator is deleted, so there is one rendering and the check is what it always was underneath: the

@@ -107,12 +107,32 @@ rule was always "no dependency that can reach the world", and a pure arithmetic 
 an allow-list of one named package rather than a category, so a second package is a finding rather
 than a judgement call.
 
-Nothing imports `adapters` except the composition root.
+**Nothing imports `adapters` or `application` except the test suite**, which reaches them by relative
+path (`../../src/application/publish.js`) rather than through the package's `exports` map. There is no
+composition root and no entrypoint: neither package declares `main` or `bin`, and nothing in the
+repository executes either service. The table above is therefore a rule about *permitted* imports
+rather than a description of a running system. It was written as "nothing imports `adapters` except
+the composition root", which named a root that was never written; the enforced direction is unchanged,
+so the first composition root to be added cannot invert the stack.
 
 **The one cross-workspace edge** is `settlement/domain -> calibrator/domain`, and it exists because
 the settlement service's adjudication re-runs a fit from the calibrator's committed inputs, and its
 route outcomes are priced by the calibrator's moment primitives. The direction is enforced
 mechanically, so the reverse import fails `make check`.
+
+**That edge resolves through `dist/`, not `src/`.** `@bell/calibrator/domain/*.js` is mapped by the
+calibrator's `exports` field onto `./dist/domain/*.js`, so `tsc` and node both read the *compiled*
+tree — which is why `ts-build` is a prerequisite of `ts-test` and `ts-check` rather than a
+convenience, and why the alternative of a `paths` mapping onto `src/` was rejected: it would check one
+thing and execute another. The calibrator exposes `./domain/*.js` and nothing else, so its
+`application/` and `adapters/` layers are unreachable from outside the package even by a deep import;
+the settlement declares no `exports` field at all, because nothing depends on it.
+
+`dist/` is a build product and gitignored, and **`tsc -b` does not prune the output of a source file
+that has been deleted**, so `dist/` can hold a module `src/` no longer contains — reachable through
+the very `exports` pattern above. `make check-layout`'s sixth rule fails on exactly that, one-directional
+so that a *missing* output stays `tsc`'s business rather than this rule's, and `make clean` is the
+remedy. See F82.
 
 ## The dependency rule, and the commands that enforce it
 
@@ -125,18 +145,37 @@ make check-architecture   # `npm run architecture` (dependency-cruiser)
 make check-layout         # the structural rules that are not import edges
 ```
 
-The contracts live in `.dependency-cruiser.cjs`:
+The contracts live in `.dependency-cruiser.cjs`, and there are five:
 
-- *domain depends on nothing but itself and `decimal.js`* — forbids the sibling layers and every other
-  third-party package, so "no dependency may be added to domain" is checked rather than trusted. An
-  allow-list of one named package rather than a category, which is what R5.1 narrowed §7.4 to.
-- *application does not import adapters* — the high-level policy must not reach a low-level driver.
-- *the layer stack* — the ordering itself, as a single rule.
-- *the calibrator never imports the settlement service* — the cross-workspace direction.
+- *`calibrator-domain-is-hermetic`* — `calibrator/src/domain` may import itself and `decimal.js` and
+  nothing else. An allow-list of one named package rather than a category, which is what R5.1 narrowed
+  §7.4 to.
+- *`settlement-domain-takes-only-the-shared-core`* — the same, plus `calibrator/src/domain`.
+- *`application-does-not-import-adapters`* — the high-level policy must not reach a low-level driver.
+- *`the-calibrator-never-imports-the-settlement-service`* — the cross-workspace direction.
+- *`no-circular`* — a cycle is how two layers become one without anybody deciding to merge them.
+
+**The Python had a sixth contract and the ordering is covered without it.** `import-linter` declared a
+`layers` contract naming `[adapters, application, domain]` in each workspace. `dependency-cruiser` has
+no equivalent, and none is needed: every violation a `layers` contract can catch is `domain ->
+application`, `domain -> adapters` or `application -> adapters`, and the three rules above catch all
+three — the two `domain/` rules as allow-lists, which is strictly the stronger form. This section used
+to list *"the layer stack — the ordering itself, as a single rule"* among the contracts. No such rule
+exists in the file (F85).
+
+**Two of the five name both spellings of their target**, because a `to.path` pattern matches what the
+graph resolved and a package-name specifier stays unresolved: `@bell/settlement/domain/x.js` is a bare
+specifier in the graph, so a rule written as `^settlement/src` sees a relative import and only a
+relative import — and a relative import is not how this repository crosses a package boundary. The
+allow-list rules are unaffected, because `pathNot` catches everything not on the list however it was
+written, which is why the two `domain/` rules were never blind (F85).
 
 `make check-layout` adds the structural rules that are not import edges: no `utils.ts`/`helpers.ts`/
 `common.ts`, no source file above 400 lines, tests mirror source, no `require` with a string, no
-untracked `TODO`. It walks the contracts and both TypeScript workspaces. The Python half of this gate
+untracked `TODO`, and `dist/` mirrors `src/` — every compiled file has a source, so a module deleted or
+renamed out of `src/` cannot stay importable through `dist/` (F82). It walks the contracts and both
+TypeScript workspaces, and the `dist/` rule is the only one that reads a build product rather than a
+source. The Python half of this gate
 walked Python's `ast` to prove `domain/` imported nothing but the standard library; TypeScript cannot
 parse Python, so that check was never ported and died with the tree it guarded. `tools/check_layout.ts`
 states that in its header rather than leaving it as a silent omission.

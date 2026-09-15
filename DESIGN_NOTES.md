@@ -2733,15 +2733,214 @@ test. Removing the hint in `leverage.ts` and re-running `check_coverage --typesc
 with the per-workspace rule silent — so the guards are still unreached and no caller was a Python-only
 path. The hint was restored byte-identically.
 
+## F82 — `dist/` is what every cross-package import resolves to, and nothing kept it in step with `src/`
+
+B2 was scoped as a confirmation: `calibrator/src/{domain,application,adapters}/` is now the whole of
+`calibrator/src/`, so check that the `tsconfig` roots and the `exports` subpath pattern still hold. The
+first half was already true — `rootDir: "src"` and `include: ["src/**/*.ts"]` were never written against
+the nesting the Python added, so there was nothing to move. The second half is where the defect was, and
+it is not in the config.
+
+`calibrator/package.json` declares `"./domain/*.js"` → `./dist/domain/*.js`. The Makefile already knows
+this is load-bearing — it is why `ts-build` is a prerequisite of `ts-test` and `ts-check` rather than a
+convenience, and why a `paths` mapping onto `src/` was rejected. But the same fact is a hazard as well as
+a prerequisite: **the `exports` pattern is a claim about what is in `dist/`, and nothing asserted that
+`dist/` is what `src/` compiles to.**
+
+It was not. `settlement/dist/domain/` held four files — `__probe.js`, `__probe.d.ts` and their maps —
+whose source, `settlement/src/domain/__probe.ts`, does not exist and was never committed. They were the
+output of a coverage probe, left behind when the probe file was removed. `tsc -b` writes the outputs of
+the files it is handed and **never removes the output of a file that has been deleted or renamed**, so
+they survived every build since. Because `settlement/package.json` declares no `exports` field at all,
+`@bell/settlement/dist/domain/__probe.js` was a resolvable deep import into a module no source contains.
+
+**Measured rather than assumed.** Two files were planted, `calibrator/dist/domain/__orphan_probe.js` and
+the same under `settlement`:
+
+| Command | Exit | Planted orphan |
+|---|---|---|
+| `tsc -b calibrator/tsconfig.build.json settlement/tsconfig.build.json` | 0 | survives |
+| `tsc -b --clean` on the same two projects | 0 | **survives** |
+
+`--clean` was the obvious remedy and it is not one: it removes the outputs its build info records having
+emitted, and an orphan is by definition not among them. It emptied both `dist/` trees of everything else
+and left both planted files in place.
+
+**The fix is a sixth rule in `check_layout`, not a prune in the build.** `make check-layout` now fails
+when any file under `dist/` has no counterpart under `src/`, naming the file and the remedy. Rule 3 of
+the same tool is already "tests mirror source"; this is that rule one layer down, applied to the tree the
+`exports` map actually reads.
+
+Two other remedies were measured and rejected. **`rm -rf calibrator/dist settlement/dist` in
+`npm run build`** guarantees the postcondition but throws away `tsc -b`'s incrementality to fix a defect
+that is one to four files, and at 320 targets it is refused outright by a guarded run — `make build`
+exited 1 with a `SAFE_DELETE_BULK_CONFIRM_REQUIRED` marker, which is a build that does not work
+everywhere. **`tsc -b --clean`** was the third candidate and the table above is why it fails.
+
+**The rule is one-directional, and that is the part worth stating.** An orphan is caught by nothing — no
+compiler reads `dist/`, and the specifier that resolves to it is one nobody writes. A *missing* output is
+caught twice over: `tsc` rebuilds it at the next build, and every test that imports it fails immediately.
+Checking the direction that is already enforced would add a false failure for a developer who has just
+added a source file and not yet rebuilt, which is the ordinary state of a working tree.
+
+**Probed six ways**, because a rule that has never failed is untested. A clean `dist/` passes; four
+planted orphans in `calibrator/dist/domain/` — `__orphan.js`, `__orphan.d.ts`, `__orphan.js.map` and
+`__orphan.d.ts.map`, the four outputs one source produces — are each reported, so the suffix stripping is
+tested rather than assumed; an orphan one directory deeper is reported; removing them passes; deleting a
+*real* output with its source intact still passes, which is the one-directional property; and moving
+`dist/` away entirely passes, which is the fresh-clone case that a target without a `ts-build`
+prerequisite has to survive.
+
+The scope is `dist/` and not `contracts/out/`, and the reason is the difference between the two: `dist/`
+is a *resolution target* — the `exports` map and every `@bell/calibrator/domain/*.js` specifier in the
+repository point into it — while `contracts/out/` is read only by `forge`'s own tooling, and `forge test`
+compiles from source. A stale artefact there is untidy; a stale artefact here is importable.
+
+## F83 — B1 de-Pythonised `.prettierignore` and left the language named in two more files
+
+The B1 sweep was thorough about code and prose and stopped one file short of the ignore files. It removed
+the two `**/*.py` / `**/pyproject.toml` lines from `.prettierignore` and did not touch `.gitignore`,
+which still carried the full fourteen-rule Python stanza — `__pycache__/`, `*.py[cod]`, `*.egg-info/`,
+`.venv/`, `venv/`, `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`, `.import_linter_cache/`, `.coverage`,
+`.coverage.*`, `htmlcov/`, `coverage.xml`, `.mutmut-cache/`.
+
+Left in place they would have been harmless, which is the argument for removing them: **an ignore rule is
+how an artefact's reappearance stays invisible.** A `.venv/`, a `__pycache__/` or a fresh `.coverage` in a
+tree that has no Python would have been silently untracked rather than shown in `git status`. The stanza
+is replaced by a comment saying so, and `.recon/` remains the one place a `.py` file belongs. The edit
+immediately did what it was meant to: two dead `coverage.py` databases, `calibrator/.coverage` and
+`settlement/.coverage`, 163 KB between them, appeared as untracked and were removed.
+
+`spec/constants.yaml` was the second file. Its header read "the Solidity side reads a generated header
+from this file at build time; **the Python side loads it directly**" — present tense about a language the
+tree no longer contains, in the one file the repository calls the single place a domain constant is
+written down. It now names `tools/gen_constants.ts` and both of the renderings it emits. The edit is a
+comment in a YAML file that `gen_constants.ts` parses with `yaml`, not hashes, so the check that it
+changed no value is `make check-generated` still reporting all three artefacts up to date — which it does.
+
+## F84 — `ARCHITECTURE.md` described a composition root that was never written
+
+The layering section ended with "Nothing imports `adapters` except the composition root." No composition
+root exists. Neither package declares `main` or `bin`, nothing in the repository executes either service,
+and the only importers of `application/` and `adapters/` are the test files, which reach them by relative
+source path (`../../src/application/publish.js`) rather than through the `exports` map.
+
+The sentence is the same shape as the four B1 corrected in the same file: a description of the tree
+written from the design rather than from the tree. It now says what is there — the layer table is a rule
+about *permitted* imports, not a description of a running system — and keeps the one part that is
+enforced, that `application-does-not-import-adapters` means the first composition root to be added cannot
+invert the stack. Whether the two services are *meant* to have a runnable entry point is a separate
+question, and the brief's §6 describes them as services without supplying one; that is recorded here
+rather than answered by a paragraph.
+
+## F85 — Two of the retired gates were still enforced; two rules were not
+
+B3 is the audit the tracker asked for: *"every rule they asserted has a home — confirm that rather than
+assuming it."* The Python halves of `check_layout.py`, `check_coverage.py` and the two `import-linter`
+contracts went with the tree in B1, so the audit starts by recovering them from `929245f^` and
+enumerating what they asserted, one rule at a time. A confirmation that only reads the surviving gates
+would be circular.
+
+**The mapping, rule by rule.** All six of `check_layout.py`'s checks and all three of
+`check_coverage.py`'s are accounted for:
+
+| Deleted | Rule | Home now |
+|---|---|---|
+| `check_layout.py` 1 | Python `domain/` import purity, by walking `ast` | **died** — stated in `check_layout.ts`'s header, and nothing replaces it because there is no Python left to be impure |
+| `check_layout.py` 2–6 | banned module names, 400 lines, tests mirror source, no `require` with a string, no untracked `TODO` | `check_layout.ts` rules 1–5, same rules on the surviving tree |
+| `check_coverage.py` 1–2 | every `src/libraries/*.sol` perfect on four metrics; `src/**` ≥ 95% lines | `check_coverage.ts` rules 1–2, unchanged |
+| `check_coverage.py` 3 | each service ≥ 95% on `coverage.py`'s combined measure | `check_coverage.ts` rule 3 — per workspace, **lines and branches separately**, which is the stricter reading |
+| `import-linter` ×2 | `domain` depends on nothing but the stdlib and itself (calibrator), plus the shared core (settlement) | rules 1–2, and as **allow-lists** rather than the six-name deny-lists they replaced |
+| `import-linter` ×2 | `application` does not import `adapters` | rule 3 |
+| `import-linter` ×1 | the calibrator never imports the settlement service | rule 4 — **and it was blind. See below.** |
+| `import-linter` ×2 | `the layer stack`, `layers = [adapters, application, domain]` | **no rule, and none is needed.** See below. |
+
+**Finding: `the-calibrator-never-imports-the-settlement-service` could not fire on the spelling this
+repository uses.** The rule was `from: ^calibrator/src`, `to: { path: '^settlement/src' }`. Probed with
+a two-line file, the difference is entirely in how the import was written:
+
+| Written as | Resolved in the graph to | Rule fires |
+|---|---|---|
+| `'../../../settlement/src/domain/routes/settle.js'` | `settlement/src/domain/routes/settle.ts` | yes |
+| `'@bell/settlement/domain/routes/settle.js'` | `@bell/settlement/domain/routes/settle.js` — **unresolved** | **no** |
+
+A package-name specifier stays a bare specifier in the graph, so `to.path` never sees the path it would
+resolve to. And a package-name specifier is the only spelling this repository uses to cross a package
+boundary — the reverse edge is `@bell/calibrator/domain/*.js` in twelve files. So the rule passed every
+`make check` while missing the one way anyone would write the violation. Fixed by naming both spellings
+in an array, and the two `domain/` allow-lists are unaffected for a reason worth stating: `pathNot`
+catches everything *not* on the list however it was written, so an allow-list rule cannot be blind in
+this way. That is the third time in this project that a deny-list has failed open on the form nobody
+enumerated (F74, F77) — and the first time the missed form was a *resolution* rather than a spelling.
+
+`application-does-not-import-adapters` had the same shape and is widened with it, guarding a spelling
+that does not resolve today (`@bell/calibrator/adapters/*` is outside the `exports` map, and the
+settlement has no `adapters/` layer). It is there because the rule names a *target*, not a way of
+writing it.
+
+**Finding: `Date` was available to `domain/`, and the tree said it was not.**
+`settlement/src/domain/prints.ts` opens its docstring with "`Date` is not available to `domain/`". It
+was available: `new Date()` and `Date.now()` in either `domain/` tree passed every gate, because
+`dependency-cruiser` sees imports and `Date` is a global, and the eslint domain scope restricted
+`Math`, `Number.parseFloat`, `Number.parseInt` and the bare parsers — four spellings of "a string
+became a double" — and nothing about a clock. The Python had a rule for this (`ruff`'s `DTZ`, naive
+datetimes) and the port had none.
+
+Closed by adding `Date` to `no-restricted-globals` in the same domain scope, with the reason in the
+rule: `getTime()` is a `number` of milliseconds, which is an IEEE-754 double in a costume, and §5.1
+forbids a clock in the domain for the same reason it forbids `Math`. Probed: `new Date()` and
+`Date.now()` in `calibrator/src/domain/` are both refused and both name `no-restricted-globals`, while
+`Math.sqrt` still names `no-restricted-properties` — so the new entry did not displace the old ones.
+The audit found no other rule in either `domain/` tree that the tree states and the gates do not
+enforce: no `process.env`, no `Math.random`, no `node:` import, and the only `Date` mentions in
+`domain/` are the two paragraphs explaining why it is not used.
+
+**Decision: `.dependency-cruiser.cjs` does not restate the `layers` contract.** `import-linter`
+declared `layers = [adapters, application, domain]` in each workspace, and `dependency-cruiser` has no
+`layers` rule type. The tracker asked whether the config should restate it, and the answer is no,
+because the content is already there and in a stronger form: every violation a `layers` contract can
+catch is `domain -> application`, `domain -> adapters` or `application -> adapters`, and the three
+rules above catch all three — the first two as allow-lists, which is a superset of what a layer
+ordering forbids, since they also forbid a third-party package and a core module. Adding a `layers`
+rule would be a second statement of one rule, and the two could drift. What was *not* there is the
+claim: `ARCHITECTURE.md` listed *"the layer stack — the ordering itself, as a single rule"* among the
+contracts, and no such rule has ever existed in the file. That paragraph is corrected rather than the
+config being bent to match it, and the generalising property the `layers` contract did have — a new
+layer being constrained by construction — is carried by the layer table in `ARCHITECTURE.md`, which a
+new layer has to be added to anyway.
+
+**One overstatement corrected.** `eslint.config.js` mapped `consistent-type-imports` to "`ruff`'s
+`I`", which is half of what `I` does: `I` also sorts import statements and nothing here sorts them —
+`prettier` does not, and there is no `import/order` rule. Ordering is therefore a convention with no
+gate, which is the one shape of rule this repository tries not to have; the comment now says so instead
+of claiming otherwise. The rest of the `ruff` selection maps as follows, and the entries with no home
+are stated rather than left to be discovered: `E`/`W`/`F` are `js.configs.recommended` plus
+`strictTypeChecked`; `UP` is `erasableSyntaxOnly` and the ES2023 target; `ANN` is
+`explicit-function-return-type`; `B`/`SIM` are `eqeqeq`, `prefer-const` and `no-var`; `T20` is
+`no-console` scoped to `src/`; `mypy`'s `disallow_any_explicit` is `no-explicit-any`. **No home, and
+each deliberate:** `N` (naming — and `SCREAMING_SNAKE_CASE` for immutables conflicts with
+`IERC20.decimals`), `A` (builtin shadowing — F78 records that `Symbol` is kept), and `C4`/`PTH`/`RUF`,
+which have no TypeScript analogue.
+
+**Probed, because a gate that has never failed is untested.** Six dependency probes, each a two-line
+file created, run and deleted: `domain -> application`, `application -> adapters`, `domain -> a
+third-party package`, `domain -> node:fs`, `settlement domain -> the calibrator's application layer`,
+and `calibrator -> the settlement service` in both spellings. Every one is caught and named. The
+deletions left no residue in `dist/` — which is asserted rather than assumed, because the probe file
+itself is the defect F82 describes, and `check_layout`'s sixth rule is what proves the workspace is
+clean afterwards.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). What is left is B2 (move the TypeScript up into `calibrator/src/`) and B3 (audit the gates that covered Python) | B2 |
+| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). Phases A and B are complete; what remains is C, D, E, F and G | — |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
 | G0 | NIG fallback unimplemented (F10 closed as paper-primary; the family is still missing) | thin-sample calibration |
 | G1 | event-session shrinkage estimator not shipped (F9 constants pinned from Table 17) | event-session `λC` |
 | G2 | BELL-IV inversion and freshness stamp are not built | Table 31 P1 |
+| F84 | the two services have no entry point, and the brief describes them as services without supplying one | the deployment story |
+| F85 | `ruff`'s `I` had a second half — import *ordering* — and no gate enforces it | nothing; recorded rather than closed, because closing it needs an import-sorting plugin and a tree-wide reformat |
 

@@ -1,8 +1,10 @@
 # spec/constants.yaml
 #
 # The single place a BELL domain constant is written down (§6 of the build brief).
-# The Solidity side reads a generated header from this file at build time; the Python side loads
-# it directly. A number that appears in two source files is a bug waiting to diverge.
+# Nothing loads this file at run time. `tools/gen_constants.ts` reads it and emits both consumers --
+# `contracts/src/generated/Constants.sol` for the contracts and `calibrator/src/domain/constants.ts`
+# for the services -- and `make check-generated` fails if either rendering is stale. A number that
+# appears in two source files is a bug waiting to diverge.
 #
 # Every entry carries a `source:` field naming where the number came from.
 #   paper  — docs/BELL_research_paper.pdf, with the section or table that states it

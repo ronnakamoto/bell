@@ -14,6 +14,22 @@
  *   3. §6     Tests mirror source: every `src/libraries/X.sol` has `test/unit/X.t.sol`.
  *   4. §7.2   No `require` with a string in Solidity. Custom errors only.
  *   5. §8.4   No `TODO` without an issue reference.
+ *   6. —      `dist/` mirrors `src/`: every compiled file has a source (F82).
+ *
+ * **Rule 6 is rule 3 one layer down, and it exists because a build product is a resolution target
+ * here.** `calibrator/package.json` maps `./domain/*.js` onto `./dist/domain/*.js`, so `dist/` is what
+ * `tsc` and node resolve every `@bell/calibrator/domain/*.js` specifier to. `tsc -b` writes the outputs
+ * of the files it is handed and never removes the output of a file that has been deleted or renamed,
+ * so `dist/` can hold a module `src/` does not — and that module stays importable. Found as four
+ * `__probe.*` files in `settlement/dist/domain/` whose source was never committed and which had
+ * survived every build since.
+ *
+ * The rule is **one-directional on purpose**: an orphan is caught by nothing, while a *missing* output
+ * is caught by `tsc` at the next build and by every test that imports it. It is a check rather than a
+ * prune for two measured reasons: `tsc -b --clean` does not remove an orphan — it removes only what its
+ * build info records having emitted — and a bulk `rm -rf dist` in the build discards `tsc -b`'s
+ * incrementality while, at 320 targets, being refused outright by a guarded run. A check that names the
+ * file is what the other gates do; `make clean` is the remedy.
  *
  * **Two things are deliberately not here, and both are stated rather than omitted.**
  *
@@ -35,7 +51,7 @@
  */
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -62,7 +78,7 @@ class Report {
 
   summarise(): number {
     if (this.failures.length === 0) {
-      console.log('check_layout: all checks passed (contracts + typescript)');
+      console.log('check_layout: all checks passed (contracts + typescript + dist)');
       return 0;
     }
     console.error(`check_layout: ${String(this.failures.length)} violation(s)`);
@@ -183,6 +199,40 @@ function checkTodosAreTracked(report: Report): void {
   }
 }
 
+/**
+ * Every file under `dist/` must be the output of a file under `src/`.
+ *
+ * The suffix is stripped rather than matched exactly, because one source produces four outputs —
+ * `moments.ts` yields `moments.js`, `moments.js.map`, `moments.d.ts` and `moments.d.ts.map` — and all
+ * four are orphans together when the source goes. Dotfiles are skipped, which is `dist/.tsbuildinfo`,
+ * and `tsc`'s own bookkeeping rather than an output.
+ */
+function checkDistMirrorsSource(report: Report): void {
+  for (const sourceRoot of TYPESCRIPT_ROOTS) {
+    const distRoot = join(dirname(sourceRoot), 'dist');
+    for (const output of sources(distRoot, '')) {
+      const name = output.split('/').at(-1) ?? '';
+      const stem = name.split('.')[0] ?? '';
+      if (name.startsWith('.') || stem === '') continue;
+      const directory = dirname(relative(distRoot, output));
+      const expected = join(sourceRoot, directory === '.' ? '' : directory, `${stem}.ts`);
+      let exists = true;
+      try {
+        statSync(expected);
+      } catch {
+        exists = false;
+      }
+      if (!exists) {
+        report.fail(
+          `${relative(REPO_ROOT, output)} has no source; \`tsc -b\` does not remove the output of ` +
+            "a deleted file, so it survives every build and stays reachable through the package's " +
+            '`exports` map. Run `make clean`.',
+        );
+      }
+    }
+  }
+}
+
 function main(): number {
   const report = new Report();
   checkBannedModuleNames(report);
@@ -190,6 +240,7 @@ function main(): number {
   checkTestsMirrorSource(report);
   checkNoRequireStrings(report);
   checkTodosAreTracked(report);
+  checkDistMirrorsSource(report);
   return report.summarise();
 }
 

@@ -63,7 +63,11 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       // The non-null assertion is how a numeric codebase loses a branch it needed to handle.
       '@typescript-eslint/no-non-null-assertion': 'error',
-      // Import order and type-only imports, which is `ruff`'s `I`.
+      // Type-only imports, which is half of `ruff`'s `I`. **The other half is not enforced**, and the
+      // comment here used to claim it was: `I` also *sorts* import statements, and nothing in this
+      // configuration sorts them — `prettier` does not, and there is no `import/order` rule. Ordering
+      // is therefore a convention a reader sees and no gate checks, which is the one shape of rule
+      // this repository tries not to have (F85).
       '@typescript-eslint/consistent-type-imports': [
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
@@ -113,13 +117,14 @@ export default tseslint.config(
     // The domain purity rules: mechanical statements of a design rule that is otherwise only a
     // convention.
     //
-    // **What they cover, and what they do not.** They ban `Math`, `Number.parseFloat`,
-    // `Number.parseInt` and the bare `parseFloat`/`parseInt` — four spellings of "a string silently
-    // became a double". They do **not** ban `Number(x)` or `Decimal.toNumber()`, and both are used in
-    // `domain/` today: `dates.ts` converts a year, a month, a day and a day count; `digest.ts`
-    // converts a masked byte; `leverage.ts` and `families/base.ts` convert a quantile rank, which is
-    // an array index. Every one of those is an exact small integer, so no current call site is wrong
-    // — but the rule is narrower than the paragraph above the file used to claim, and
+    // **What they cover, and what they do not.** Four spellings of "a string silently became a
+    // double" are banned — `Math`, `Number.parseFloat`, `Number.parseInt` and the bare
+    // `parseFloat`/`parseInt` — and `Date` is banned for a fifth and different reason: it is a clock,
+    // and `getTime()` is a double. They do **not** ban `Number(x)` or `Decimal.toNumber()`, and both
+    // are used in `domain/` today: `dates.ts` converts a year, a month, a day and a day count;
+    // `digest.ts` converts a masked byte; `leverage.ts` and `families/base.ts` convert a quantile
+    // rank, which is an array index. Every one of those is an exact small integer, so no current call
+    // site is wrong — but the rule is narrower than the paragraph above the file used to claim, and
     // DESIGN_NOTES.md F77 records the gap rather than leaving a comment to overstate the enforcement.
     files: ['calibrator/src/domain/**/*.ts', 'settlement/src/domain/**/*.ts'],
     rules: {
@@ -148,6 +153,17 @@ export default tseslint.config(
         'error',
         { name: 'parseFloat', message: 'domain/ may not produce a double. Use Decimal.' },
         { name: 'parseInt', message: 'domain/ may not produce a double. Use Decimal.' },
+        {
+          // The analogue of the Python side's `ruff` `DTZ`, and a rule the tree already *stated*
+          // without enforcing: `settlement/src/domain/prints.ts` says "`Date` is not available to
+          // `domain/`" and nothing made that true (F85). `getTime()` is a `number` of milliseconds —
+          // an IEEE-754 double in a costume — and §5.1 forbids a clock in the domain for the same
+          // reason it forbids `Math`. Dates arrive as ISO strings and are reduced to ordinals by
+          // `dates.ts`, which is exact integer arithmetic with no epoch and no timezone.
+          name: 'Date',
+          message:
+            'domain/ may not read a clock or hold a Date: getTime() is an IEEE-754 double counting milliseconds, and §5.1 forbids a clock. Take a date as an ISO string or an ordinal.',
+        },
       ],
     },
   },

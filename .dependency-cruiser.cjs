@@ -6,6 +6,13 @@
  * can reach the world*, and admits exactly one exception: `decimal.js`, a pure arithmetic library.
  * That narrowing is only honest if something enforces it, which is what the first rule below does —
  * an allow-list of one named package, not a category called "pure libraries".
+ *
+ * **A `to.path` pattern matches what the graph resolved, and a package-name specifier resolves to
+ * nothing.** `@bell/settlement/domain/routes/settle.js` stays a bare specifier in the graph, so a rule
+ * written as `^settlement/src` sees a relative import and only a relative import — and a relative
+ * import is not how this repository crosses a package boundary. Two rules below therefore name both
+ * spellings. The allow-list rules are unaffected, because `pathNot` catches everything not on the list
+ * however it was written, which is why the two `domain/` rules were never blind (F85).
  */
 module.exports = {
   forbidden: [
@@ -36,19 +43,33 @@ module.exports = {
     },
     {
       name: 'application-does-not-import-adapters',
-      comment: 'The high-level policy must not reach a low-level driver.',
+      comment:
+        'The high-level policy must not reach a low-level driver. Two spellings for the same reason ' +
+        'as the rule below: a package-name specifier is left unresolved, so the relative form alone ' +
+        'would not name the target. `@bell/calibrator/adapters/*` is unreachable at run time -- the ' +
+        "calibrator's `exports` map exposes `./domain/*.js` and nothing else -- and the settlement " +
+        'has no `adapters/` layer at all, so the second pattern guards a spelling that does not ' +
+        'resolve today. It is here because the rule names a *target*, not a way of writing it.',
       severity: 'error',
       from: { path: '^(calibrator|settlement)/src/application' },
-      to: { path: '^(calibrator|settlement)/src/adapters' },
+      to: {
+        path: ['^@bell/(calibrator|settlement)/adapters', '^(calibrator|settlement)/src/adapters'],
+      },
     },
     {
       name: 'the-calibrator-never-imports-the-settlement-service',
       comment:
         'The two services share a domain core, and the direction is one-way. The settlement service ' +
-        'may read bell-calibrator/domain; the calibrator may not reach back.',
+        'may read bell-calibrator/domain; the calibrator may not reach back. ' +
+        'TWO SPELLINGS, and the second was found by probing rather than by reading (F85): a ' +
+        'package-name specifier stays UNRESOLVED in the graph, so `to.path` sees the bare ' +
+        '`@bell/settlement/domain/x.js` and never the path it would resolve to. Until B3 this rule ' +
+        'named only `^settlement/src`, which matches a relative import and nothing else -- and a ' +
+        'relative import is not how this repository crosses a package boundary. The rule passed ' +
+        'every check while missing the only spelling anyone would write.',
       severity: 'error',
       from: { path: '^calibrator/src' },
-      to: { path: '^settlement/src' },
+      to: { path: ['^@bell/settlement', '^settlement/src'] },
     },
     {
       name: 'no-circular',

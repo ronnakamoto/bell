@@ -19,21 +19,13 @@ coverage/
 *.tsbuildinfo
 .eslintcache
 
-# --- Python ---
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-venv/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.import_linter_cache/
-.coverage
-.coverage.*
-htmlcov/
-coverage.xml
-.mutmut-cache/
+# --- Python: deliberately absent ---
+# Ruling R5 made the services TypeScript and B1 deleted the Python tree, so the fourteen rules that
+# stood here went with it. They are not kept as harmless leftovers, because an ignore rule is exactly
+# how an artefact's reappearance stays invisible: `.venv/`, `__pycache__/` and `.coverage` would each
+# have been silently untracked rather than shown. A stray Python file is now a line in `git status`,
+# which is what a deleted language should look like. Reconnaissance scratch is still ignored, as
+# `.recon/` above, and that is the only place a `.py` file belongs.
 
 # --- editors / OS ---
 .DS_Store
