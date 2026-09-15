@@ -110,8 +110,17 @@ export default tseslint.config(
   },
 
   {
-    // The domain purity rules. Two of them, and both are mechanical statements of a design rule that
-    // is otherwise only a convention.
+    // The domain purity rules: mechanical statements of a design rule that is otherwise only a
+    // convention.
+    //
+    // **What they cover, and what they do not.** They ban `Math`, `Number.parseFloat`,
+    // `Number.parseInt` and the bare `parseFloat`/`parseInt` — four spellings of "a string silently
+    // became a double". They do **not** ban `Number(x)` or `Decimal.toNumber()`, and both are used in
+    // `domain/` today: `dates.ts` converts a year, a month, a day and a day count; `digest.ts`
+    // converts a masked byte; `leverage.ts` and `families/base.ts` convert a quantile rank, which is
+    // an array index. Every one of those is an exact small integer, so no current call site is wrong
+    // — but the rule is narrower than the paragraph above the file used to claim, and
+    // DESIGN_NOTES.md F77 records the gap rather than leaving a comment to overstate the enforcement.
     files: ['calibrator/src/domain/**/*.ts', 'settlement/src/domain/**/*.ts'],
     rules: {
       'no-restricted-properties': [
@@ -124,6 +133,14 @@ export default tseslint.config(
         {
           object: 'Number',
           property: 'parseFloat',
+          message: 'domain/ may not parse a string into a double. Use Decimal.',
+        },
+        {
+          // Listed because its sibling above is. Bare `parseInt` is banned by `no-restricted-globals`
+          // and `Number.parseFloat` is banned here, so omitting this one spelling was an oversight
+          // rather than a judgement — and it was not hypothetical: `bytesFromHex` used it until F77.
+          object: 'Number',
+          property: 'parseInt',
           message: 'domain/ may not parse a string into a double. Use Decimal.',
         },
       ],

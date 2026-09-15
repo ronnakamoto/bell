@@ -1,10 +1,10 @@
 /**
  * Unit tests for session classification and the estimability screen.
  *
- * Ported from `calibrator/tests/unit/test_sessions.py`, which has 10 tests in five classes; this file
+ * Ported from `calibrator/tests/unit/test_sessions.py`, which has **11** tests in five classes; this file
  * has 6. Three departures, each stated rather than silent:
  *
- *  - **The `TestDailyBar` and `TestSymbol` classes are not ported here**, which is 4 of the 10. They
+ *  - **The `TestDailyBar` and `TestSymbol` classes are not ported here**, which is **5 of the 11**. They
  *    exercise `models.py`, not `sessions.py`, and they duplicate tests that already exist in
  *    `test_models.py` — where the versions are strictly stronger. That file's refusal set includes
  *    `-NVDA` (the leading-dash case the pattern's `^[A-Z]` is there to reject) and its gap test covers
@@ -13,6 +13,12 @@
  *    two more four-letter tickers. So the copies here would add no coverage, and they belong in
  *    `models.test.ts`, which tracker item A8 creates from `test_models.py`. Verified by reading both
  *    files rather than by assuming the newer one was weaker.
+ *
+ *    **A8 has now done that**, and confirmed it: all five are subsumed, and `models.test.ts` names which
+ *    assertion covers each. So no test was lost, and the count that said otherwise — "10 tests in five
+ *    classes", "4 of the 10" — was wrong in both numbers while the conclusion drawn from it was right.
+ *    Corrected here rather than left, because a header that miscounts is how the next reader concludes a
+ *    test is missing when it is not, or present when it is not (F79).
  *  - **`SessionSpan` is constructed with an options object**, `new SessionSpan({ calendarDays: 1 })`,
  *    where the Python passes positionally. It carries a defaulted second field, which is what an
  *    options object is for, and it is the shape `ParameterSet` already uses.

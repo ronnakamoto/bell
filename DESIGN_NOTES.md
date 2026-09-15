@@ -2471,6 +2471,91 @@ The first is the more interesting one, because the harness was *reporting* the t
 something else. **A probe harness is a gate like any other: it needs a probe of its own, and the
 negative control is that probe.**
 
+## F77 — The domain-purity rule banned three of the six ways to reach a double
+
+The rule's own comment says the check is placed on "the thing that makes a double dangerous rather than
+on the type: `Math` and the string-to-number parsers". Measured, it enforced rather less than that.
+
+| Route | Sites in `domain/` | Banned? |
+|---|---|---|
+| `Math.*` | none | yes |
+| `Number.parseFloat` | none | yes |
+| bare `parseFloat`, bare `parseInt` | none | yes |
+| `Number.parseInt` | `bytes.ts:74` | **no** |
+| `Number(...)` | `dates.ts` ×4, `digest.ts` ×1 | **no** |
+| `.toNumber()` | `leverage.ts`, `families/base.ts` | **no** |
+
+`Number.parseInt` is the one that is plainly an oversight rather than a judgement: `Number.parseFloat`
+is listed beside it and bare `parseInt` is listed below it, so one of the three spellings of the same
+operation was missing from a list that names the other two. It was not hypothetical — `bytesFromHex`
+used it, and used it *correctly*, because a hex digit is 0..15 and exact, so no value was ever wrong.
+The defect is that the gate failed open on a spelling nobody had thought of. That is F74's shape again,
+and it is R5.1's own lesson: a deny-list fails open on the category nobody thought of.
+
+**Closed** by adding `Number.parseInt` to `no-restricted-properties` and rewriting `bytesFromHex` to use
+nibble arithmetic, so the module needs no parser at all. Probed three ways:
+`eslint_number_parse_int_refused` injects `Number.parseInt` and requires the refusal to *name*
+`no-restricted-properties`, so the probe cannot pass for an unrelated reason;
+`hex_digit_uppercase_dropped` and `hex_from_odd_length_allowed` require the rewrite to keep the
+behaviour the old regex had; and the 14 contract-digest tests round-trip the committed fixtures through
+`bytesFromHex`, which is what makes the rewrite a refactor rather than a new implementation.
+
+**Not closed, and deliberately.** `Number(...)` and `.toNumber()` are unguarded and used, and every
+current call site is an exact small integer: a year, a month, a day, a day count, a masked byte, and a
+quantile rank that is an array index. Banning them would touch six call sites whose correctness depends
+on magnitude bounds the rule cannot see, so it wants a ruling rather than a unilateral edit. The comment
+above the rule now states what it covers *and* what it does not, so the paragraph that used to overstate
+the enforcement is not left for the next reader to believe.
+
+## F78 — `Symbol` shadows a JavaScript global, and the port keeps it
+
+`models.ts` exports a class named `Symbol`, and `Symbol` is a JavaScript global. Any module that imports
+it shadows the global for the rest of that file. Python has no `Symbol` builtin, so the collision is the
+port's rather than the oracle's, and it arrived silently by keeping the name.
+
+Kept rather than renamed: the name is what the protocol calls the thing, it appears throughout the
+ABI-adjacent prose, and a rename would touch every adapter, test and comment for a hazard that is
+visible at each use — `new Symbol('NVDA')` reads as a domain value in context, and nothing that imports
+it needs the global. Recorded so that it is a decision rather than an accident, and so the next person
+to notice it knows it was noticed. `models.test.ts` names it once, at the head of the `Symbol` block.
+
+## F79 — Two headers counted their own tests wrongly, and a count target was met by coincidence
+
+`calibrator/tests/unit/sessions.test.ts` opened by saying the Python it ports "has 10 tests in five
+classes", that the two classes it defers are "4 of the 10", and that the deferred tests belong in
+`models.test.ts`, "which tracker item A8 creates from `test_models.py`". The third claim is the one that
+mattered: A8 read it and went looking. The Python has **11** tests in five classes and the two deferred
+classes are **5** of them. The arithmetic was self-consistent at the answer that mattered (11 − 5 = 6,
+and the file has 6), so only the totals were wrong — but a reader checking "4 of the 10" against the file
+would conclude a test was missing.
+
+The substance held, and A8 confirmed it rather than assuming it: all five are subsumed by
+`test_models.py`'s versions, which are strictly stronger — the refusal set adds `-NVDA`, the gap test
+adds a flat bar and a negative close — and `models.test.ts` now names which assertion covers each. So
+nothing was lost. The counts were still wrong, and were fixed in the header.
+
+The tracker's own A8 entry was wrong the same way, and more interestingly: *"the TypeScript count reaches
+roughly 278 (31 + ~247)"*. 31 was the TypeScript count when the entry was written and 247 the Python
+total; the suite landed on exactly **278** — from 251 + 52, because the earlier phases had already
+absorbed most of the Python's tests into the TypeScript contract files. **A target met by coincidence is
+not a verification**, so A8 was verified instead by enumerating both languages' test names per module and
+matching them one for one. That enumeration is what found the gaps:
+
+- **`test_rejects_a_for_session_beyond_uint64` had no TypeScript counterpart at all** — the only Python
+  test name in either workspace with none. It is a guard, so it moved in with the other guards in
+  `unit/digest.test.ts`, and the port added the boundary case the Python does not assert (uint64 max is
+  *accepted*), which is what makes the refusal a bound rather than an off-by-one.
+- **Two width guards were one-sided, in the Python and in the port.** `inputsHash` and `rowsDigest` are
+  guarded `!= 32` but were only ever tested at 31 bytes, so weakening either to `< 32` left every test
+  green. Both now test 33 as well. `nameId` was already two-sided, which is what made the asymmetry
+  visible.
+
+Eleven of the Python's 22 `test_moments.py` tests also turned out to be already present in
+`contract/moments.test.ts`, which had absorbed them; the eleven that were genuinely absent are in
+`unit/moments.test.ts`, and its header records the whole mapping. That is the useful form of a port
+record: not "the suite is green" but "this Python test is that TypeScript test, and here is the one that
+is the fixture instead".
+
 ## Still open
 
 | # | Item | Blocking |
