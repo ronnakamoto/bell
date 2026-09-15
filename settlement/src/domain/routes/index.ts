@@ -94,10 +94,23 @@ export function costReport(): readonly RouteCost[] {
  *
  * Throws rather than returning a default when nothing ships, because a default here would be a
  * settlement route chosen by absence.
+ *
+ * **`rows` is a parameter with a default, and the reason is coverage rather than configurability.**
+ * Both paths below — nothing quotable, and a tie between two routes — are unreachable while
+ * `costReport()` is the only possible input: `ships` marks exactly one route and that route has a
+ * cost. They used to be written out beside a comment claiming a rule that nothing tested, which is
+ * the shape the project keeps finding: a branch that exists only in the oracle is a divergence
+ * waiting for the day the input changes.
+ *
+ * A default parameter rather than an exported second function keeps every call site unchanged — the
+ * route registry, the report and the tests all still write `cheapestShippingRoute()` — so this is a
+ * widening of what can be asked, not a change in what is answered. It is the same move as giving an
+ * `internal` Solidity guard a frame through an `external*` wrapper so that its refusal can be
+ * observed.
  */
-export function cheapestShippingRoute(): RouteId {
+export function cheapestShippingRoute(rows: readonly RouteCost[] = costReport()): RouteId {
   const quotable: { readonly cost: Decimal; readonly identifier: RouteId }[] = [];
-  for (const row of costReport()) {
+  for (const row of rows) {
     if (row.ships && row.costBp !== undefined) {
       quotable.push({ cost: row.costBp, identifier: row.identifier });
     }
@@ -107,9 +120,10 @@ export function cheapestShippingRoute(): RouteId {
   }
 
   // `min` over the pairs, with Python's tuple comparison spelled out: the lower cost wins, and a tie
-  // goes to the *lower* identifier. The tie is unreachable while `ships` marks exactly one route —
-  // written out anyway, because a tie-break that exists only in the oracle is a divergence waiting
-  // for the day `ships` becomes a set.
+  // goes to the *lower* identifier. The tie is unreachable through `costReport()`, because `ships`
+  // marks exactly one route — and it is asserted through the parameter instead of promised in a
+  // comment, because the tie-break exists to match the oracle and an unasserted claim about the
+  // oracle is the one kind of divergence this file is supposed to prevent.
   const best = quotable.reduce((left, right) => {
     if (right.cost.lessThan(left.cost)) {
       return right;

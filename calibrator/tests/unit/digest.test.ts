@@ -40,7 +40,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { commitmentPreimage, inputsPreimage } from '../../src/domain/digest.js';
+import { commitmentPreimage, inputsPreimage, uintToBytes } from '../../src/domain/digest.js';
 import { SessionKind } from '../../src/domain/models.js';
 
 /** `bytes(range(start, start + 32))` — the Python's fixture constants, spelled the same way. */
@@ -248,5 +248,41 @@ describe('inputsPreimage validation', () => {
       ROWS_DIGEST,
     );
     expect(encoded.length).toBe(298);
+  });
+});
+
+describe('uintToBytes', () => {
+  it('encodes big-endian at the width it is given', () => {
+    // The shared encoder, exported rather than private because `rowsDigest` needs the same
+    // encode-and-range-check and a second copy of it is a second place for the range check to be
+    // dropped. Both ends of the width are asserted, since the loop's direction is the claim.
+    expect([...uintToBytes(0x0102n, 4, 'value')]).toEqual([0, 0, 1, 2]);
+    expect([...uintToBytes(255n, 1, 'value')], 'one byte holds 255').toEqual([255]);
+    expect([...uintToBytes(0n, 4, 'value')], 'zero fills the width').toEqual([0, 0, 0, 0]);
+  });
+
+  it('refuses a negative value and one that does not fit its width', () => {
+    // **Both refusals are unreachable from every caller in the port, and that is why they are tested
+    // directly rather than through one.** Each call site has its own guard for the same bound and
+    // fires first — `commitmentPreimage` refuses a negative parameter and a `forSession` beyond
+    // uint64 before calling, so the library's own checks had executed 13,306 times without either
+    // consequent being taken once.
+    //
+    // The guard is kept, not deleted, because that redundancy is the arrangement the project already
+    // ruled on for `Amm`'s reserve check (F44/F45): a depth guard belongs in the library and not only
+    // at its callers, because the caller that forgets is the one the guard is for. And it is *tested*
+    // rather than assumed, because a silent truncation here produces a preimage that hashes to
+    // something plausible and matches nothing — the failure this whole module exists to prevent, and
+    // one that is indistinguishable from a dishonest publisher when a challenge fails.
+    expect(() => uintToBytes(-1n, 8, 'value')).toThrow(/value cannot be negative/);
+    expect(() => uintToBytes(256n, 1, 'value')).toThrow(/does not fit 1 bytes/);
+    expect(() => uintToBytes(2n ** 64n, 8, 'value')).toThrow(/does not fit 8 bytes/);
+
+    // The bound is exclusive and the largest value the width holds is inclusive, which is the pair a
+    // one-sided test would collapse.
+    expect(
+      [...uintToBytes(2n ** 64n - 1n, 8, 'value')],
+      'the widest value eight bytes hold',
+    ).toEqual(new Array<number>(8).fill(255));
   });
 });

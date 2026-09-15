@@ -222,7 +222,17 @@ describe('ordering', () => {
 
 describe('the print value object', () => {
   it('magnitude is unsigned', () => {
-    expect(printAt('-0.02').magnitudeWad).toBe(wadOf('0.02'));
+    // **Both arms of the conditional, and the test that existed reached only one.** Every print in the
+    // suite whose magnitude is read carries a negative gap, so the `>= 0` arm had never executed —
+    // the branch report put it at one hit for the negation and zero for the pass-through.
+    //
+    // It is worth a second assertion rather than being covered by accident: a magnitude that returned
+    // the *signed* value for a non-negative gap would be right, and would go on being right, until the
+    // first caller that compares a magnitude against a bound read a negative one. The zero case is the
+    // boundary between the two arms.
+    expect(printAt('-0.02').magnitudeWad, 'negative').toBe(wadOf('0.02'));
+    expect(printAt('0.02').magnitudeWad, 'positive').toBe(wadOf('0.02'));
+    expect(printAt('0').magnitudeWad, 'zero').toBe(0n);
   });
 
   it('a negative priority is refused', () => {

@@ -23,18 +23,39 @@
  *        declaration nothing imports is a boundary nobody has checked.
  *
  *   TypeScript
- *     4. Each workspace must be at least 95% on **lines and branches** — the analogue of
- *        `coverage.py`'s combined measure, and strictly stronger than either metric alone.
+ *     4. Each workspace must be at least 95% on **lines and branches**, asserted separately rather
+ *        than pooled. The number is the Python's; the shape is deliberately stronger than
+ *        `coverage.py`'s combined measure, because either metric alone is satisfiable while the
+ *        other is not — a workspace can reach 95% of its lines with every branch untaken, which is
+ *        the exact shape requirement 3 refuses to accept for the services.
+ *     5. Every file under a `domain/` tree must be 100% on lines, statements, branches and
+ *        functions. Requirement 1's analogue at the same layer: `domain/` is the boundary R5.1 draws
+ *        as "no dependency that can reach the world", which is the role `contracts/src/libraries/`
+ *        plays. A file with nothing to instrument counts as perfect — the convention requirement 1
+ *        already applies to `forge`'s `N/A (0/0)`, and the one that makes both `ports.ts` files
+ *        legal rather than exempt.
  *
- * **Rule 4 is measured but not yet asserted, and that is a schedule rather than a preference.** The
- * bar is 95 and B0 sets it: until A8 has moved the remaining Python tests across, the port is
- * incomplete and 95 would be a number chosen to be red. `--typescript-threshold 95` asserts it right
- * now, which is how the probe harness shows the assertion works rather than declaring that it does.
+ * **B0 set both bars, and measurement chose them rather than the other way round.** Before it the
+ * two workspaces read 96.41/91.46 and 96.46/86.09 on lines/branches, and every shortfall turned out
+ * to be a real gap rather than unreachable code: an uncalled `Wad.one`; `isZero`, `isNegative` and
+ * `abs` never invoked; a `toDecimalString` never asked for a negative value; a comparator never
+ * asked whether two values were equal, at both sort sites; a print whose magnitude was only ever
+ * read for a negative gap; and a route layer whose fixtures carried one timestamp, one insertion
+ * index and one shipping route. Sixteen tests closed all of it. Both workspaces now clear 95 on both
+ * metrics, and every `domain/` file is perfect on all four.
+ *
+ * **Five sites are unreached by construction and carry a `v8 ignore` in the source rather than an
+ * exemption here.** Three are depth guards whose callers' arithmetic proves them — the rank guard in
+ * `leverage.ts` and in `families/base.ts`, and `byteOf`'s width guard, which three callers each check
+ * first (F79's redundancy, deliberately kept: a depth guard belongs in the library and not only at
+ * its callers). Two are the zero guards the continued-fraction algorithm specifies. Each hint states
+ * its reason on the line it silences; an exemption list in this file would be remote from the code it
+ * excuses and would fail open the moment the code moved.
  *
  * The *measurement* is not conditional on any of that. A vitest run that fails, or a summary that
  * never appears, or a workspace with no rows in the summary, is a hard failure whatever the
- * threshold is — otherwise "not asserted yet" would quietly become "not measured", and a rule that
- * cannot fail is not a rule.
+ * threshold is — otherwise "not asserted" would quietly become "not measured", and a rule that cannot
+ * fail is not a rule.
  *
  * Exit status is non-zero if any rule fails, so `make check` fails with it.
  *
@@ -46,6 +67,8 @@
  *     tools/check_coverage.ts --from FILE              # parse a saved forge report
  *     tools/check_coverage.ts --typescript-from FILE   # read a saved vitest summary
  *     tools/check_coverage.ts --interpreter PATH       # which python runs the service suites
+ *     tools/check_coverage.ts --python-threshold N     # override the 95 for the services
+ *     tools/check_coverage.ts --typescript-threshold N # override the 95 for the TypeScript tree
  */
 
 import { spawnSync } from 'node:child_process';
@@ -57,19 +80,14 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const CONTRACTS = join(REPO_ROOT, 'contracts');
 
-/** The bar the brief sets for `contracts/src/libraries/`. */
+/** The bar the brief sets for `contracts/src/libraries/`, and for its TypeScript analogue. */
 const LIBRARY_REQUIRED_PERCENT = 100;
 /** The bar the brief sets overall, applied to `src/**` rather than to `forge`'s Total row. */
 const SOURCE_REQUIRED_PERCENT = 95;
 /** The bar for each Python workspace, on `coverage.py`'s combined line-and-branch measure. */
 const PYTHON_REQUIRED_PERCENT = 95;
-
-/**
- * The bar for each TypeScript workspace, or `null` for "measured, not asserted".
- *
- * **`null` is a schedule, not a preference, and B0 is the one line that changes.** See the header.
- */
-const TYPESCRIPT_REQUIRED_PERCENT: number | null = null;
+/** The bar for each TypeScript workspace, on lines and branches separately. Set by B0. */
+const TYPESCRIPT_REQUIRED_PERCENT = 95;
 
 /** Each Python workspace: its directory, and the package to measure. */
 const PYTHON_WORKSPACES: readonly (readonly [string, string])[] = [
@@ -85,6 +103,20 @@ const PYTHON_WORKSPACES: readonly (readonly [string, string])[] = [
  * services separately, and the reason the contracts' rule is per library.
  */
 const TYPESCRIPT_WORKSPACES: readonly string[] = ['calibrator/src', 'settlement/src'];
+
+/**
+ * The TypeScript analogue of `contracts/src/libraries/`, and the bar every file under it must meet.
+ *
+ * The two `domain/` trees are the layer R5.1 rules may not reach the world, which is what
+ * `contracts/src/libraries/` is — so this is requirement 1 at the same place rather than a new rule
+ * invented for the port. The bar is written as a reference to that constant so the equivalence is
+ * literal and cannot drift.
+ */
+const TYPESCRIPT_DOMAIN_ROOTS: readonly string[] = [
+  'calibrator/src/domain',
+  'settlement/src/domain',
+];
+const TYPESCRIPT_DOMAIN_REQUIRED_PERCENT = LIBRARY_REQUIRED_PERCENT;
 
 /** `| src/libraries/Amm.sol | 100.00% (31/31) | ... | ... | ... |` */
 const ROW = /^\|\s*(\S+\.sol)\s*\|(.+)\|\s*$/;
@@ -109,7 +141,13 @@ interface Metric {
   readonly total: number;
 }
 
-/** One file's coverage, as four metrics. */
+/**
+ * One file's coverage, as four metrics.
+ *
+ * Shared by the two measurements rather than declared twice: `forge`'s summary rows and vitest's
+ * summary rows carry the same four columns, and requirement 1 and requirement 5 ask the same
+ * question of them — is this file perfect on all four.
+ */
 interface Coverage {
   readonly path: string;
   readonly counts: Readonly<Record<Column, Metric>>;
@@ -123,7 +161,7 @@ interface Options {
   readonly vitestSummary: string | undefined;
   readonly interpreter: string;
   readonly pythonThreshold: number;
-  readonly typescriptThreshold: number | null;
+  readonly typescriptThreshold: number;
 }
 
 /**
@@ -379,8 +417,10 @@ function checkPython(report: string[], required: number, interpreter: string): s
 
 interface WorkspaceCoverage {
   readonly workspace: string;
-  readonly lines: Metric;
-  readonly branches: Metric;
+  /** The workspace's four metrics, summed from the per-file counts rather than averaged. */
+  readonly counts: Readonly<Record<Column, Metric>>;
+  /** Every file under the workspace, kept so requirement 5 can be applied per file. */
+  readonly files: readonly Coverage[];
 }
 
 function add(left: Metric, right: Metric): Metric {
@@ -402,10 +442,25 @@ function readMetric(value: unknown, key: string): Metric {
   return { covered, total };
 }
 
-function readFileMetrics(value: unknown, key: string): { lines: Metric; branches: Metric } {
+/**
+ * One file's four metrics.
+ *
+ * All four, where requirement 4 reads two, because requirement 5 asks for all four and the summary
+ * already carries them. Reading only what the first rule needs is how the second rule ends up
+ * re-parsing the same object — and how the two rules come to disagree about a file.
+ */
+function readFileMetrics(value: unknown, key: string): Coverage {
   if (typeof value !== 'object' || value === null) die(`${key}: not an object`);
   const fields = value as Record<string, unknown>;
-  return { lines: readMetric(fields['lines'], key), branches: readMetric(fields['branches'], key) };
+  return {
+    path: key,
+    counts: {
+      lines: readMetric(fields['lines'], key),
+      statements: readMetric(fields['statements'], key),
+      branches: readMetric(fields['branches'], key),
+      functions: readMetric(fields['functions'], key),
+    },
+  };
 }
 
 /** Parse a JSON file, reporting a malformed or absent one as a measurement failure, not a crash. */
@@ -419,11 +474,15 @@ function readJson(path: string, label: string): unknown {
 }
 
 /**
- * Sum the vitest summary's per-file rows into one figure per workspace.
+ * Sum the vitest summary's per-file rows into one figure per workspace, keeping the rows.
  *
  * Summed from `covered`/`total` rather than averaged from the `pct` fields, which is not a detail:
  * an unweighted mean of per-file percentages lets a nine-line file outvote a four-hundred-line one,
  * and the number it produces answers no question the brief asks.
+ *
+ * The per-file rows are kept rather than discarded once summed, because requirement 5 is the whole
+ * reason the per-workspace rule cannot be the only one: a file at 78% inside a workspace at 96% is
+ * exactly what an aggregate hides.
  */
 function readSummary(parsed: unknown, label: string): WorkspaceCoverage[] {
   if (typeof parsed !== 'object' || parsed === null) die(`${label}: not a JSON object`);
@@ -433,23 +492,27 @@ function readSummary(parsed: unknown, label: string): WorkspaceCoverage[] {
 
   return TYPESCRIPT_WORKSPACES.map((workspace) => {
     const prefix = `${join(REPO_ROOT, workspace)}/`;
-    let lines: Metric = { covered: 0, total: 0 };
-    let branches: Metric = { covered: 0, total: 0 };
-    let files = 0;
-    for (const [key, value] of entries) {
-      if (!key.startsWith(prefix)) continue;
-      const metrics = readFileMetrics(value, key);
-      lines = add(lines, metrics.lines);
-      branches = add(branches, metrics.branches);
-      files += 1;
-    }
-    if (files === 0) {
+    const files = entries
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([key, value]) => readFileMetrics(value, key));
+    if (files.length === 0) {
       die(
         `${workspace}: the summary has no rows under ${prefix}.\n` +
           'The workspace would read as 100% by absence; check `coverage.include` in vitest.config.ts.',
       );
     }
-    return { workspace, lines, branches };
+    const sum = (column: Column): Metric =>
+      files.reduce((total, file) => add(total, file.counts[column]), { covered: 0, total: 0 });
+    return {
+      workspace,
+      files,
+      counts: {
+        lines: sum('lines'),
+        statements: sum('statements'),
+        branches: sum('branches'),
+        functions: sum('functions'),
+      },
+    };
   });
 }
 
@@ -491,6 +554,50 @@ function runVitest(): unknown {
 }
 
 /**
+ * Requirement 5: every file under a `domain/` tree is perfect on all four metrics.
+ *
+ * **The TypeScript analogue of requirement 1, at the same layer rather than a similar one.**
+ * `domain/` is the boundary R5.1 draws — no dependency that can reach the world — which is what
+ * `contracts/src/libraries/` is, so both are the place where a branch nobody reached is a wrong
+ * answer in the instrument rather than an untested convenience. A per-file rule is also the only
+ * thing that closes the hole requirement 4 leaves open by construction: `calibrator/src/domain/
+ * models.ts` read 78.57% of its branches inside a workspace that read 91.46%, and an aggregate
+ * cannot see that.
+ *
+ * **A file with nothing to instrument is perfect**, the convention requirement 1 already applies to
+ * `forge`'s `N/A (0/0)`. Both workspaces ship a `ports.ts` that is declarations only and reports
+ * zero of everything; counting that as a violation would be counting a type as a branch.
+ *
+ * **The five sites this rule would otherwise report carry a `v8 ignore` in the source rather than an
+ * exemption here** — three depth guards whose callers' arithmetic proves them, and the two zero
+ * guards the continued-fraction algorithm specifies. A hint sits on the line it silences; a name in
+ * a list here would be remote from the code it excuses and would fail open the moment the code
+ * moved, which is the failure an allow-list exists to avoid.
+ */
+function checkDomainFiles(rows: readonly WorkspaceCoverage[], report: string[]): number {
+  const prefixes = TYPESCRIPT_DOMAIN_ROOTS.map((root) => `${join(REPO_ROOT, root)}/`);
+  const files = rows
+    .flatMap((row) => row.files)
+    .filter((file) => prefixes.some((prefix) => file.path.startsWith(prefix)));
+  if (files.length === 0) {
+    report.push('  no files under a domain/ tree; the rule was not applied to anything');
+    return 0;
+  }
+  for (const file of [...files].sort((left, right) => left.path.localeCompare(right.path))) {
+    const misses = COLUMNS.filter(
+      (column) => percent(file, column) !== TYPESCRIPT_DOMAIN_REQUIRED_PERCENT,
+    ).map((column) => {
+      const { covered, total } = file.counts[column];
+      return `${column} ${percent(file, column).toFixed(2)}% (${String(covered)}/${String(total)})`;
+    });
+    if (misses.length > 0) {
+      report.push(`  ${file.path.slice(REPO_ROOT.length + 1)}: ${misses.join(', ')}`);
+    }
+  }
+  return files.length;
+}
+
+/**
  * Requirement 4: each workspace is at least `required` percent on lines **and** branches.
  *
  * Both metrics, because either alone is satisfiable while the other is not: a workspace can reach 95%
@@ -499,30 +606,34 @@ function runVitest(): unknown {
  */
 function checkTypeScript(
   report: string[],
-  required: number | null,
+  required: number,
   summaryPath: string | undefined,
 ): string[] {
   const rows =
     summaryPath === undefined
       ? readSummary(runVitest(), 'vitest')
       : readSummary(readJson(summaryPath, 'the saved vitest summary'), summaryPath);
-  return rows.map((row) => {
-    const lines = percentOf(row.lines);
-    const branches = percentOf(row.branches);
-    const summary = `${row.workspace} ${lines.toFixed(2)}% lines / ${branches.toFixed(2)}% branches`;
-    if (required === null) return `${summary} (not asserted; B0 sets the bar)`;
-    for (const [metric, value] of [
-      ['lines', lines],
-      ['branches', branches],
-    ] as const) {
+
+  for (const row of rows) {
+    for (const column of ['lines', 'branches'] as const) {
+      const value = percentOf(row.counts[column]);
       if (value < required) {
         report.push(
-          `  ${row.workspace}: ${metric} ${value.toFixed(2)}%; requires ${String(required)}%`,
+          `  ${row.workspace}: ${column} ${value.toFixed(2)}%; requires ${String(required)}%`,
         );
       }
     }
-    return summary;
-  });
+  }
+
+  const domainFiles = checkDomainFiles(rows, report);
+  return [
+    ...rows.map(
+      (row) =>
+        `${row.workspace} ${percentOf(row.counts.lines).toFixed(2)}% lines / ` +
+        `${percentOf(row.counts.branches).toFixed(2)}% branches`,
+    ),
+    `${String(domainFiles)} domain/ files at 100% on all four metrics`,
+  ];
 }
 
 // ---------------------------------------------------------------- the entry point
@@ -535,7 +646,7 @@ function parseArguments(argv: readonly string[]): Options {
   let vitestSummary: string | undefined;
   let interpreter: string | undefined;
   let pythonThreshold = PYTHON_REQUIRED_PERCENT;
-  let typescriptThreshold: number | null = TYPESCRIPT_REQUIRED_PERCENT;
+  let typescriptThreshold = TYPESCRIPT_REQUIRED_PERCENT;
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -582,9 +693,10 @@ function parseArguments(argv: readonly string[]): Options {
   }
 
   if (!Number.isFinite(pythonThreshold)) die('--python-threshold must be a number');
-  if (typescriptThreshold !== null && !Number.isFinite(typescriptThreshold)) {
-    die('--typescript-threshold must be a number');
-  }
+  // No `!== null` guard, because B0 removed the state it guarded: the bar is a number now, and the
+  // flag exists to *move* it — for a probe that has to show the assertion firing — rather than to
+  // switch it off. `--typescript-threshold 0` still means what it says.
+  if (!Number.isFinite(typescriptThreshold)) die('--typescript-threshold must be a number');
 
   // Neither flag means all three; any flag means only those named. That is the Python tool's rule,
   // kept, so a caller reaching for `--python` alone gets what it always got.

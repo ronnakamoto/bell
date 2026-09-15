@@ -54,8 +54,21 @@ export function uintToBytes(value: bigint, length: number, label: string): Uint8
   return out;
 }
 
-/** `count` as a single byte, refusing anything above 255. */
+/**
+ * `count` as a single byte, refusing anything above 255.
+ *
+ * **The refusal is unreachable from every caller and is kept anyway.** All three call sites bound the
+ * value before calling — `payload.length` by `MAX_SOURCE_ID_BYTES`, `sourceIds.length` by
+ * `MAX_SOURCE_IDS`, and `sessionCode.length` by the fact that a `SessionKind` is a short literal — so
+ * the guard had executed 309 times without its consequent being taken once. Deleting it would be the
+ * wrong repair: it is the library-level depth guard that `Amm`'s reserve check established as the
+ * convention (F44/F45), and the caller that forgets to bound its own value is the one it is for. It
+ * carries a coverage hint instead of a test, because the only test that could reach it would call a
+ * private function with an argument no public path can produce — which would assert the guard against
+ * itself rather than against the contract.
+ */
 function byteOf(count: number, label: string): Uint8Array {
+  /* v8 ignore next 3 */
   if (!Number.isInteger(count) || count < 0 || count > 255) {
     throw new DomainError(`${label} must fit a single byte, got ${String(count)}`);
   }

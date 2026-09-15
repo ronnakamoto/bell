@@ -2556,11 +2556,88 @@ Eleven of the Python's 22 `test_moments.py` tests also turned out to be already 
 record: not "the suite is green" but "this Python test is that TypeScript test, and here is the one that
 is the fixture instead".
 
+## F80 — The TypeScript coverage bar was a real decision, and every shortfall under it was a real gap
+
+B0 was written as a formality — *"set them at the same bars as the Python: ≥95%, and 100% on the
+equivalent of `libraries/`"* — and it was not one. `TYPESCRIPT_REQUIRED_PERCENT` was `null`, so rule 4
+was measured and unasserted, and the two workspaces read **96.41 / 91.46** and **96.46 / 86.09** on
+lines/branches. So the bar the Python clears at 99.09 and 99.03 was a bar the port met on lines and
+missed on branches, in both workspaces.
+
+**The obvious move was the wrong one, and the branch report is what showed it.** Setting 95 on lines
+alone would have been a bar chosen to be green. Setting it on the pooled line-and-branch measure —
+the literal analogue of `coverage.py`'s `percent_covered` — would have been closer to the Python and
+still green by luck: 94.63 and 92.65 pooled, so it would have needed three and eight more covered
+items and no one would have known *which*. Asking instead which branch of which file was untaken
+produced a list of real gaps, and every one of them was a gap rather than unreachable code:
+
+| Site | What had never run |
+|---|---|
+| `models.ts` `Wad.one` | never evaluated — `fromWhole(1n)` was the only way anything wrote a unit |
+| `models.ts` `isZero`, `isNegative`, `abs` | never invoked; `abs`'s conditional entered zero times |
+| `models.ts` `toDecimalString` | never asked for a *negative* value, so both sign branches were unrun |
+| `models.ts` `fromDecimal` integrality guard | the non-finite path its own docstring names |
+| `digest.ts` `uintToBytes` | both refusals — see below |
+| `leverage.ts`, `families/base.ts` `ascending` | never asked whether two values were **equal**, at either sort site |
+| `prints.ts` `magnitudeWad` | only ever read for a negative gap |
+| `routes/base.ts` | every fixture carried one timestamp and one insertion index |
+| `routes/index.ts` `cheapestShippingRoute` | the fold's callback never called — one shipping route, no ties |
+| `r4_multi_source_void.ts` | the sign arm; every negative r4 fixture was refused earlier |
+
+Sixteen tests closed all of it, and the two workspaces now read **98.38 / 96.64** and **100 / 100**.
+The comparator finding is the one worth keeping: `Array.prototype.sort` is stable only when the
+comparator reports equality, and the nearest-rank rule then reads `rank - 1`, so a comparator that
+mis-ordered a tie would move a quantile by one observation — and by one *gap*, which is the quantity
+the leverage is built on. Neither sort site had ever been asked.
+
+**Two of those sites were not gaps at all, and telling them apart is what the per-file rule needed.**
+`leverage.ts`'s `rankedValue` guard and `families/base.ts`'s copy of it are `noUncheckedIndexedAccess`
+guards whose docstrings already said the caller's arithmetic proves them: `empiricalQuantile` refuses
+an empty sample *and* a probability outside `(0, 1]`, so `ceil(p · n)` lies in `[1, n]`; `GapSample`
+refuses an empty sample at construction, so the same holds one layer down. `digest.ts`'s `byteOf`
+guard is the third — three callers each check its bound first, so it had executed 13,306 times with
+neither consequent taken. That redundancy is deliberate and already ruled on (F44/F45: a depth guard
+belongs in the library and not only at its callers), so the guard stays and the coverage question is
+answered elsewhere. The fourth and fifth are the two zero guards the Lentz continued fraction
+specifies, which had not fired in 6,338 iterations.
+
+**The four are `v8 ignore` hints in the source rather than exemptions in the tool.** A hint sits on
+the line it silences and states its reason; a name in `check_coverage.ts` would be remote from the
+code it excuses and would fail open the moment the code moved — the failure an allow-list exists to
+avoid, and the same argument R5.1 made for `dependency-cruiser`. That the hints are load-bearing was
+probed rather than asserted: removing one from `leverage.ts` fails rule 5 alone, naming three short
+metrics on that file, while rule 4 stays silent because the workspace aggregate is still above 95.
+
+**The `libraries/` analogue is `domain/`, and the identification is structural rather than
+convenient.** `contracts/src/libraries/` is where the brief demands 100% on all four metrics, and it
+is the pure arithmetic layer; `domain/` is the layer R5.1 defines as "no dependency that can reach
+the world". Same role, same bar, and the constant is written as a reference to the contracts' one so
+the equivalence is literal. It is also the only rule that closes the hole the workspace bar leaves by
+construction: `calibrator/src/domain/models.ts` read **78.57%** of its branches inside a workspace
+that read 91.46%, and an aggregate cannot see that.
+
+**One unreachable path was a comment claiming a rule nothing tested, and it was refactored instead.**
+`cheapestShippingRoute` documented two branches as unreachable — no shipping route, and a tie between
+two — and wrote them out "anyway, because a tie-break that exists only in the oracle is a divergence
+waiting for the day `ships` becomes a set". That is the right instinct and the wrong remedy: an
+unasserted claim *about the oracle* is exactly what a differential port cannot afford. The function
+now takes the cost rows as a parameter defaulting to `costReport()`, so every call site is unchanged
+and both branches are asserted in both arrival orders. It is the same move as giving an `internal`
+Solidity guard a frame through an `external*` wrapper.
+
+**What the probes show, since a gate that has never failed is a gate nobody has tested.**
+`--typescript-threshold 99` fails naming both metrics on `calibrator/src`. A synthetic summary with one
+domain file at 0/2 branches fails rule 5 **alone**, with rule 4 silent — which is the isolation that
+proves the two rules are independent rather than one rule reported twice. A summary with every row
+present but none under a `domain/` root trips the "the rule was not applied to anything" guard rather
+than passing by absence. And `null` is gone from the tool: B0 removed the state it guarded, because a
+bar that can be switched off is a bar that will be.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` and `application/` are written and verified against the committed fixtures — `digest`, `moments`, `constants`, `leverage`, `sessions`, `dates` and `families` — the application layer against a 1,203-line differential dump, the CSV adapter against a 58-fixture one, and the **settlement workspace** (`prints`, the five routes, `adjudication`) against a 125-case one; the remaining tools and the remaining ported tests follow | the port |
+| R5 | the TypeScript port is **complete and asserted**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — all four remaining tools exist in TypeScript with `check_layout` and `check_coverage` covering both trees, every Python test has a TypeScript counterpart matched by name rather than by total (F79), and the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80). `calibrator/src/bell_calibrator/` and `settlement/src/bell_settlement/` are still present and are **B1**'s to delete | B1 |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |

@@ -61,6 +61,14 @@ function ascending(left: bigint, right: bigint): number {
  */
 function rankedValue(ordered: readonly bigint[], index: number): bigint {
   const value = ordered[index];
+  // Unreachable by construction, and the guard is kept anyway. `empiricalQuantile` refuses an empty
+  // sample and a `probability` outside `(0, 1]`, so `ceil(p * n)` lies in `[1, n]` and this index is
+  // always present — the guard had been reached 11 times with its consequent never taken. The two
+  // alternatives the docstring above rejects are still worse: a cast would hide a mistake if the
+  // guard above were ever loosened, and a silent `undefined` would become a leverage. A coverage hint
+  // rather than a test, because the only test that could reach it would call this private function
+  // with an index the public API cannot produce.
+  /* v8 ignore next 5 */
   if (value === undefined) {
     throw new LeverageError(
       `rank ${String(index + 1)} is outside a sample of ${String(ordered.length)}`,

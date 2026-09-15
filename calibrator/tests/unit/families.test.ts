@@ -133,6 +133,20 @@ describe('the gap sample', () => {
     expect(sample.quantileMagnitudeWad(new Decimal('0.99'))).toBe(wad('0.99'));
   });
 
+  it('orders a sample carrying a repeated magnitude', () => {
+    // The equal case of this file's *own* comparator — `families/base.ts` orders the magnitudes
+    // independently of `leverage.ts`, and the two `ascending` functions are separate. Both were
+    // missing it, and for the same reason: every fixture in both files has distinct values.
+    //
+    // `magnitudesWad` is unsigned, so `-0.03` and `0.03` are one rank here rather than two, and a
+    // comparator that never reported equality would order them by arrival instead of by value. The
+    // sign is deliberately mixed in the fixture, so the test also fails if the magnitude is not taken
+    // before the sort.
+    const sample = new GapSample([wad('-0.03'), wad('0.01'), wad('0.03'), wad('-0.02')]);
+    expect(sample.quantileMagnitudeWad(new Decimal('0.5')), 'the middle rank').toBe(wad('0.02'));
+    expect(sample.quantileMagnitudeWad(new Decimal('1')), 'the top rank').toBe(wad('0.03'));
+  });
+
   it('agrees with the leverage rule on a non-negative sample', () => {
     // ADDED. `quantileMagnitudeWad` writes the nearest-rank rule out rather than importing
     // `leverage.empiricalQuantile`, because the Python writes it out too and importing across the two

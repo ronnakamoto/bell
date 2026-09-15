@@ -50,6 +50,7 @@ import {
   EXCLUDED_ROUTE,
   RECOMMENDED_ROUTE,
   ROUTES,
+  type RouteCost,
   cheapestShippingRoute,
   costReport,
   routeFor,
@@ -388,5 +389,135 @@ describe('the payoff primitive', () => {
 
   it('the payoff is even', () => {
     expect(payoffLongWad(LAM, 12_345n)).toBe(payoffLongWad(LAM, -12_345n));
+  });
+});
+
+/**
+ * The decisions the suite's own fixtures made invisible.
+ *
+ * Every test above runs through `aPrint` and `inputFields`, and both have a uniformity the production
+ * inputs do not: `aPrint` defaults every print to the *same* timestamp and the *same* insertion
+ * index, and `inputFields` always supplies both optional flags. `costReport()` is a second such
+ * fixture — one shipping route, no ties. Four decisions in the layer are therefore unreached by the
+ * whole file, and the branch report is what said so: the `??` defaults, the "this print is not the
+ * latest" skip, the insertion-index tie-break, and both halves of the cheapest-route fold.
+ *
+ * Collected here rather than scattered into the describes they belong to, because they are one
+ * finding about the fixtures rather than four about the routes — and because a reader who wants to
+ * know what the shipped fixtures cannot express should be able to read it in one place.
+ */
+describe('the route layer, past the fixtures', () => {
+  /**
+   * A cost row, for the cases `costReport()` cannot produce.
+   *
+   * Annotated with `RouteCost` rather than inferred, so that a field added to the interface is a
+   * compile error here rather than a row that silently stops being a cost row.
+   */
+  const row = (identifier: RouteId, cost: string | undefined, ships: boolean): RouteCost => ({
+    identifier,
+    costBp: cost === undefined ? undefined : new Decimal(cost),
+    monotone: true,
+    freeOption: false,
+    ships,
+  });
+
+  it('defaults the two flags it does not require', () => {
+    // `challengeOpen` and `fallbackRegistered` are optional fields read with `?? false`, and the
+    // suite's builder writes both every time — so neither default had ever been taken. A route that
+    // reads `undefined` as "challenged" would defer every settlement on a field nobody set.
+    const { challengeOpen, fallbackRegistered, ...rest } = inputFields([]);
+    expect(challengeOpen, 'the builder always supplies both').toBe(false);
+    expect(fallbackRegistered).toBe(false);
+
+    const absent = new RouteInputs(rest);
+    expect(absent.challengeOpen, 'absent reads as no challenge').toBe(false);
+    expect(absent.fallbackRegistered, 'absent reads as no fallback').toBe(false);
+  });
+
+  it('takes the latest timestamp, not the last one listed', () => {
+    // `aPrint` gives every print the expiry as its timestamp, so no test above ever compared two
+    // different ones — the "this print is not the latest" skip and the `>` comparison were both
+    // unreached. The two orders are asserted because the first loop scans rather than sorts.
+    const older = aPrint('0.01', { secondsAfterExpiry: 0n });
+    const later = aPrint('0.02', { secondsAfterExpiry: 60n });
+    expect(inputs([older, later]).mostRecentGapWad(), 'the later print').toBe(wadOf('0.02'));
+    expect(inputs([later, older]).mostRecentGapWad(), 'and in the other order').toBe(wadOf('0.02'));
+  });
+
+  it('breaks a timestamp tie on the lower insertion index', () => {
+    // The second disjunct of the winner test. `aPrint` defaults every index to zero, so the tie-break
+    // had never been evaluated — a book whose prints arrive out of index order is the case it exists
+    // for, and the lower index is the earlier arrival.
+    const high = aPrint('0.01', { index: 5n });
+    const low = aPrint('0.02', { index: 1n });
+    expect(inputs([high, low]).mostRecentGapWad(), 'the lower index wins').toBe(wadOf('0.02'));
+    expect(inputs([low, high]).mostRecentGapWad(), 'and it wins in either order').toBe(
+      wadOf('0.02'),
+    );
+  });
+
+  it('r4 takes the magnitude of a negative last gap', () => {
+    // Every r4 fixture whose gap is negative has it refused before the magnitude is taken — by the
+    // plausibility band, or by the print not qualifying at all — so the sign arm had never run. It is
+    // the sign that is being asserted: `|G|`, not `G`.
+    const refund = routeFor(RouteId.R4).evaluate(
+      inputs([aPrint('-0.02')], { now: BEYOND_STALENESS }),
+    );
+    expect(refund.action, 'plausible and stale, so the feed merely stopped').toBe(
+      SettlementAction.CONSTANT_REFUND,
+    );
+    expect(refund.payoffWad).toBe(WAD / 2n);
+
+    // And the band is compared against the magnitude, so a large negative gap defers exactly as a
+    // large positive one does. A guard that compared the signed value would pay on `-0.40`.
+    const defer = routeFor(RouteId.R4).evaluate(
+      inputs([aPrint('-0.40')], { now: BEYOND_STALENESS }),
+    );
+    expect(defer.action).toBe(SettlementAction.DEFER);
+  });
+
+  it('refuses to choose a route when nothing ships', () => {
+    // A default here would be a settlement route chosen by absence. `costReport()` always has one
+    // shipping route, so this is only reachable through the parameter.
+    expect(() => cheapestShippingRoute([])).toThrow(/no shipping route has a quotable cost/);
+  });
+
+  it('refuses to choose when the only shipping route cannot be quoted', () => {
+    // R3's cost is name-specific and is `undefined` in the report. A route that cannot be quoted is
+    // not one this can rank, so it is excluded rather than treated as free.
+    expect(() => cheapestShippingRoute([row(RouteId.R3, undefined, true)])).toThrow(
+      /no shipping route has a quotable cost/,
+    );
+  });
+
+  it('does not choose a cheaper route that does not ship', () => {
+    // The `ships` half of the filter. Without it the report's cheapest row would be selected on price
+    // alone, which is the mistake `EXCLUDED_ROUTE` exists to make impossible.
+    expect(cheapestShippingRoute([row(RouteId.R1, '1', false), row(RouteId.R2, '12', true)])).toBe(
+      RouteId.R2,
+    );
+  });
+
+  it('takes the cheapest, not the first listed', () => {
+    // The `lessThan` arm of the fold. The shipped table reaches it only because its single shipping
+    // route is compared against nothing, so the fold's callback was never called at all.
+    expect(cheapestShippingRoute([row(RouteId.R2, '12', true), row(RouteId.R5, '9', true)])).toBe(
+      RouteId.R5,
+    );
+    expect(cheapestShippingRoute([row(RouteId.R5, '9', true), row(RouteId.R2, '12', true)])).toBe(
+      RouteId.R5,
+    );
+  });
+
+  it('breaks a cost tie on the lower identifier', () => {
+    // The tie-break, which exists only to match the oracle's tuple comparison. Asserted in both
+    // arrival orders: a tie-break that only worked for one of them would be reading the list rather
+    // than the values.
+    expect(cheapestShippingRoute([row(RouteId.R5, '12', true), row(RouteId.R2, '12', true)])).toBe(
+      RouteId.R2,
+    );
+    expect(cheapestShippingRoute([row(RouteId.R2, '12', true), row(RouteId.R5, '12', true)])).toBe(
+      RouteId.R2,
+    );
   });
 });

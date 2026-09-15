@@ -68,9 +68,28 @@ describe('the empirical quantile', () => {
     );
   });
 
+  it('orders a sample carrying a repeated observation', () => {
+    // **The comparator's equal case, which no fixture in this file reached.** Every sample above has
+    // distinct gaps, so `ascending` never returned zero and the branch that says "these two are the
+    // same rank" had never executed — the branch report put it at 182 consequent hits and 0 for the
+    // fall-through, which is a comparator that has never been asked whether two values are equal.
+    //
+    // It matters here rather than being pedantry about a `-1/0/1` function: `Array.prototype.sort`
+    // is only stable when the comparator reports equality, and the nearest-rank rule then reads
+    // `rank - 1`, so a comparator that mis-ordered a tie would move the quantile by one observation —
+    // and by one *gap*, which is the quantity the leverage is built on.
+    const sample = [3, 1, 3, 2].map((index) => ratio(BigInt(index), 7n));
+    expect(empiricalQuantile(sample, d('0.5')).equals(ratio(2n, 7n)), 'the middle rank').toBe(true);
+    expect(empiricalQuantile(sample, d('1')).equals(ratio(3n, 7n)), 'the top rank').toBe(true);
+  });
+
   it('refuses an empty sample', () => {
     // A default here would become a leverage, and a leverage built on an absent sample is a
     // parameter the protocol would price against.
+    //
+    // **This guard is also what makes the rank guard below it unreachable**, which is why the rank
+    // guard carries a coverage hint rather than a test: `probability` is refused outside `(0, 1]` and
+    // the sample is refused empty, so `ceil(p * n)` lies in `[1, n]` and the index is always present.
     expect(() => empiricalQuantile([], d('0.99'))).toThrow(/at least one observation/);
   });
 

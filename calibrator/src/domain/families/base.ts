@@ -155,6 +155,14 @@ export class GapSample {
     const ordered = [...this.magnitudesWad].sort(ascending);
     const rank = probability.times(ordered.length).ceil().toNumber();
     const value = ordered[rank - 1];
+    // The same guard as `leverage.ts`'s `rankedValue`, at this file's own copy of the nearest-rank
+    // rule, and unreachable for the same reason one layer further down: `GapSample` refuses an empty
+    // sample at construction and `probability` is refused outside `(0, 1]` here, so `rank` lies in
+    // `[1, n]`. Kept for the reason the whole port keeps its depth guards — the caller that is wrong
+    // is the one it exists for — and hinted rather than tested, because reaching it would mean
+    // constructing a `Family` whose sample is empty, which is the state `GapSample` exists to make
+    // unrepresentable.
+    /* v8 ignore next 5 */
     if (value === undefined) {
       throw new FamilyError(
         `rank ${String(rank)} is outside a sample of ${String(ordered.length)}`,

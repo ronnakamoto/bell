@@ -141,6 +141,64 @@ describe('Wad', () => {
     const gaps = [Wad.fromRaw(3n), Wad.fromRaw(1n), Wad.fromRaw(2n)];
     expect(gaps.map((gap) => gap.raw).sort(ascending)).toEqual([1n, 2n, 3n]);
   });
+
+  it('renders a negative value with its sign, whole and fractional', () => {
+    // `toDecimalString` is the only way a `Wad` becomes text, so a sign lost here is a sign lost in
+    // every report and every log that reads one. **Both spellings are asserted, and the two are not
+    // redundant:** the sign is written twice in the source — once in the integer branch and once in
+    // the fractional one — so a test that reached only one would leave the other free to drop it.
+    // Found by asking which branch of the value type's own formatter no test had taken, rather than
+    // by reading it: the branch report said the `negative` conjunct had never been true at all.
+    expect(Wad.fromWhole(-3n).toDecimalString(), 'whole, no fraction').toBe('-3');
+    expect(Wad.fromStr('-0.0188').toDecimalString(), 'whole and fraction').toBe('-0.0188');
+    expect(Wad.fromRaw(-1n).toDecimalString(), 'the smallest increment, negative').toBe(
+      '-0.000000000000000001',
+    );
+  });
+
+  it('has a unit, a zero test, a sign test and a magnitude', () => {
+    // **Four members of the value type's public surface that nothing in the port called.** The branch
+    // report showed `Wad.one` never evaluated and `isZero`, `isNegative` and `abs` never invoked at
+    // all — `abs`'s conditional was entered zero times, which is what an uncalled function looks like
+    // from the inside.
+    //
+    // They are asserted rather than deleted. `Wad` is the port's translation of the Python's `Wad`,
+    // and a member of that type's surface is a claim about the type; a claim no test has ever
+    // evaluated is a claim nobody has checked. `Wad.one` is the case that makes it more than
+    // bookkeeping — the Python's `Wad(1)` is the multiplicative identity every caller gets for free,
+    // and here it is the only way to write one that is not `fromWhole(1n)`.
+    expect(Wad.one.raw, 'the unit at WAD scale').toBe(WAD);
+    expect(Wad.fromWhole(3n).mul(Wad.one).equals(Wad.fromWhole(3n)), 'and it is the identity').toBe(
+      true,
+    );
+
+    expect(Wad.zero.isZero(), 'zero').toBe(true);
+    expect(Wad.fromRaw(1n).isZero(), 'one wei').toBe(false);
+
+    expect(Wad.fromRaw(-1n).isNegative(), 'negative').toBe(true);
+    expect(Wad.fromRaw(1n).isNegative(), 'positive').toBe(false);
+
+    // Three arms of one conditional, because the sign test inside it is what decides whether the
+    // magnitude is a negation — and `zero` is the arm a two-case test would miss.
+    expect(Wad.fromWhole(-3n).abs().raw, 'negative').toBe(3n * 10n ** 18n);
+    expect(Wad.fromWhole(3n).abs().raw, 'positive').toBe(3n * 10n ** 18n);
+    expect(Wad.zero.abs().raw, 'zero').toBe(0n);
+  });
+
+  it('refuses a value that cannot be scaled exactly, including a non-finite one', () => {
+    // The integrality check is the second of the two guards, and the first cannot cover a non-finite
+    // value: `decimalPlaces()` on `Infinity` is `NaN`, so the `isFinite` conjunct skips the
+    // decimal-places guard and the value falls through to here. That is the path `fromDecimal`'s own
+    // docstring names — "a non-finite value falls through to the integrality check rather than to a
+    // check of its own" — and until this test nothing took it. The branch report agreed: the guard
+    // was reached 45 times and its consequent never once.
+    expect(() => Wad.fromDecimal(new D(Number.POSITIVE_INFINITY))).toThrow(
+      /not exactly representable/,
+    );
+    expect(() => Wad.fromDecimal(new D(Number.NEGATIVE_INFINITY))).toThrow(
+      /not exactly representable/,
+    );
+  });
 });
 
 describe('Symbol', () => {

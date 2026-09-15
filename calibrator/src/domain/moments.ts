@@ -210,8 +210,16 @@ function erfcContinuedFraction(z: Decimal): Decimal {
   for (let n = 1; n < CONTINUED_FRACTION_MAX_TERMS; n += 1) {
     const a = d(n).div(2);
     dd = z.plus(a.times(dd));
+    // The two zero guards below are transcribed from the published algorithm, not defensive coding:
+    // the recurrence divides by `dd` and by `c`, and the algorithm specifies substituting a tiny
+    // value rather than allowing a division by zero. Neither has fired in 6,338 iterations — for the
+    // arguments this module is asked about the convergents are never exactly zero — and they are
+    // hinted rather than tested, because a test that reached them would have to drive the continued
+    // fraction to a state the algorithm's own inputs do not produce.
+    /* v8 ignore next */
     if (dd.isZero()) dd = TINY;
     c = z.plus(a.div(c));
+    /* v8 ignore next */
     if (c.isZero()) c = TINY;
     dd = d(1).div(dd);
     const delta = c.times(dd);
