@@ -24,7 +24,8 @@ import {
   inputsPreimage,
   nameId,
 } from '../../src/domain/digest.js';
-import { bytesFromHex, hexOf, Symbol, type SessionKind } from '../../src/domain/models.js';
+import { bytesFromHex, hexOf } from '../../src/domain/bytes.js';
+import { Symbol, type SessionKind } from '../../src/domain/models.js';
 
 interface DigestCase {
   label: string;

@@ -23,8 +23,8 @@ import {
   type SettlementRoute,
   SettlementAction,
   SettlementBranch,
-  settleOnPrint,
 } from './base.js';
+import { settleOnPrint } from './settle.js';
 
 export class DeferredSettlementRoute implements SettlementRoute {
   readonly identifier: RouteId = RouteId.R2;

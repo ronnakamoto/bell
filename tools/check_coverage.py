@@ -59,8 +59,13 @@ PYTHON_WORKSPACES: tuple[tuple[str, str], ...] = (
 
 #: `| src/libraries/Amm.sol | 100.00% (31/31) | ... | ... | ... |`
 ROW = re.compile(r"^\|\s*(?P<path>\S+\.sol)\s*\|(?P<cells>.+)\|\s*$")
-#: A single `100.00% (31/31)` cell.
-CELL = re.compile(r"(?P<pct>[\d.]+)%\s*\((?P<hit>\d+)/(?P<total>\d+)\)")
+#: A single `100.00% (31/31)` cell, or `forge`'s `N/A (0/0)` for a column with nothing to cover.
+#: The `N/A` form is matched rather than skipped, and that is a fix rather than a tolerance: a row
+#: with an unmatched column yields three cells instead of four and used to be dropped *whole*, so a
+#: `src/` file with no branches was invisible to rule 1 rather than perfect on it, and its lines were
+#: excluded from rule 2's total. `percent()` already intended to treat `0/0` as fully covered; until
+#: this pattern matched, that branch was unreachable.
+CELL = re.compile(r"(?P<pct>[\d.]+%|N/A)\s*\((?P<hit>\d+)/(?P<total>\d+)\)")
 
 COLUMNS = ("lines", "statements", "branches", "functions")
 

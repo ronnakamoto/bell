@@ -25,8 +25,8 @@ import {
   type SettlementRoute,
   SettlementAction,
   SettlementBranch,
-  settleOnPrint,
 } from './base.js';
+import { settleOnPrint } from './settle.js';
 
 export class VoidAtHalfRoute implements SettlementRoute {
   readonly identifier: RouteId = RouteId.R1;

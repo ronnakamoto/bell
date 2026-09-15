@@ -28,7 +28,7 @@
  * JavaScript's `===` on two `Uint8Array`s compares references, so the obvious translation of
  * `computed == expected_digest` is silently wrong in the direction that matters most here: a digest
  * that *does* reproduce would be reported as a `DigestMismatch`. The helper is in the calibrator's
- * `models.ts`, beside `hexOf`, with the reasoning.
+ * `bytes.ts`, beside `hexOf`, with the reasoning.
  *
  * **`premiumToleranceFromPrecision` computes in exact `bigint` rather than in `Decimal`.** The
  * Python is `int(Decimal(5) / Decimal(10) ** (decimal_places + 1) * WAD)`, and every step of that is
@@ -39,9 +39,10 @@
  * by the A6 differential rather than argued from the digit count.
  */
 
+import { bytesEqual } from '@bell/calibrator/domain/bytes.js';
 import { WAD } from '@bell/calibrator/domain/constants.js';
 import { commitmentDigest } from '@bell/calibrator/domain/digest.js';
-import { DIGEST_BYTES, DomainError, bytesEqual } from '@bell/calibrator/domain/models.js';
+import { DIGEST_BYTES, DomainError } from '@bell/calibrator/domain/models.js';
 import { type Keccak } from '@bell/calibrator/domain/ports.js';
 
 // ---------------------------------------------------------------- tolerances

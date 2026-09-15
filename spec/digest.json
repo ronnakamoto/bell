@@ -1,8 +1,8 @@
 {
   "_generated": "GENERATED FILE - DO NOT EDIT BY HAND.",
-  "_source": "tools/gen_digest_fixture.py",
+  "_source": "domain/digest (keccak256 over the packed preimage)",
   "_spec": "paper Appendix B, and DESIGN_NOTES.md on the serialisation of inputsHash",
-  "_note": "The digest is keccak256 of the concatenation: nameId (bytes32), forSession (uint64 right-aligned in 32 bytes), lambdaWad (uint256), premiumWad (uint256), inputsHash (bytes32). The Python side builds that preimage in bell_calibrator.domain.digest; the Solidity side uses abi.encode.",
+  "_note": "The digest is keccak256 of the concatenation: nameId (bytes32), forSession (uint64 right-aligned in 32 bytes), lambdaWad (uint256), premiumWad (uint256), inputsHash (bytes32). The off-chain side builds that preimage in `domain/digest`; the Solidity side uses abi.encode.",
   "cases": [
     {
       "label": "overnight",

@@ -84,7 +84,12 @@ def reference_keccak(data: bytes) -> bytes:
     return hasher.digest()
 
 
-def main() -> int:
+def render() -> tuple[str, int]:
+    """The fixture's text, and its case count.
+
+    Split out of `main` so `--check` can compare without writing, mirroring `gen_constants.py` and
+    `gen_moments_fixture.py`. See DESIGN_NOTES.md F72.
+    """
     entries = []
     for case in CASES:
         symbol = Symbol(case["symbol"])
@@ -140,22 +145,43 @@ def main() -> int:
 
     payload = {
         "_generated": "GENERATED FILE - DO NOT EDIT BY HAND.",
-        "_source": "tools/gen_digest_fixture.py",
+        # Both provenance strings name the derivation rather than the generator or the language that
+        # produced them. `tools/gen_digest_fixture.ts` writes this fixture too, and
+        # `make check-generated` runs both and requires them to agree byte for byte, so a banner
+        # naming one of them is false whenever the other ran. The values are unchanged; see
+        # DESIGN_NOTES.md F72.
+        "_source": "domain/digest (keccak256 over the packed preimage)",
         "_spec": "paper Appendix B, and DESIGN_NOTES.md on the serialisation of inputsHash",
         "_note": (
             "The digest is keccak256 of the concatenation: nameId (bytes32), forSession "
             "(uint64 right-aligned in 32 bytes), lambdaWad (uint256), premiumWad (uint256), "
-            "inputsHash (bytes32). The Python side builds that preimage in "
-            "bell_calibrator.domain.digest; the Solidity side uses abi.encode."
+            "inputsHash (bytes32). The off-chain side builds that preimage in `domain/digest`; the "
+            "Solidity side uses abi.encode."
         ),
         "cases": entries,
         # Carried explicitly so the Solidity consumer does not have to guess the array length:
         # `vm.parseJson` gives no way to ask a JSON array how long it is.
         "caseCount": len(entries),
     }
+    return json.dumps(payload, indent=2, ensure_ascii=False) + "\n", len(entries)
+
+
+def main() -> int:
+    """Write the fixture, or with `--check` report whether the committed one is stale."""
+    content, case_count = render()
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
-    print(f"  {OUT.relative_to(REPO_ROOT)}: written, {len(entries)} cases")
+
+    stale = not OUT.exists() or OUT.read_text() != content
+    if stale:
+        OUT.write_text(content)
+
+    if "--check" in sys.argv and stale:
+        print("generated files are stale:", file=sys.stderr)
+        print(f"  {OUT.relative_to(REPO_ROOT)}", file=sys.stderr)
+        print("run `make build`", file=sys.stderr)
+        return 1
+    state = "stale, rewritten" if stale else "up to date"
+    print(f"  {OUT.relative_to(REPO_ROOT)}: {state}, {case_count} cases")
     return 0
 
 

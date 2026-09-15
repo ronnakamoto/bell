@@ -2355,6 +2355,122 @@ the port's only translation of this kind, and it is used at both digest-comparis
 demonstrated rather than declared. The general form: **a language's `==` is not a semantics that carries
 over for free, and the dangerous cases are the ones where the wrong spelling is the shorter one.**
 
+## F72 — A provenance banner is not a value, so the oracle's may be edited to match
+
+`make check-generated` runs **two** generators for each fixture — the Python one and the TypeScript one
+— in `--check` mode, and requires both to report the committed file up to date. The pair is the point:
+two independent renderings of the same source, held byte for byte together.
+
+The TypeScript halves were verified by byte-identity first. `gen_moments_fixture.ts` reproduced
+`spec/fixtures/moments.json` with **exactly one** line different, and `gen_digest_fixture.ts` reproduced
+`spec/digest.json` with **exactly two** — all 112 points × 7 fields, and all three digest cases,
+byte-identical. In both cases the differing lines were the provenance banner (`_source`, and for the
+digest also `_note`): the Python named the *generator*
+(`tools/gen_moments_fixture.py (bell_calibrator.domain.moments, 50 digits)`), the TypeScript named the
+*derivation* (`domain/moments, evaluated at 50 significant digits (paper Eq (12))`).
+
+That leaves a question the pair cannot answer on its own: which banner is right, and may the Python's be
+changed? The repository's rule is that the Python is never edited to agree with its TypeScript
+successor, because an oracle bent to match its port can no longer detect that the port is wrong.
+
+**The rule is about the oracle's answers, and a banner is not an answer.** Nothing reads `_source` or
+`_note`: `check_fixtures.ts` looks for integers a JavaScript reader would round, the Solidity
+differential reads the numeric fields, and no test on either side asserts the banner's text — verified
+by search rather than assumed. So editing it cannot make the comparison circular; it changes what the
+file says about itself and nothing else.
+
+The Python's banner was rewritten to name the derivation too, and each pair now agrees byte for byte.
+The general form: **"never edit the oracle" protects the oracle's *values*; applying it to the oracle's
+*label* would have forced the surviving rendering to carry the retired implementation's name.**
+
+## F73 — The tools read the compiled calibrator, because bare `node` cannot resolve a relative specifier
+
+`tools/*.ts` run under bare `node`, which strips types but does not rewrite a specifier. Measured, with
+three one-line probes:
+
+| specifier | outcome |
+|---|---|
+| `../../calibrator/src/domain/constants.js` | `ERR_MODULE_NOT_FOUND` |
+| `../../calibrator/src/domain/moments.js` | `ERR_MODULE_NOT_FOUND` |
+| `@bell/calibrator/domain/moments.js` | resolves through the calibrator's `exports` map to `dist/` |
+
+**The failure is caused by the specifier, not by the module graph behind it**, and the third probe is
+why that had to be measured rather than argued: `moments.ts`'s only import is `decimal.js`, so a naive
+reading would blame a relative import *inside* the module. It is not — `constants.ts` has no imports at
+all and fails identically. The conclusion still forces the design: `models.ts` writes
+`import { WAD } from './constants.js'`, so the source tree is not loadable by bare `node` at any depth.
+
+The consequence is a build dependency that has to be declared: `check-generated` and `check-coverage`
+both need `ts-build`. That is the same dependency A6 found from the other side (F69), where the
+settlement's cross-workspace import first exercised it.
+
+## F74 — A cell the parser could not read made a whole row disappear
+
+`forge coverage` prints `N/A (0/0)` for a column with nothing to cover. Both `check_coverage.py` and its
+port matched a cell with `([\d.]+)%\s*\((\d+)/(\d+)\)`, which `N/A (0/0)` does not match — so a row
+carrying one yielded **three** cells instead of four, failed the `len(cells) != len(COLUMNS)` guard, and
+was **dropped whole**.
+
+Both consequences are fail-open:
+
+- **Rule 1** — a `src/libraries/` file with no branches was *invisible* to the library rule rather than
+  perfect on it. The rule reports "no files under `src/libraries/`" only when the list is empty, so one
+  such file among others is silently skipped.
+- **Rule 2** — its lines were excluded from the `src/**` total, so the percentage was computed over a
+  subset. A subset can be higher *or* lower than the truth; here it would have been higher, which is
+  the direction that passes.
+
+`percent()` already carried `100.0 if total == 0`, with a comment saying forge prints `N/A (0/0)` for
+these — so the intent was written down and the parser made it unreachable. Found by probing the tool
+with a synthetic report, and it is only findable that way: **no `src/` row in this repository's report
+carries an `N/A` today.** The hole was latent, which is the worst kind, because it would have opened on
+the first branch-free library and nothing would have said so.
+
+Fixed in both halves by matching `N/A` as a cell, so `0/0` reaches the guard written for it.
+`coverage_n_a_column_counted` is the regression guard: its report clears 95% and shows one perfect
+library *only if* the unmatched row is counted, and fails both rules if it is dropped.
+
+## F75 — Both measurements now write into a directory the tool owns
+
+`check_coverage.ts` runs two external measurements, and both wrote into the repository by default:
+
+- `coverage.py` writes a data file into the working directory unless told otherwise → a
+  `calibrator/.coverage` after every run.
+- `vitest --coverage` **deletes its reports directory before every run** → `rm -rf coverage/`, some
+  eighty files.
+
+Both were fixed the same way — point the tool at a directory this process created, and remove it
+afterwards (`COVERAGE_FILE`, `--coverage.reportsDirectory`) — and the second is worth stating because
+of *how* it failed. The delete was refused by a filesystem shim's bulk-delete guard, which surfaced as
+a **non-zero vitest exit**, which the tool reported as *"the TypeScript suite did not run to
+completion, so there is no coverage to assert"* — about a suite that never started. A measurement
+failure that reads like a test failure sends a reader to the wrong file, and `make check` found it
+rather than any test.
+
+The general form: **a tool that runs another tool inherits that tool's filesystem behaviour, including
+the parts that are not about measurement.** Owning the scratch directory is cheaper than tolerating the
+interaction, and it is also what makes the run reproducible.
+
+## F76 — Two defects in the A7 probe harness, both the shape it exists to find
+
+The harness that probes these two checkers had two faults of its own, and both are worth recording
+because they are the same shape as the failures it looks for.
+
+- **A column nobody compares.** The layout probes returned `expected` and `actual` as separate fields
+  and printed them side by side, but the pass/fail decision was taken from the note text — which the
+  layout probes never set. So all nine layout probes reported `ok` **while the negative control was
+  failing**: the harness printed the contradiction and passed it. Fixed by giving every row an explicit
+  verdict. This is F53's shape one level up — a check whose *result* is not the thing it printed.
+- **A harness that dirties the tree it measures.** One run left `calibrator/src/domain/utils.ts`
+  behind, the artifact of the banned-name probe. It did not fail the harness; it failed `make check`
+  two commands later, as a §6 violation in a tree nobody had touched — and the failure pointed at
+  `check_layout.ts` rather than at the harness. Leftovers are now removed up front and reported, and
+  the restore is asserted rather than assumed.
+
+The first is the more interesting one, because the harness was *reporting* the truth and *concluding*
+something else. **A probe harness is a gate like any other: it needs a probe of its own, and the
+negative control is that probe.**
+
 ## Still open
 
 | # | Item | Blocking |

@@ -44,8 +44,8 @@ import {
   type SettlementRoute,
   SettlementAction,
   SettlementBranch,
-  payoffLongWad,
 } from '../../src/domain/routes/base.js';
+import { payoffLongWad } from '../../src/domain/routes/settle.js';
 import {
   EXCLUDED_ROUTE,
   RECOMMENDED_ROUTE,

@@ -61,7 +61,14 @@ def to_wad(value: Decimal) -> int:
     return int((value * WAD).to_integral_value(rounding=ROUND_HALF_EVEN))
 
 
-def main() -> int:
+def render() -> tuple[str, int]:
+    """The fixture's text, and its point count.
+
+    Split out of `main` so `--check` can compare without writing, which is the pattern
+    `gen_constants.py` already uses. Without it the pair of generators cannot be gated: running the
+    Python one to see whether it agrees would rewrite the file, so "both agree" would be a one-off
+    observation rather than a check. See DESIGN_NOTES.md F72.
+    """
     points = []
     with localcontext() as context:
         context.prec = 60
@@ -102,7 +109,11 @@ def main() -> int:
 
     payload = {
         "_generated": "GENERATED FILE - DO NOT EDIT BY HAND.",
-        "_source": "tools/gen_moments_fixture.py (bell_calibrator.domain.moments, 50 digits)",
+        # Names the derivation, not the generator file. `tools/gen_moments_fixture.ts` writes this
+        # fixture too, and `make check-generated` runs both and requires them to agree byte for byte,
+        # so a banner naming one of them is false whenever the other ran. The values are unchanged;
+        # see DESIGN_NOTES.md F72.
+        "_source": "domain/moments, evaluated at 50 significant digits (paper Eq (12))",
         "_identity": (
             "paper Eq (12): E[min(|G|, c)] = 2*sigma*(phi(0) - phi(c/sigma)) "
             "+ 2*c*(1 - Phi(c/sigma)), with c = 1/lambda and pL = lambda * E[min(|G|, c)]"
@@ -114,9 +125,25 @@ def main() -> int:
         "pointCount": len(points),
         "points": points,
     }
+    return json.dumps(payload, indent=2, ensure_ascii=False) + "\n", len(points)
+
+
+def main() -> int:
+    """Write the fixture, or with `--check` report whether the committed one is stale."""
+    content, point_count = render()
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
-    print(f"  {OUT.relative_to(REPO_ROOT)}: written, {len(points)} points")
+
+    stale = not OUT.exists() or OUT.read_text() != content
+    if stale:
+        OUT.write_text(content)
+
+    if "--check" in sys.argv and stale:
+        print("generated files are stale:", file=sys.stderr)
+        print(f"  {OUT.relative_to(REPO_ROOT)}", file=sys.stderr)
+        print("run `make build`", file=sys.stderr)
+        return 1
+    state = "stale, rewritten" if stale else "up to date"
+    print(f"  {OUT.relative_to(REPO_ROOT)}: {state}, {point_count} points")
     return 0
 
 

@@ -42,12 +42,13 @@ venv: ## Create .venv and install both workspaces with their development depende
 build: ## Generate spec-derived artifacts, then compile everything
 	@echo "== generating from spec/ =="
 	node $(TOOLS)/gen_constants.ts
-	$(PYTHON) $(TOOLS)/gen_moments_fixture.py
-	$(PYTHON) $(TOOLS)/gen_digest_fixture.py
-	@echo "== compiling contracts =="
-	cd $(CONTRACTS) && forge build
 	@echo "== compiling the TypeScript workspaces =="
 	npm run build
+	@echo "== generating the fixtures the domain produces =="
+	node $(TOOLS)/gen_moments_fixture.ts
+	node $(TOOLS)/gen_digest_fixture.ts
+	@echo "== compiling contracts =="
+	cd $(CONTRACTS) && forge build
 
 # ---------------------------------------------------------------------------- test
 
@@ -124,7 +125,13 @@ check-architecture: check-python ## The §5.3 dependency rule, mechanically
 	cd $(CALIBRATOR) && PATH="$(BIN_DIR):$$PATH" PYTHONPATH=src lint-imports
 	cd $(SETTLEMENT) && PATH="$(BIN_DIR):$$PATH" PYTHONPATH=src:../calibrator/src lint-imports
 
+# Both halves, and the pair is the point -- the same reasoning as `check-generated` below. They
+# overlap on Solidity deliberately. The Python half still walks Python's `ast` to prove `domain/`
+# imports nothing but the standard library, and TypeScript cannot parse Python, so that check is not
+# ported and dies with the tree it guards. The TypeScript half is the half that survives, and it is
+# the only thing enforcing §8.1's 400-line rule and §6's banned module names on the TypeScript tree.
 check-layout: ## The §6 layout rules, mechanically
+	node $(TOOLS)/check_layout.ts
 	$(PYTHON) $(TOOLS)/check_layout.py
 
 # Both generators, and the pair is the point. The TypeScript one is what `make build` runs, so its
@@ -132,15 +139,34 @@ check-layout: ## The §6 layout rules, mechanically
 # verified against (tracker A0) and is deliberately not edited to agree with its successor, so its
 # check proves that two independent renderings of the same YAML still produce the same bytes. Either
 # one failing is a finding; the Python half goes when the Python does (Phase B).
-check-generated: ## Fail if any generated file is stale
+#
+# The two fixture generators are the same shape of pair. Their TypeScript halves read the *compiled*
+# calibrator, because a bare `node` will not resolve `models.ts`'s relative `'./constants.js'` to
+# `constants.ts` -- so this target depends on `ts-build` rather than assuming an earlier `npm run
+# build`. Their provenance banners name the derivation rather than the generator for the same reason
+# the pair exists at all (F72).
+check-generated: ts-build ## Fail if any generated file is stale
 	node $(TOOLS)/gen_constants.ts --check
 	$(PYTHON) $(TOOLS)/gen_constants.py --check
+	node $(TOOLS)/gen_moments_fixture.ts --check
+	$(PYTHON) $(TOOLS)/gen_moments_fixture.py --check
+	node $(TOOLS)/gen_digest_fixture.ts --check
+	$(PYTHON) $(TOOLS)/gen_digest_fixture.py --check
 
 check-fixtures: ## Fail if any spec/ fixture carries an integer a JavaScript reader would round
 	node $(TOOLS)/check_fixtures.ts
 
-check-coverage: check-python ## Every coverage rule the brief states, asserted rather than eyeballed
-	$(PYTHON) $(TOOLS)/check_coverage.py
+# The TypeScript half subsumes the Python one: it reproduces both contract rules and both service
+# rules, and adds the TypeScript measurement, which nothing asserted before. `check_coverage.py` is
+# therefore **not** in this path -- it would repeat the same forge run and the same two pytest runs
+# for the same verdict, and the forge run is the expensive part. It is kept as the oracle the port
+# was differentially verified against: `.recon/a7/probe.py` feeds both tools the same saved reports
+# and requires byte-identical verdicts. It goes at Phase B, with the Python.
+#
+# `ts-build` because vitest resolves `@bell/calibrator/domain/*` through the calibrator's `exports`
+# map, which points at `dist/`.
+check-coverage: ts-build check-python ## Every coverage rule the brief states, asserted rather than eyeballed
+	node $(TOOLS)/check_coverage.ts --interpreter $(PYTHON)
 
 # ---------------------------------------------------------------------------- typescript
 
