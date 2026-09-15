@@ -34,8 +34,13 @@ const MAX_SOURCE_ID_BYTES = 255;
  * The refusals are the point. A silent truncation here would produce a preimage that hashes to
  * something plausible and matches nothing, which is the failure mode this whole module exists to
  * prevent — and it is indistinguishable from a dishonest publisher when a challenge fails.
+ *
+ * **Exported, where the Python's equivalent is the standard library's `int.to_bytes`.** The
+ * calibrator's `rows_digest` needs the same encode-and-range-check for the same reason, and a second
+ * copy of it is a second place for the range check to be dropped. The Python shared it by sharing the
+ * standard library; the port shares it by exporting one function.
  */
-function uintToBytes(value: bigint, length: number, label: string): Uint8Array {
+export function uintToBytes(value: bigint, length: number, label: string): Uint8Array {
   if (value < 0n) throw new DomainError(`${label} cannot be negative`);
   if (value >= 1n << BigInt(length * 8)) {
     throw new DomainError(`${label} does not fit ${String(length)} bytes`);

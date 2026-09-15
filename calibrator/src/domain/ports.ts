@@ -1,5 +1,5 @@
 /**
- * Ports. Declarations only — no implementations, and no imports beyond this module's own types.
+ * Ports. Declarations only — no implementations, and no imports beyond the domain's own value types.
  *
  * Ports are declared in the domain and implemented by adapters, so the dependency arrow points
  * inward. The hash primitive is a port for a reason worth restating, because it is the one that is
@@ -14,7 +14,15 @@
  * `c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470`. A TypeScript implementation
  * that reached for the standard library would produce digests that look entirely plausible and match
  * nothing on chain. The adapter uses `@noble/hashes`, which implements the original Keccak.
+ *
+ * **The three structural `*Like` types are deliberate, and `ParameterSet` is a real import.** A port
+ * that named `DailyBar` would let a change to a domain value object ripple into every adapter; naming
+ * the *shape* it needs keeps the domain owning its own types. `ParameterSet` is the exception, because
+ * `ParameterPublisher.publish` hands a committed parameter set across the boundary and a structural
+ * stand-in would let an adapter commit something the domain would never have built.
  */
+
+import { type ParameterSet } from './models.js';
 
 /**
  * A keccak-256 hash.
@@ -45,6 +53,12 @@ export interface DailyBarLike {
  *
  * The digest is the key, not the session: the commitment names an `inputsHash`, and a store that
  * could only be asked by session could return a different input set from the one committed.
+ *
+ * **This port is the settlement service's, not the calibrator's.** In the Python it is declared in
+ * `bell_settlement.domain.ports`; here it sits beside the calibrator's ports because there is no
+ * `settlement/src/` yet. Recorded as F62 rather than left as an accident — A6 owns the move, once
+ * `ReferencePrint` exists and the settlement's own `ports.ts` can be complete rather than a single
+ * declaration in a directory of one file.
  */
 export interface CommittedInputStore {
   /**
@@ -55,4 +69,43 @@ export interface CommittedInputStore {
    * catch one to say the same thing.
    */
   rowsDigest(inputsHash: Uint8Array): Promise<Uint8Array | undefined>;
+}
+
+/**
+ * A source of *scheduled* announcement dates.
+ *
+ * Scheduled, not reported. The distinction is the whole basis of the event-session calibration:
+ * conditioning on a scheduled release removes the surprise, which is why the event session is
+ * high-variance but not fat-tailed and why the fat-tail machinery is required for the non-event pool
+ * and not for this one (paper §7.10).
+ *
+ * **Declared, and nothing implements it or calls it, in either language.** In the Python this
+ * protocol is referenced once — its own declaration — and `ARCHITECTURE.md` lists it in the port
+ * table as though it were wired. It is not; it is the interface G1 (event-session shrinkage) will
+ * need, and it is carried here so that the port does not silently drop a declaration, for the same
+ * reason `HOLIDAY_SPANS_DAYS` was carried (F59). A reader of the architecture table should not assume
+ * a caller exists.
+ */
+export interface AnnouncementCalendar {
+  /** Scheduled announcement dates for `symbol`, ascending, as ISO 8601 `YYYY-MM-DD`. */
+  announcementDates(symbol: SymbolLike): Promise<readonly string[]>;
+}
+
+/**
+ * The off-chain side of the premium commitment.
+ *
+ * The trust shift this port creates is deliberate and is policed rather than assumed: the publisher
+ * commits a parameter set and the inputs it consumed *before* the session opens, so it cannot fit
+ * after seeing the outcome, and the committed inputs make a challenge a re-run rather than a matter
+ * of testimony (paper §7.11).
+ *
+ * **Asynchronous, where the Python's is a plain call.** The Python returns `str` synchronously, which
+ * is honest for its only implementation — a recording double — and wrong for the real one, which
+ * posts a transaction. The port's other outward-facing ports are already `Promise`-returning for the
+ * same reason (`GapSource.dailyBars`, `CommittedInputStore.rowsDigest`), so this matches them rather
+ * than the Python. The consequence is that `publish` is `async`; see `application/publish.ts`.
+ */
+export interface ParameterPublisher {
+  /** Commit `parameters` for `forSession`; return the commitment digest as `0x`-prefixed hex. */
+  publish(parameters: ParameterSet, forSession: bigint): Promise<string>;
 }

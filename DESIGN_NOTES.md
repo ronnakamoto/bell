@@ -2024,11 +2024,123 @@ Recorded because the port's acceptance test is not the oracle's suite. A transla
 oracle's own assertions cannot distinguish is exactly the kind of thing a green suite hides, which is
 F55's lesson in a different costume.
 
+## F62 — The settlement service's port was declared in the calibrator's `ports.ts`
+
+`CommittedInputStore` is declared in `bell_settlement.domain.ports`, and the settlement workspace's
+`test_ports.py` is its only test. The port put it in `calibrator/src/domain/ports.ts`, because that was
+the only TypeScript `domain/` directory in existence when `ports.ts` was written.
+
+It is a real misplacement rather than a harmless one, because the calibrator's domain is now a
+**published surface**: `settlement/package.json` will import `@bell/calibrator/domain` (A6), so a
+settlement port living there is a dependency the settlement has on the calibrator for one of its own
+interfaces. The two `ports.py` files are also asymmetric for a second reason — the calibrator's declares
+`Keccak`, `GapSource`, `AnnouncementCalendar` and `ParameterPublisher`, and the settlement's declares
+`ReferencePrintSource` and `CommittedInputStore` — so the boundary between "shared core" and "this
+service's ports" is currently drawn by whichever file happened to exist first.
+
+Not moved now, and the reason is that the move cannot be done cleanly yet: `ReferencePrintSource` needs
+`ReferencePrint`, which is A6's `prints.ts`, so a `settlement/src/domain/ports.ts` created today would be
+one declaration in a directory of one file. **A6 owns the move**, and `ports.ts` carries the note so a
+reader of the declaration is not misled in the meantime.
+
+The same entry records the two ports the file was *missing*. `ParameterPublisher` is A4's dependency and
+was absent; `AnnouncementCalendar` is declared in the Python, listed in `ARCHITECTURE.md`'s port table,
+and **implemented by nothing and called by nothing in either language** — one grep hit, its own
+declaration. Carried rather than dropped, for F59's reason: the gap between what the design enumerated
+and what the code implements is itself information, and a reader of the architecture table should not
+assume a caller exists.
+
+## F63 — `dateOrdinal` is the one piece of Python's standard library the port has to reproduce, and its failure is silent
+
+`rows_digest` serialises each bar as `trading_date.toordinal().to_bytes(4, "big")`. The Python's
+`DailyBar` holds a `datetime.date`, so both the proleptic Gregorian day number and its range check came
+from the standard library and nothing in the repository had to state what they were. The port's
+`DailyBar` holds a **string**, so `application/calibrate.ts` has to compute the same four bytes.
+
+**A disagreement here is silent, and that is what makes it the most dangerous line in A4.** The ordinal
+feeds `rowsDigest`, which feeds `inputsHash`, which the publisher commits and the registry stores. The
+`inputsHash` is not checked by anything on chain — it is an opaque `bytes32` that a challenger uses as a
+*key* into a `CommittedInputStore`. So a wrong day number produces a well-formed 32-byte digest that no
+challenger can ever match, and the observable symptom is a challenge that fails to reproduce the fit —
+which is exactly what a dishonest publisher looks like. There is no on-chain guard, no fixture, and no
+Solidity counterpart that could catch it.
+
+Three consequences, all acted on rather than noted:
+
+- **The ordinal is exported and directly tested**, where the Python needed no equivalent because
+  `date.toordinal` is already public in its standard library.
+- **The accepted format is narrowed to `YYYY-MM-DD`**, loudly. `date.fromisoformat` also accepts
+  `YYYYMMDD`, ISO week dates (`2020-W02-1`) and ordinal dates (`2020-006`); only the first form is
+  reachable from the CSV adapter's documented header, and reimplementing three more grammars whose
+  disagreement would be silent is worse than a refusal. The narrowing is a test, not a comment.
+- **The port refuses a year of zero, a month outside 1..12 and a day outside its month**, matching
+  `date.fromisoformat`'s own refusals, because the port's `DailyBar` does no validation of its own.
+
+**And the Python validated the date nowhere, either — measured rather than assumed.** `DailyBar` is a
+`@dataclass(frozen=True, slots=True)`, and a dataclass does not check its declared types at runtime:
+`DailyBar(trading_date="garbage", …)` constructs successfully and fails later at `.toordinal()` with
+`AttributeError: 'str' object has no attribute 'toordinal'`. So the port is not a regression, and the
+observation is recorded because "the Python had a `date` type" is the kind of claim that reads as
+validation and is not.
+
+The differential run covers this exhaustively: **1,128 date lines** — every day of 1900 (a century year
+that is not a leap year), of 2000 (one that is), of 2024, both extremes, and the four surrounding days —
+and every ordinal is identical to Python's. A `year % 4` shortcut fails on 1900; a four-branch rule
+fails on 2000; neither would be caught by any date a test would pick by hand.
+
+## F64 — Two refusals escape the application layer as standard-library exceptions, and one of them is reachable from a CSV
+
+Both members were found by the differential run rather than by reading, and both are `ValueError` or
+`OverflowError`, so a caller cannot branch on either. The port names its types; the Python's messages are
+reproduced exactly.
+
+**(a) A negative `next_open` makes `rows_digest` raise `OverflowError` from three layers down.** The
+adapter validates `close.raw > 0` and does **not** bound `next_open`, so a CSV row reading
+`2020-01-06,100.00,-5.00` is accepted, produces a `DailyBar` whose `.gap()` computes fine (it is a ratio
+with no range check), and then dies inside `rows_digest` at
+`bar.next_open.raw.to_bytes(32, "big")` with `can't convert negative int to unsigned`.
+
+This is precisely the leak the adapter's own docstring says it exists to prevent — *"the caller would
+see an arithmetic failure from three layers down instead of a named adapter error about a file"* — and
+the adapter has a hole for `next_open` where it closed one for `close`. Verified by running: the adapter
+accepts the row. **The port inherits the hole unless A5 closes it**, which is why A5's tracker entry now
+says so.
+
+The port refuses with a named `DomainError` from `uintToBytes` (`nextOpen cannot be negative`), which is
+a departure from the Python in *type* and identical in *outcome*.
+
+**(b) A zero-variance sample makes the Gaussian's premium exactly zero, and `ParameterSet` then refuses
+it from inside `calibrate`.** `GapSample.sigmaWad` is zero when every gap is identical, so
+`gaussianPremiumWad` is zero, so `ParameterSet.__post_init__` raises
+`ValueError("a premium outside (0, 1] is not priceable")`.
+
+A zero-variance sample is not exotic. It is what a **stale feed** produces: a source that repeats the
+same close and the same open, which the adapter cannot distinguish from a real one. Verified: three
+identical CSV rows give a sample whose gap set is `{0.01}` and nothing else.
+
+Two things make this a finding rather than a curiosity:
+
+- **The two families disagree about whether the same input is calibratable at all.** The empirical
+  family on the identical sample returns a premium of exactly `1e18` — the long leg pays the whole
+  collateral, which `PI_L = min(λ|G|, 1)` does mean when every gap reaches the cap — and is accepted.
+  The Gaussian throws. So "can this sample be calibrated" has a family-dependent answer that the
+  *caller* cannot see, because one answer is a result and the other is an exception.
+- **The refusal is an exception from a value object, not an outcome of the use case.** `calibrate`
+  returns `Calibrated | InsufficientSample` precisely so that "the sample cannot support an estimate" is
+  branchable. A degenerate fit is the same *kind* of thing and is not in the union, so it escapes as a
+  `ValueError` whose message names a premium range rather than a sample.
+
+Not fixed, and the reason is the port's rule: the Python is the oracle and a behaviour change during a
+port is a finding, not a bug fix. The port reproduces the outcome (the port's `ParameterSet` refuses the
+same zero) with a named `DomainError`. Whether the union should gain a `DegenerateFit` member is a
+question for whoever owns `domain/models.ts` next, and it is recorded here rather than decided silently
+in an application-layer port.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` is written and verified against the committed fixtures — `digest`, `moments`, `constants`, `leverage`, `sessions` and `families`; the application layer, the adapters, the settlement service, the remaining tools and the remaining ported tests follow | the port |
+| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` and `application/` are written and verified against the committed fixtures — `digest`, `moments`, `constants`, `leverage`, `sessions` and `families` — and the application layer against a differential dump; the adapters, the settlement service, the remaining tools and the remaining ported tests follow | the port |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
