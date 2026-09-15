@@ -3342,6 +3342,73 @@ but it is now the **longest TypeScript file in either `src/` tree** (`nig.ts` is
 the third-longest file overall behind `Session.sol` at 376 and `ReferenceRegistry.sol` at 364, so a further
 addition to the surface should expect to be split rather than appended.
 
+## Closure of F90 — the generator reads the single source
+
+`gen_constants.ts`'s emission tables held their values as literals — `value: wad('0.01')`, `value: 6n` —
+so `spec/constants.yaml`, which the brief's §6 makes *the* place a domain constant is written down, was
+not the source for the 27 constants those tables emit. It was read for structure (canonical parameters,
+`event_session`, `bond_sizing`, `deployment`) and transcribed for scalars, and **nothing asserted the two
+agreed**. G1 found it (F89) by refusing to reproduce the pattern for `1.596142`; the two rows it added
+read the YAML instead.
+
+All three tables now read it. `UINT_ROWS` (21 rows), `BOND_ROWS` (2) and `ROUTE_ROWS` (4) became
+functions of the parsed document, each row naming its path. The route table writes the path's *shape*
+once — `settlement_routes.${route}.expected_cost_bp` — so a fifth route cannot be added pointing
+somewhere else, and `BOND_ROWS` now takes its base-unit exponent from `protocol.collateral_decimals`
+rather than a literal `6`. That last one matters more than it looks: the F4 incoherence was *caused* by
+the bonds and the collateral disagreeing about decimals, so a hardcoded `6` left the one number that has
+already been wrong once outside the single source.
+
+**The acceptance test is byte-identity**, because the emission is the artefact: all three generated files
+are unchanged — `Constants.sol` `64a843c2…`, `constants.ts` `984556b2…`, `canonical.json` `c657a1df…` —
+and the generator reports "up to date" for each rather than rewriting them. A refactor of a generator is
+proved by its output not moving, and there is no tolerance in that.
+
+Four probes, because byte-identity proves the change is safe and proves nothing about whether the rows
+now *read* anything:
+
+| Probe | Result |
+|---|---|
+| `protocol.alpha.value` `0.01` → `0.02` | `ALPHA_WAD` follows: `10_000_000_000_000_000` → `20_000_000_000_000_000`, in both renderings |
+| rename the leaf `value` under `alpha` | `Error: spec/constants.yaml has no protocol.alpha.value` |
+| rename the section `protocol` | `TypeError: Cannot read properties of undefined (reading 'alpha')` |
+| `meta.wad` `1e18` → `1e17` | `Error: … declares meta.wad = 100000000000000000, but this generator scales by 1000000000000000000` |
+
+Probe 1 is the one that matters: **before this change it printed the same numbers after editing the
+YAML**, which is the defect restated as an experiment.
+
+Probes 2 and 3 are the two failure modes and they are not equally good. A renamed **leaf** is caught by
+`at()`, which names the file and the path. A renamed **section** throws before `at()` is reached, because
+the accessor chain is what fails, and the message names neither. That is accepted rather than fixed: the
+generator runs on every `make build`, so the failure is immediate, and a section rename is a deliberate
+edit to a file with fourteen sections rather than a plausible slip. The alternative — reading by a dotted
+path string — trades a compile-checked accessor for a nicer message on the rarer failure, and
+`ConstantsDocument` exists precisely so the compiler checks the accessor.
+
+**One copy could not be removed, so it is checked.** `WAD` is the module's own scale (`10n ** 18n`) and
+`meta.wad` is the YAML's declaration of the same number; `wad()` is what builds the rows, so it cannot
+read the document it is being used to read. `assertWadScale` compares them at startup. Without it,
+editing `meta.wad` would emit `Constants.sol`'s `WAD` at one scale and every other WAD constant at
+another, and nothing downstream compares the two — probe 4 is that check firing.
+
+## F92 — the F52 guard does not read the file the constants actually live in
+
+`tools/check_fixtures.ts` walks `spec/` for **`.json`** files — its own words: "every JSON fixture under
+`spec/`". `spec/constants.yaml` is not one, so the guard that exists because three fixtures independently
+carried WAD-scale integers as bare JSON numbers does not cover the file §6 makes the single source for
+every domain constant.
+
+One instance is live today: `meta.wad: 1000000000000000000` is a bare YAML number above 2^53. It is
+exactly representable — `10^18 = 2^18 · 5^18` and `5^18 < 2^53` — so it is the *at-risk-but-exact*
+category the checker already has a name for, and it becomes lossy the moment somebody edits a digit.
+Nothing read it before F90, so the hazard was inert; the generator reads it now, and `assertWadScale`
+compares it against a value that is itself exact, so this specific instance fails loudly.
+
+**The general gap is open.** A large integer added to the YAML as a bare number would be rounded before
+`wad()` saw it, and `wad()`'s own refusal — "not exactly representable at WAD scale" — would not fire,
+because the rounded value *is* exactly representable at WAD scale. The value is lost one layer earlier
+than the layer that checks it, which is the shape every member of the F52 family has had.
+
 ## Still open
 
 | # | Item | Blocking |
@@ -3351,7 +3418,7 @@ addition to the surface should expect to be split rather than appended.
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
 | F88 | `erf` computes a continued fraction for arguments above 11, where it is exactly 1 at working precision; measured at 29.2% of the NIG quadrature's calls and a factor of 2.4 on that path | nothing; recorded rather than taken, because `moments.ts` is the Solidity differential's reference and the change is not part of G0 |
-| F90 | `gen_constants.ts`'s `UINT_ROWS` and `ROUTE_ROWS` carry their values as literals, so they are a second copy of scalars `spec/constants.yaml` also declares and nothing asserts the two agree — the single-source rule is read for structure but transcribed for scalars | nothing today; the TS-only event-session rows read the YAML instead, which is the pattern the rest should follow |
+| F92 | `tools/check_fixtures.ts` walks `spec/` for `.json` files only, so `spec/constants.yaml` — the single source for every domain constant — sits outside the guard that exists because three fixtures independently carried WAD-scale integers as bare numbers | nothing today; the one live instance (`meta.wad`) is exactly representable and is now checked by the generator's own scale assertion |
 | F84 | the two services have no entry point, and the brief describes them as services without supplying one | the deployment story |
 | F85 | `ruff`'s `I` had a second half — import *ordering* — and no gate enforces it | nothing; recorded rather than closed, because closing it needs an import-sorting plugin and a tree-wide reformat |
 

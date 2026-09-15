@@ -105,12 +105,33 @@ function exactInteger(value: number): string {
   return String(value);
 }
 
+/**
+ * A value from the parsed spec, refused when its path is absent.
+ *
+ * `ConstantsDocument` is a hand-written *claim* about a file this program does not own: the parse
+ * result is asserted, never validated, so the type says what the YAML is expected to hold and proves
+ * nothing about what it does hold. Reading the path directly and letting a rename produce `undefined`
+ * would surface as "not exactly representable at WAD scale" — a message that is true of every value
+ * and so names nothing. This names the path.
+ */
+function at<T>(value: T | undefined, path: string): T {
+  if (value === undefined) {
+    throw new Error(`spec/constants.yaml has no ${path}`);
+  }
+  return value;
+}
+
 // ---------------------------------------------------------------------------- emission tables
 //
-// Written out longhand rather than derived from YAML keys so that a rename in the YAML is a loud
-// failure here rather than a silently missing constant. The tables were transcribed from
-// `gen_constants.py` when this generator was its port, and that transcription is what the
-// differential checked; the Python is gone (B1) and these are now the only copy.
+// The rows carry names, notes and provenance; **the values are read from the document**, so the YAML
+// is the only place a number is written down. That is F90: these tables used to hold their values as
+// literals, which made them a second copy of scalars `spec/constants.yaml` also declares, with
+// nothing asserting the two agreed.
+//
+// Reading a *named path* is not the same as deriving the table from the YAML's own keys, and the
+// distinction is the reason the tables are still written longhand: a table built by iterating the
+// document would emit whatever the YAML happens to contain, so a renamed constant would silently
+// vanish from the generated file rather than fail here. Every path is named, so a rename is loud.
 
 interface Row {
   readonly solidity: string;
@@ -141,12 +162,12 @@ interface RouteRow {
  * chain receives a leverage, never a shape — so they are emitted here and deliberately not into
  * `Constants.sol`.
  *
- * **These two read the YAML rather than transcribing it, unlike `UINT_ROWS` and `ROUTE_ROWS`.** Those
- * tables carry their values as literals, which makes them a second copy of scalars the YAML also
- * declares and nothing asserts the two agree — recorded as F90. Reproducing that pattern here would
- * have meant writing `1.596142` in two places, and the whole reason the constant is being emitted at
- * all is that a second copy can diverge silently. So this table is a function of the parsed document
- * and cannot.
+ * **These two were the first rows to read the YAML rather than transcribe it, and every table now
+ * does (F90).** `UINT_ROWS` and `ROUTE_ROWS` used to carry their values as literals, which made them
+ * a second copy of scalars `spec/constants.yaml` also declares, with nothing asserting the two agreed.
+ * The argument for changing them was this table's: reproducing that pattern would have meant writing
+ * `1.596142` in two places, and the whole reason the constant is emitted at all is that a second copy
+ * can diverge silently.
  *
  * `pooled_shape_q_C` already reached `spec/fixtures/canonical.json` as `eventSession.pooledShapeQWad`
  * before this table existed, and that emission is read by nothing — neither the Solidity suite nor the
@@ -179,196 +200,267 @@ function typescriptOnlyRows(document: ConstantsDocument): readonly TypeScriptOnl
   ];
 }
 
-const UINT_ROWS: readonly Row[] = [
-  {
-    solidity: 'WAD',
-    typescript: 'WAD',
-    value: WAD,
-    note: '1e18, the fixed-point scale',
-    source: 'paper §2',
-  },
-  {
-    solidity: 'ALPHA_WAD',
-    typescript: 'ALPHA_WAD',
-    value: wad('0.01'),
-    note: 'saturation probability',
-    source: 'paper §6.1 Eq 14',
-  },
-  {
-    solidity: 'TIER1_HALT_BAND_WAD',
-    typescript: 'TIER1_HALT_BAND_WAD',
-    value: wad('0.05'),
-    note: 'guard G3, Tier-1 band',
-    source: 'paper §12.4',
-  },
-  {
-    solidity: 'HALT_BAND_DEFAULT_WAD',
-    typescript: 'HALT_BAND_DEFAULT_WAD',
-    value: wad('0.25'),
-    note: 'guard G3, legacy default',
-    source: 'paper §9.4',
-  },
-  {
-    solidity: 'COLLATERAL_DECIMALS',
-    typescript: 'COLLATERAL_DECIMALS',
-    value: 6n,
-    note: 'USDG decimals, asserted at construction',
-    source: 'paper Table 6',
-  },
-  {
-    solidity: 'EQUITY_TOKEN_DECIMALS',
-    typescript: 'EQUITY_TOKEN_DECIMALS',
-    value: 18n,
-    note: 'reference token decimals',
-    source: 'paper check D1',
-  },
-  {
-    solidity: 'PROTOCOL_FEE_ANNUALISED_WAD',
-    typescript: 'PROTOCOL_FEE_ANNUALISED_WAD',
-    value: wad('0.12'),
-    note: 'eta_ann',
-    source: 'paper §6.3 Eq 17',
-  },
-  {
-    solidity: 'HOURS_PER_YEAR',
-    typescript: 'HOURS_PER_YEAR',
-    value: 8760n,
-    note: '365 * 24',
-    source: 'paper §6.3 Eq 17',
-  },
-  {
-    solidity: 'PROTOCOL_FEE_CAP_OF_PREMIUM_WAD',
-    typescript: 'PROTOCOL_FEE_CAP_OF_PREMIUM_WAD',
-    value: wad('0.05'),
-    note: 'eta <= 0.05 * pL',
-    source: 'paper §6.3 Eq 18',
-  },
-  {
-    solidity: 'BLENDED_FEE_TARGET_BP_WAD',
-    typescript: 'BLENDED_FEE_TARGET_BP_WAD',
-    value: wad('4.106'),
-    note: 'blended fee, basis points',
-    source: 'paper §11.2',
-  },
-  {
-    solidity: 'RAMP_PHI_0_WAD',
-    typescript: 'RAMP_PHI_0_WAD',
-    value: wad('0.001'),
-    note: 'trading fee at the close',
-    source: 'paper §6.3 Eq 19',
-  },
-  {
-    solidity: 'RAMP_PHI_1_WAD',
-    typescript: 'RAMP_PHI_1_WAD',
-    value: wad('0.01'),
-    note: 'trading fee at the open',
-    source: 'paper §6.3 Eq 19',
-  },
-  {
-    solidity: 'RAMP_TIME_AVERAGE_CEILING_WAD',
-    typescript: 'RAMP_TIME_AVERAGE_CEILING_WAD',
-    value: wad('0.007'),
-    note: 'phi_0 + (phi_1 - phi_0)*2/3',
-    source: 'paper §6.3',
-  },
-  {
-    solidity: 'TRADING_FEE_REFERENCE_WAD',
-    typescript: 'TRADING_FEE_REFERENCE_WAD',
-    value: wad('0.0055'),
-    note: 'phi_ref, a fee not a volatility',
-    source: 'paper §6.3 Eq 20',
-  },
-  {
-    solidity: 'ROUNDING_LATTICE_WAD',
-    typescript: 'ROUNDING_LATTICE_WAD',
-    value: wad('0.0025'),
-    note: 'cap grid; 0.25% reproduces the published lambdas',
-    source: 'paper §6.1, Table 26',
-  },
-  {
-    solidity: 'STALENESS_SESSIONS',
-    typescript: 'STALENESS_SESSIONS',
-    value: 12n,
-    note: 'commitment usable horizon, in sessions',
-    source: 'paper Table 19',
-  },
-  {
-    solidity: 'BOND_LOCK_SESSIONS',
-    typescript: 'BOND_LOCK_SESSIONS',
-    value: 13n,
-    note: 'rotation period plus challenge window',
-    source: 'paper Table 19',
-  },
-  {
-    solidity: 'PUBLISHER_KEYS_PER_NAME',
-    typescript: 'PUBLISHER_KEYS_PER_NAME',
-    value: 1n,
-    note: 'one compromised key costs one name',
-    source: 'paper Table 19',
-  },
-  {
-    solidity: 'OVERNIGHT_WINDOW_SESSIONS',
-    typescript: 'OVERNIGHT_WINDOW_SESSIONS',
-    value: 504n,
-    note: 'E, selected by forward error',
-    source: 'paper §7.9 Table 15',
-  },
-  {
-    solidity: 'OVERNIGHT_WINDOW_SESSIONS_AAPL',
-    typescript: 'OVERNIGHT_WINDOW_SESSIONS_AAPL',
-    value: 378n,
-    note: 'E for AAPL',
-    source: 'paper §7.9 Table 15',
-  },
-  {
-    solidity: 'WEEKEND_WINDOW_SESSIONS',
-    typescript: 'WEEKEND_WINDOW_SESSIONS',
-    value: 126n,
-    note: 'W; the longest the sample supports',
-    source: 'paper §7.9 Table 15',
-  },
-];
+function uintRows(document: ConstantsDocument): readonly Row[] {
+  const protocol = document.protocol;
+  const fee = document.fee;
+  const registry = document.premium_registry;
+  const windows = registry.fallback_window_sessions;
+  return [
+    {
+      solidity: 'WAD',
+      typescript: 'WAD',
+      value: BigInt(exactInteger(at(document.meta.wad, 'meta.wad'))),
+      note: '1e18, the fixed-point scale',
+      source: 'paper §2',
+    },
+    {
+      solidity: 'ALPHA_WAD',
+      typescript: 'ALPHA_WAD',
+      value: wad(at(protocol.alpha.value, 'protocol.alpha.value')),
+      note: 'saturation probability',
+      source: 'paper §6.1 Eq 14',
+    },
+    {
+      solidity: 'TIER1_HALT_BAND_WAD',
+      typescript: 'TIER1_HALT_BAND_WAD',
+      value: wad(at(protocol.tier1_halt_band.value, 'protocol.tier1_halt_band.value')),
+      note: 'guard G3, Tier-1 band',
+      source: 'paper §12.4',
+    },
+    {
+      solidity: 'HALT_BAND_DEFAULT_WAD',
+      typescript: 'HALT_BAND_DEFAULT_WAD',
+      value: wad(at(protocol.halt_band_default.value, 'protocol.halt_band_default.value')),
+      note: 'guard G3, legacy default',
+      source: 'paper §9.4',
+    },
+    {
+      solidity: 'COLLATERAL_DECIMALS',
+      typescript: 'COLLATERAL_DECIMALS',
+      value: BigInt(
+        exactInteger(at(protocol.collateral_decimals.value, 'protocol.collateral_decimals.value')),
+      ),
+      note: 'USDG decimals, asserted at construction',
+      source: 'paper Table 6',
+    },
+    {
+      solidity: 'EQUITY_TOKEN_DECIMALS',
+      typescript: 'EQUITY_TOKEN_DECIMALS',
+      value: BigInt(
+        exactInteger(
+          at(protocol.equity_token_decimals.value, 'protocol.equity_token_decimals.value'),
+        ),
+      ),
+      note: 'reference token decimals',
+      source: 'paper check D1',
+    },
+    {
+      solidity: 'PROTOCOL_FEE_ANNUALISED_WAD',
+      typescript: 'PROTOCOL_FEE_ANNUALISED_WAD',
+      value: wad(at(fee.protocol_fee_annualised.value, 'fee.protocol_fee_annualised.value')),
+      note: 'eta_ann',
+      source: 'paper §6.3 Eq 17',
+    },
+    {
+      solidity: 'HOURS_PER_YEAR',
+      typescript: 'HOURS_PER_YEAR',
+      value: BigInt(
+        exactInteger(
+          at(fee.protocol_fee_hours_per_year.value, 'fee.protocol_fee_hours_per_year.value'),
+        ),
+      ),
+      note: '365 * 24',
+      source: 'paper §6.3 Eq 17',
+    },
+    {
+      solidity: 'PROTOCOL_FEE_CAP_OF_PREMIUM_WAD',
+      typescript: 'PROTOCOL_FEE_CAP_OF_PREMIUM_WAD',
+      value: wad(
+        at(fee.protocol_fee_cap_of_premium.value, 'fee.protocol_fee_cap_of_premium.value'),
+      ),
+      note: 'eta <= 0.05 * pL',
+      source: 'paper §6.3 Eq 18',
+    },
+    {
+      solidity: 'BLENDED_FEE_TARGET_BP_WAD',
+      typescript: 'BLENDED_FEE_TARGET_BP_WAD',
+      value: wad(at(fee.blended_fee_target_bp.value, 'fee.blended_fee_target_bp.value')),
+      note: 'blended fee, basis points',
+      source: 'paper §11.2',
+    },
+    {
+      solidity: 'RAMP_PHI_0_WAD',
+      typescript: 'RAMP_PHI_0_WAD',
+      value: wad(at(fee.ramp_phi_0.value, 'fee.ramp_phi_0.value')),
+      note: 'trading fee at the close',
+      source: 'paper §6.3 Eq 19',
+    },
+    {
+      solidity: 'RAMP_PHI_1_WAD',
+      typescript: 'RAMP_PHI_1_WAD',
+      value: wad(at(fee.ramp_phi_1.value, 'fee.ramp_phi_1.value')),
+      note: 'trading fee at the open',
+      source: 'paper §6.3 Eq 19',
+    },
+    {
+      solidity: 'RAMP_TIME_AVERAGE_CEILING_WAD',
+      typescript: 'RAMP_TIME_AVERAGE_CEILING_WAD',
+      value: wad(at(fee.ramp_time_average_ceiling.value, 'fee.ramp_time_average_ceiling.value')),
+      note: 'phi_0 + (phi_1 - phi_0)*2/3',
+      source: 'paper §6.3',
+    },
+    {
+      solidity: 'TRADING_FEE_REFERENCE_WAD',
+      typescript: 'TRADING_FEE_REFERENCE_WAD',
+      value: wad(at(fee.trading_fee_reference.value, 'fee.trading_fee_reference.value')),
+      note: 'phi_ref, a fee not a volatility',
+      source: 'paper §6.3 Eq 20',
+    },
+    {
+      solidity: 'ROUNDING_LATTICE_WAD',
+      typescript: 'ROUNDING_LATTICE_WAD',
+      value: wad(at(document.lattice.rounding_lattice.value, 'lattice.rounding_lattice.value')),
+      note: 'cap grid; 0.25% reproduces the published lambdas',
+      source: 'paper §6.1, Table 26',
+    },
+    {
+      solidity: 'STALENESS_SESSIONS',
+      typescript: 'STALENESS_SESSIONS',
+      value: BigInt(
+        exactInteger(at(registry.staleness_sessions.value, 'premium_registry.staleness_sessions')),
+      ),
+      note: 'commitment usable horizon, in sessions',
+      source: 'paper Table 19',
+    },
+    {
+      solidity: 'BOND_LOCK_SESSIONS',
+      typescript: 'BOND_LOCK_SESSIONS',
+      value: BigInt(
+        exactInteger(at(registry.bond_lock_sessions.value, 'premium_registry.bond_lock_sessions')),
+      ),
+      note: 'rotation period plus challenge window',
+      source: 'paper Table 19',
+    },
+    {
+      solidity: 'PUBLISHER_KEYS_PER_NAME',
+      typescript: 'PUBLISHER_KEYS_PER_NAME',
+      value: BigInt(
+        exactInteger(
+          at(registry.publisher_keys_per_name.value, 'premium_registry.publisher_keys_per_name'),
+        ),
+      ),
+      note: 'one compromised key costs one name',
+      source: 'paper Table 19',
+    },
+    {
+      solidity: 'OVERNIGHT_WINDOW_SESSIONS',
+      typescript: 'OVERNIGHT_WINDOW_SESSIONS',
+      value: BigInt(
+        exactInteger(at(windows.overnight, 'premium_registry.fallback_window_sessions.overnight')),
+      ),
+      note: 'E, selected by forward error',
+      source: 'paper §7.9 Table 15',
+    },
+    {
+      solidity: 'OVERNIGHT_WINDOW_SESSIONS_AAPL',
+      typescript: 'OVERNIGHT_WINDOW_SESSIONS_AAPL',
+      value: BigInt(
+        exactInteger(
+          at(windows.overnight_aapl, 'premium_registry.fallback_window_sessions.overnight_aapl'),
+        ),
+      ),
+      note: 'E for AAPL',
+      source: 'paper §7.9 Table 15',
+    },
+    {
+      solidity: 'WEEKEND_WINDOW_SESSIONS',
+      typescript: 'WEEKEND_WINDOW_SESSIONS',
+      value: BigInt(
+        exactInteger(at(windows.weekend, 'premium_registry.fallback_window_sessions.weekend')),
+      ),
+      note: 'W; the longest the sample supports',
+      source: 'paper §7.9 Table 15',
+    },
+  ];
+}
 
-// Bond amounts are in the collateral's own base units (6 decimals), per ruling R2 in DESIGN_NOTES.
-// They are NOT WAD: writing them as 500_000e18 is the incoherence DESIGN_NOTES F4 records.
-const BOND_ROWS: readonly Row[] = [
-  {
-    solidity: 'MIN_PUBLISHER_BOND',
-    typescript: 'MIN_PUBLISHER_BOND',
-    value: 500_000n * 10n ** 6n,
-    note: '3x the largest one-session mispricing gain',
-    source: 'paper Table 19',
-  },
-  {
-    solidity: 'CHALLENGER_BOND',
-    typescript: 'CHALLENGER_BOND',
-    value: 50_000n * 10n ** 6n,
-    note: 'upper bound on a guessing challenger',
-    source: 'paper Table 19',
-  },
-];
+// Bond amounts are in the collateral's own base units, per ruling R2 in DESIGN_NOTES. They are NOT
+// WAD: writing them as 500_000e18 is the incoherence DESIGN_NOTES F4 records.
+//
+// The base-unit exponent is `protocol.collateral_decimals` and not a literal 6, which matters more
+// here than anywhere else in this file: the F4 incoherence was *caused* by the bonds and the
+// collateral disagreeing about decimals, so a hardcoded 6 would leave the one number that has already
+// been wrong once outside the single source.
+function bondRows(document: ConstantsDocument): readonly Row[] {
+  const decimals = BigInt(
+    exactInteger(
+      at(document.protocol.collateral_decimals.value, 'protocol.collateral_decimals.value'),
+    ),
+  );
+  const registry = document.premium_registry;
+  return [
+    {
+      solidity: 'MIN_PUBLISHER_BOND',
+      typescript: 'MIN_PUBLISHER_BOND',
+      value:
+        BigInt(
+          exactInteger(
+            at(registry.min_publisher_bond_usd.value, 'premium_registry.min_publisher_bond_usd'),
+          ),
+        ) *
+        10n ** decimals,
+      note: '3x the largest one-session mispricing gain',
+      source: 'paper Table 19',
+    },
+    {
+      solidity: 'CHALLENGER_BOND',
+      typescript: 'CHALLENGER_BOND',
+      value:
+        BigInt(
+          exactInteger(
+            at(registry.challenger_bond_usd.value, 'premium_registry.challenger_bond_usd'),
+          ),
+        ) *
+        10n ** decimals,
+      note: 'upper bound on a guessing challenger',
+      source: 'paper Table 19',
+    },
+  ];
+}
 
-const ROUTE_ROWS: readonly RouteRow[] = [
-  { name: 'ROUTE_R1_COST_BP_WAD', decimal: '29.7', note: 'void at 0.50', source: 'paper Table 22' },
-  {
-    name: 'ROUTE_R2_COST_BP_WAD',
-    decimal: '0.021',
-    note: 'deferred settlement on the first valid print',
-    source: 'paper Table 22',
-  },
-  {
-    name: 'ROUTE_R4_COST_BP_WAD',
-    decimal: '1.37',
-    note: 'constant refund with a plausibility band',
-    source: 'paper Table 22',
-  },
-  {
-    name: 'ROUTE_R5_COST_BP_WAD',
-    decimal: '1.37',
-    note: 'optimistic challenge window',
-    source: 'paper Table 22',
-  },
-];
+function routeRows(document: ConstantsDocument): readonly RouteRow[] {
+  const routes = document.settlement_routes;
+  // The path's shape is written once and the route code is the variable, so a fifth route cannot be
+  // added with a path that points somewhere else.
+  const cost = (route: string, value: string): string =>
+    at(value, `settlement_routes.${route}.expected_cost_bp`);
+  return [
+    {
+      name: 'ROUTE_R1_COST_BP_WAD',
+      decimal: cost('R1', routes.R1.expected_cost_bp),
+      note: 'void at 0.50',
+      source: 'paper Table 22',
+    },
+    {
+      name: 'ROUTE_R2_COST_BP_WAD',
+      decimal: cost('R2', routes.R2.expected_cost_bp),
+      note: 'deferred settlement on the first valid print',
+      source: 'paper Table 22',
+    },
+    {
+      name: 'ROUTE_R4_COST_BP_WAD',
+      decimal: cost('R4', routes.R4.expected_cost_bp),
+      note: 'constant refund with a plausibility band',
+      source: 'paper Table 22',
+    },
+    {
+      name: 'ROUTE_R5_COST_BP_WAD',
+      decimal: cost('R5', routes.R5.expected_cost_bp),
+      note: 'optimistic challenge window',
+      source: 'paper Table 22',
+    },
+  ];
+}
 
 // ---------------------------------------------------------------------------- the YAML's shape
 //
@@ -386,6 +478,45 @@ interface Cell {
 }
 
 interface ConstantsDocument {
+  // The sections the emission tables read. Added by F90, when those tables stopped carrying their
+  // values as literals and started reading the document instead.
+  readonly meta: { readonly wad: number };
+  readonly protocol: {
+    readonly alpha: { readonly value: string };
+    readonly tier1_halt_band: { readonly value: string };
+    readonly halt_band_default: { readonly value: string };
+    readonly collateral_decimals: { readonly value: number };
+    readonly equity_token_decimals: { readonly value: number };
+  };
+  readonly fee: {
+    readonly protocol_fee_annualised: { readonly value: string };
+    readonly protocol_fee_hours_per_year: { readonly value: number };
+    readonly protocol_fee_cap_of_premium: { readonly value: string };
+    readonly blended_fee_target_bp: { readonly value: string };
+    readonly ramp_phi_0: { readonly value: string };
+    readonly ramp_phi_1: { readonly value: string };
+    readonly ramp_time_average_ceiling: { readonly value: string };
+    readonly trading_fee_reference: { readonly value: string };
+  };
+  readonly lattice: { readonly rounding_lattice: { readonly value: string } };
+  readonly premium_registry: {
+    readonly staleness_sessions: { readonly value: number };
+    readonly bond_lock_sessions: { readonly value: number };
+    readonly publisher_keys_per_name: { readonly value: number };
+    readonly min_publisher_bond_usd: { readonly value: number };
+    readonly challenger_bond_usd: { readonly value: number };
+    readonly fallback_window_sessions: {
+      readonly overnight: number;
+      readonly overnight_aapl: number;
+      readonly weekend: number;
+    };
+  };
+  readonly settlement_routes: {
+    readonly R1: { readonly expected_cost_bp: string };
+    readonly R2: { readonly expected_cost_bp: string };
+    readonly R4: { readonly expected_cost_bp: string };
+    readonly R5: { readonly expected_cost_bp: string };
+  };
   readonly deployment: { readonly chain_id: number; readonly fork_block_l2: number };
   readonly gas_budget: {
     readonly truncated_moment_closed_form: { readonly baseline: number };
@@ -429,8 +560,8 @@ function renderSolidity(document: ConstantsDocument): string {
   ];
 
   const sections: readonly (readonly [string, readonly Row[]])[] = [
-    ['protocol', UINT_ROWS],
-    ['bonds, in collateral base units (USDG, 6 decimals)', BOND_ROWS],
+    ['protocol', uintRows(document)],
+    ['bonds, in collateral base units (USDG, 6 decimals)', bondRows(document)],
   ];
   for (const [section, rows] of sections) {
     lines.push(
@@ -446,7 +577,7 @@ function renderSolidity(document: ConstantsDocument): string {
   lines.push(
     '    // ---------------------------------------------------------------- settlement route costs, bp',
   );
-  for (const row of ROUTE_ROWS) {
+  for (const row of routeRows(document)) {
     lines.push(`    /// @dev ${row.note}. Source: ${row.source}.`);
     lines.push(`    uint256 internal constant ${row.name} = ${group(wad(row.decimal))};`);
   }
@@ -505,8 +636,11 @@ function renderTypeScript(document: ConstantsDocument): string {
   ];
 
   const sections: readonly (readonly [string, readonly Row[]])[] = [
-    ['', UINT_ROWS],
-    ['Bonds, in collateral base units (USDG, 6 decimals). Ruling R2 in DESIGN_NOTES.', BOND_ROWS],
+    ['', uintRows(document)],
+    [
+      'Bonds, in collateral base units (USDG, 6 decimals). Ruling R2 in DESIGN_NOTES.',
+      bondRows(document),
+    ],
   ];
   for (const [section, rows] of sections) {
     if (section !== '') lines.push(`// ${section}`, '');
@@ -525,7 +659,7 @@ function renderTypeScript(document: ConstantsDocument): string {
   }
 
   lines.push('// Settlement route costs, in basis points at WAD scale.', '');
-  for (const row of ROUTE_ROWS) {
+  for (const row of routeRows(document)) {
     lines.push(`/** ${row.note}. Source: ${row.source}. */`);
     lines.push(`export const ${row.name} = ${group(wad(row.decimal))}n;`);
     lines.push('');
@@ -613,8 +747,28 @@ function renderCanonical(document: ConstantsDocument): string {
   return `${JSON.stringify(payload, null, 2)}\n`;
 }
 
+/**
+ * `WAD` is this module's own scale and `meta.wad` is the YAML's declaration of the same number.
+ *
+ * They are two copies by construction: `wad()` is what builds the rows, so it cannot read the
+ * document it is being used to read. F90 removed the copies it could; this one cannot be removed, so
+ * it is checked instead. A disagreement would emit `Constants.sol`'s `WAD` at one scale and every
+ * other WAD constant at another, and nothing downstream compares them — the failure would be silent
+ * by nature, which is the property F90 exists to eliminate.
+ */
+function assertWadScale(document: ConstantsDocument): void {
+  const declared = BigInt(exactInteger(at(document.meta.wad, 'meta.wad')));
+  if (declared !== WAD) {
+    throw new Error(
+      `spec/constants.yaml declares meta.wad = ${declared.toString()}, ` +
+        `but this generator scales by ${WAD.toString()}`,
+    );
+  }
+}
+
 function main(): number {
   const document = parse(readFileSync(SPEC, 'utf8')) as ConstantsDocument;
+  assertWadScale(document);
   const outputs = new Map<string, string>([
     [SOLIDITY_OUT, renderSolidity(document)],
     [TYPESCRIPT_OUT, renderTypeScript(document)],
