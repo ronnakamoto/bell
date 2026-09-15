@@ -170,12 +170,28 @@ relative import — and a relative import is not how this repository crosses a p
 allow-list rules are unaffected, because `pathNot` catches everything not on the list however it was
 written, which is why the two `domain/` rules were never blind (F85).
 
-`make check-layout` adds the structural rules that are not import edges: no `utils.ts`/`helpers.ts`/
-`common.ts`, no source file above 400 lines, tests mirror source, no `require` with a string, no
-untracked `TODO`, and `dist/` mirrors `src/` — every compiled file has a source, so a module deleted or
-renamed out of `src/` cannot stay importable through `dist/` (F82). It walks the contracts and both
-TypeScript workspaces, and the `dist/` rule is the only one that reads a build product rather than a
-source. The Python half of this gate
+`make check-layout` adds the structural rules that are not import edges, and there are seven: no
+`utils.ts`/`helpers.ts`/`common.ts`, no source file above 400 lines, tests mirror source, no `require`
+with a string, no untracked task marker, `dist/` mirrors `src/`, and a coverage hint only under a
+`domain/` tree. The `dist/` rule is the only one that reads a build product rather than a source, and
+it is why `check-layout` now depends on `ts-build`: an absent `dist/` passes, so without the
+prerequisite the rule examined nothing on a tree that had never been built — and `make check` lists
+`check-layout` before the two targets that build. See F82.
+
+**The seven rules read three different scopes, and C0 is why that is written down rather than
+assumed.** The Python checker this replaced declared one `WORKSPACES` tuple and read every rule through
+it, which made three separate questions look like one. The 400-line rule reads the two `src/` trees
+only: the brief says *source*, and extending it to `tools/` would fail on `check_coverage.ts` (604
+lines, 205 of them comment) and `gen_constants.ts` (590 lines, 445 of them a row table `prettier`
+expands) — a rule whose remedy is deleting an audit tool's reasoning, or splitting a table renderer, is
+worse than the length it objects to (F56). The banned-name and marker rules read every TypeScript file
+the repository owns, the test trees and `tools/` included, because neither rule is about source. And
+the hint rule reads all of them while permitting only `domain/`, which is the shape §7.4's own rule
+takes: the per-file 100% rule under `domain/` is the only bar a hint is ever needed for, so the
+exceptions are bounded by an allow-list rather than by a list of the files that may carry one (F80,
+F86).
+
+The Python half of that gate
 walked Python's `ast` to prove `domain/` imported nothing but the standard library; TypeScript cannot
 parse Python, so that check was never ported and died with the tree it guarded. `tools/check_layout.ts`
 states that in its header rather than leaving it as a silent omission.

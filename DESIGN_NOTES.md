@@ -1822,6 +1822,15 @@ the tables to fit a 100-character line, was tried and does not work: the longest
 (`ROUNDING_LATTICE_WAD`, `RAMP_TIME_AVERAGE_CEILING_WAD`) exceed the budget by a few characters in every
 field order, so the result would be a ragged table that a single note edit could reflow at random.
 
+**Resolved by C0, and the decision is the one this note predicted.** The scope stayed the two `src/`
+roots. The file is 590 lines now rather than 626 — 445 of them code and 109 comment — so it is over the
+limit by total *and* by code, and no reading of §8.1 brings it under. The companion measurement is
+`tools/check_coverage.ts` at 604 lines, 205 of which are comment: the two over-limit files are a
+row-table renderer and the file where the coverage rules are argued, so a 400-line rule over `tools/`
+would have exactly two remedies, and both are worse than the length. §8.1 says *source file*, and the
+test trees are out on the same sentence (`settlement/tests/unit/routes.test.ts` is 523 lines of
+fixtures). See F86.
+
 ## F57 — A pure function returned a different value depending on what had been imported earlier
 
 `domain/leverage.py`'s module docstring ends *"Pure: a sequence of gaps in, a leverage out."*
@@ -2930,11 +2939,94 @@ deletions left no residue in `dist/` — which is asserted rather than assumed, 
 itself is the defect F82 describes, and `check_layout`'s sixth rule is what proves the workspace is
 clean afterwards.
 
+## F86 — C0 gave `check_layout` three scopes, and the rule it did *not* add is the finding
+
+C0 is the tracker's *"extend `check_layout` to TypeScript"*, and its premise was half wrong in each
+direction. The 400-line rule and the banned-name rule already reached both workspaces' sources, because
+B1 and B2 extended them when the tree became TypeScript. What was missing was narrower than the tracker
+described, and in one place what was missing was not a rule.
+
+**The Python's single `WORKSPACES` tuple was three scopes wearing one name.** Recovered from
+`c0b7935^`, `check_layout.py` declared `WORKSPACES = (calibrator/src, settlement/src)` and read every
+rule through it: one `python_sources()` fed the banned-name rule, the 400-line rule and the marker rule
+alike. So "extend it to TypeScript" is not one decision, and C0 splits it into three, each decided on
+its own evidence:
+
+| Scope | Rules | Why |
+|---|---|---|
+| the two `src/` trees | §8.1's 400 lines, `dist/` mirrors `src/` | the brief says *source*, and the measurement below |
+| every TypeScript file the repository owns — both `src/` trees, both `tests/` trees, `tools/` | banned module names, the marker rule | neither rule is about source, and both cost nothing today |
+| `domain/` only | the coverage hint (new) | the per-file 100% rule is the only bar a hint is ever needed for |
+
+**The 400-line rule was measured before it was scoped, and the measurement says no.** Of the six files
+under `tools/`:
+
+| File | total | code | comment |
+|---|---|---|---|
+| `tools/check_coverage.ts` | 604 | 354 | 205 |
+| `tools/gen_constants.ts` | 590 | 445 | 109 |
+
+Both exceed 400 by total lines, and `gen_constants.ts` exceeds it by code lines as well — so no reading
+of §8.1 brings the rule's two subjects under it. Neither length is a design smell: `check_coverage.ts`
+is a third comment because it is where the coverage rules are argued, and `gen_constants.ts` is a
+row-table renderer `prettier --write` expands (F56). A rule whose only remedies are deleting the
+reasoning that makes an audit tool auditable, or splitting a table renderer, costs more than the length
+it objects to. §8.1 says *source file*, the Python never scoped it past the two `src/` roots, and both
+readings agree. The test trees are excluded on the same sentence:
+`settlement/tests/unit/routes.test.ts` is 523 lines of fixtures, and a fixture is not source.
+
+**Decision: there is no TypeScript analogue of rule 3, and `check_coverage.ts` is why.** Rule 3 demands
+`test/unit/X.t.sol` for every `src/libraries/X.sol`, because a library with no test is invisible to a
+reader. The TypeScript tree already answers the stronger question at the same layer: requirement 4 of
+`check_coverage.ts` holds every file under a `domain/` tree to 100% on lines, statements, branches and
+functions, so a `domain/` file with no test cannot exist. A same-stem rule would ask for exactly three
+files that add no coverage — `dates.test.ts`, `families/base.test.ts` and `routes/base.test.ts`, each
+already perfect through another suite — and would additionally require three test files to be renamed to
+match a directory (`families.test.ts`, `gap_source.test.ts`, `routes.test.ts`). That is a rule reshaping
+the tree to fit the rule, and the honest form of it is this paragraph rather than a check that always
+passes.
+
+**The rule that *was* missing is the hint bound F80 asked for, and it is an allow-list.** Five
+`v8 ignore` hints exist and all five are under `domain/`, so the per-file 100% rule depends on them —
+which makes a hint the one place a coverage shortfall can be silenced by hand, with nothing bounding
+where one may appear. Rule 7 permits a hint under a `domain/` tree and refuses it everywhere else. It
+matches the *directive* (`v8 ignore next|start|stop`) rather than the words, because prose that names
+the mechanism is not a hint and `check_coverage.ts`'s header discusses it twice; and it reads every
+TypeScript file rather than only the instrumented ones, because a hint in a file that is not
+instrumented silences nothing while reading as an exemption somebody took.
+
+**A gate that could not fail, found while adding the rule.** Rule 6 reads `dist/`, and an absent `dist/`
+passes — nothing can be orphaned in a directory that does not exist. On a tree that had never been built
+this target therefore reported success while examining nothing, and `make check` made that worse rather
+than better: it lists `check-layout` *before* `check-generated` and `check-coverage`, the two targets
+whose `ts-build` prerequisite brings `dist/` into existence, so on a fresh clone rule 6 always ran first
+and always vacuously. Fixed by giving `check-layout` its own `ts-build` prerequisite, which is a no-op
+after the first build. This is the same finding as F82's second half and the same shape as the retired
+gates in F85: a rule whose subject can be absent is a rule nobody has tested.
+
+**Probed, 13 checks, each a planted file created, run and deleted.** Rule 7 fires in
+`calibrator/src/adapters/`, in `tools/` and in `calibrator/tests/`, and permits `v8 ignore start` under
+`settlement/src/domain/`; it does not fire on the five existing hints or on `check_coverage.ts`'s two
+prose mentions. The banned-name rule fires on `tools/utils.ts` and on
+`calibrator/tests/unit/helpers.ts`. The marker rule fires on an untracked marker in `tools/` and passes
+on `TODO(#123)` — including on this checker's own header, which is the self-reference control: the token
+is written in its accepted form there because the file is subject to the rule it states. The 400-line
+rule passes a 501-line file in `tools/` and fails a 402-line file in `calibrator/src/`, so the scope is
+enforced in both directions rather than only the one. Rule 6 fails on a planted
+`calibrator/dist/domain/__probe.js`. And with `calibrator/dist` deleted, `make check-layout` rebuilds it
+— 65 files — before the rule reads it, which is the prerequisite doing the work it was added for.
+
+**One process correction, because it produced a false report before it produced a true one.** The first
+harness run left three planted files behind and the second run's "clean tree" control then failed with
+four violations, so every verdict in that report was a false negative and the file was byte-identical
+between runs. The fix is a line of `rm -f` at the top of the harness plus a recorded
+`git status --porcelain` in the report itself, so a contaminated run is visible rather than plausible.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). Phases A and B are complete; what remains is C, D, E, F and G | — |
+| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). **C0 has extended the layout gate** — it now reads three scopes decided separately rather than one inherited, the coverage hints are bounded by an allow-list, the `dist/` rule can no longer pass vacuously, and the one rule the measurement rejected is recorded rather than added (F86). Phases A and B are complete and C0 is done; what remains is C1, D, E, F and G | — |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |

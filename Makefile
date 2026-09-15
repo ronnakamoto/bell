@@ -107,7 +107,16 @@ check-architecture: ## The §5.3 dependency rule, mechanically
 # always going to survive: §8.1's 400-line rule and §6's banned module names, over the contracts and
 # the TypeScript tree. The two tools overlapped on Solidity deliberately while both existed; with the
 # Python deleted there is only this one.
-check-layout: ## The §6 layout rules, mechanically
+#
+# C0 gave it three scopes rather than one, and `tools/check_layout.ts`'s header states each with its
+# reason. The 400-line rule still reads only the two `src/` trees: `tools/check_coverage.ts` is 604
+# lines of which 205 are comment, and `tools/gen_constants.ts` is 590 of which 445 are a row table
+# that `prettier --write` expands -- so extending the rule there would cost more than the length it
+# objects to (F56). The banned-name and marker rules now read the test trees and `tools/` as well,
+# because neither rule is about source. And a seventh rule bounds the coverage hints: a `v8 ignore` is
+# permitted under a `domain/` tree and refused everywhere else, which is an allow-list, because the
+# per-file 100% rule under `domain/` is the only bar a hint is ever needed for (F80).
+check-layout: ts-build ## The §6 layout rules, mechanically
 	node $(TOOLS)/check_layout.ts
 
 # `dist/` mirrors `src/` is the sixth rule here, and it is the one F82 added. `calibrator/package.json`
@@ -119,8 +128,13 @@ check-layout: ## The §6 layout rules, mechanically
 # incrementality while being refused outright by a guarded run at 320 targets. The rule is
 # one-directional -- a *missing* output is `tsc`'s business and every test that imports it will say so.
 #
-# This target has no `ts-build` prerequisite, so it also runs on a tree that has never been built, and
-# an absent `dist/` passes: nothing can be orphaned in a directory that does not exist.
+# **`ts-build` is a prerequisite, and C0 added it because without one rule 6 could not fail.** An
+# absent `dist/` passes -- nothing can be orphaned in a directory that does not exist -- so on a tree
+# that had never been built this target reported success while the rule examined nothing. `make check`
+# made that worse rather than better: it lists `check-layout` before `check-generated` and
+# `check-coverage`, which are the two prerequisites that bring `dist/` into existence, so on a fresh
+# clone rule 6 ran first and always vacuously. A gate whose subject can be absent is a gate nobody has
+# tested. `tsc -b` is incremental, so the prerequisite is a no-op after the first build.
 
 # Until B1 this ran both renderings of `spec/constants.yaml` in `--check` mode, and the pair asserted
 # that two independent implementations agreed -- the differential that accepted the port. The Python
