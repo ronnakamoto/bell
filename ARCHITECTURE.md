@@ -94,12 +94,13 @@ domain function by calling it with literal arguments, it is in the wrong layer.
 | application | `settlement/src/application/` | domain |
 | adapters | `settlement/src/adapters/` | domain and application |
 
-**The port is in progress** (ruling R5), so both languages are present and both are checked. The
-TypeScript paths above are the target; the Python paths beside them
-(`calibrator/src/bell_calibrator/{domain,application,adapters}/`) are the implementation being ported
-*from*, and they hold the same layer rule. A reader who sees two files named `digest` — one `.py`, one
-`.ts` — is looking at exactly that: the source of the port and its result, with the TypeScript verified
-against the committed fixtures rather than against the Python.
+**The port is complete and the Python it replaced is gone** (ruling R5; B1 deleted the tree). The
+TypeScript paths above are the only paths. Until Phase B a second implementation sat beside each of
+them — `calibrator/src/bell_calibrator/{domain,application,adapters}/`, holding the same layer rule —
+and it was the oracle the port was verified *against*: never edited to agree with its successor, and
+checked byte-for-byte or fixture-by-fixture before anything was removed. A reader looking for the
+Python will not find it, and what the verification produced lives in `DESIGN_NOTES.md` rather than in
+the tree.
 
 **`decimal.js` is the one permitted domain dependency**, and the reason §7.4 admits it is R5.1: the
 rule was always "no dependency that can reach the world", and a pure arithmetic library cannot. It is
@@ -110,40 +111,35 @@ Nothing imports `adapters` except the composition root.
 
 **The one cross-workspace edge** is `settlement/domain -> calibrator/domain`, and it exists because
 the settlement service's adjudication re-runs a fit from the calibrator's committed inputs, and its
-route outcomes are priced by the calibrator's moment primitives. The direction is enforced in both
-languages, so the reverse import fails `make check` whichever language it is written in.
+route outcomes are priced by the calibrator's moment primitives. The direction is enforced
+mechanically, so the reverse import fails `make check`.
 
 ## The dependency rule, and the commands that enforce it
 
-The rule is enforced twice because the languages need different tools for it. Both run under
-`make check`.
+The rule was enforced twice until B1, once per language, because `import-linter` reads a
+`pyproject.toml` and `dependency-cruiser` does not. With the Python deleted there is one tree and one
+tool, and the gate keeps the name it always had — the rule it states did not change.
 
 ```
-make check-architecture   # Python: lint-imports in each workspace
-make ts-check             # TypeScript: includes `npm run architecture` (dependency-cruiser)
+make check-architecture   # `npm run architecture` (dependency-cruiser)
+make check-layout         # the structural rules that are not import edges
 ```
 
-`make check` runs both. Copying only the Python target is the retired half of the stack.
+The contracts live in `.dependency-cruiser.cjs`:
 
-The Python contracts live in each workspace's `pyproject.toml` under `[tool.importlinter]`:
-
-- *domain depends on nothing but the standard library and itself* — forbids the sibling layers and an
-  explicit list of third-party packages, so "no dependency may be added to domain" is checked rather
-  than trusted. `include_external_packages = true` is what makes the external half work.
+- *domain depends on nothing but itself and `decimal.js`* — forbids the sibling layers and every other
+  third-party package, so "no dependency may be added to domain" is checked rather than trusted. An
+  allow-list of one named package rather than a category, which is what R5.1 narrowed §7.4 to.
 - *application does not import adapters* — the high-level policy must not reach a low-level driver.
-- *the layer stack* — the ordering itself, as a single contract.
+- *the layer stack* — the ordering itself, as a single rule.
 - *the calibrator never imports the settlement service* — the cross-workspace direction.
 
-The TypeScript counterparts are in `.dependency-cruiser.cjs`, including the same named rule
-*"the calibrator never imports the settlement service"*, and `decimal.js` as the only permitted
-domain package.
-
-`make check-layout` adds the structural rules that are not import edges: no `utils.py`/`helpers.py`/
-`common.py`, no source file above 400 lines, tests mirror source, no `require` with a string, no
-untracked `TODO`. It walks every Python workspace, so a new one is covered by adding a row to
-`WORKSPACES` in `tools/check_layout.py`. It has not yet been extended to the TypeScript tree, which is
-an open item rather than an oversight: the 400-line rule and the banned-module-name rule both apply
-there and nothing enforces them yet.
+`make check-layout` adds the structural rules that are not import edges: no `utils.ts`/`helpers.ts`/
+`common.ts`, no source file above 400 lines, tests mirror source, no `require` with a string, no
+untracked `TODO`. It walks the contracts and both TypeScript workspaces. The Python half of this gate
+walked Python's `ast` to prove `domain/` imported nothing but the standard library; TypeScript cannot
+parse Python, so that check was never ported and died with the tree it guarded. `tools/check_layout.ts`
+states that in its header rather than leaving it as a silent omission.
 
 `make check-fixtures` is the newest gate and the one three defects argued for: it walks every `.json`
 under `spec/` and fails if any integer literal does not survive a round trip through a double. The rule
@@ -152,32 +148,38 @@ exactly — a rule written as "above `MAX_SAFE_INTEGER`" would fail on values th
 silently over the ones that are not. See F52 and F54.
 
 `make check-coverage` asserts every coverage rule the brief states. For the contracts: 100% on every
-metric for `contracts/src/libraries/`, and at least 95% lines for `src/**`. For the services: at
-least 95% each on `coverage.py`'s combined line-and-branch measure, run through `pytest-cov` so the
-measurement is the one `make coverage` prints rather than a second opinion that could disagree with it.
+metric for `contracts/src/libraries/`, and at least 95% lines for `src/**`. For each TypeScript
+workspace: at least 95% on lines **and** branches, asserted separately rather than pooled, plus 100% on
+all four metrics for every file under either `domain/` tree — the analogue of the libraries rule at the
+layer R5.1 draws as "no dependency that can reach the world".
 
 For the contracts it parses `forge coverage`'s per-file rows rather than its `Total` row, and the
 reason is worth knowing before reading any coverage number in this repository: `Total` sums every
 instrumented contract including the test helpers and mocks, so it reports **81.07%** on a source tree
 that is at **99.46%**. Both figures are accurate; only one answers the brief.
 
-Two exclusions are configured in each workspace's `pyproject.toml`, and both are declarations rather
-than behaviour: `...` (a `Protocol` method body, which is never instantiated or called) and
-`if TYPE_CHECKING:`. Counting a declaration as behaviour makes every ports module read as uncovered
-and hides the modules that are not.
+`tools/check_coverage.ts` applies every rule and exits non-zero on any of them. It was checked against
+a known-failing report before being trusted. The per-*file* `domain/` rule is the one that closes what
+the per-workspace rule leaves open by construction: `calibrator/src/domain/models.ts` read 78.57% of
+its branches inside a workspace reading 91.46%, and an aggregate cannot see that. Five sites are
+unreached by construction and carry a `v8 ignore` in the source rather than an exemption list in the
+tool — a list would be remote from the code it excuses and would fail open the moment the code moved.
+See F80.
 
-`tools/check_coverage.py` applies all three rules and exits non-zero on any of them. It was checked
-against a known-failing report before being trusted.
+Until B1 there was a third rule here: each service workspace at least 95% on `coverage.py`'s combined
+line-and-branch measure, run through `pytest-cov`. The Python is deleted, so the rule is unmeasurable,
+and a rule that cannot be measured is not asserted. The argument it rested on did not go with it — a
+`Protocol` body is a declaration, and a declaration nothing imports is a boundary nobody has checked —
+and that argument is now the per-file `domain/` rule.
 
-**The TypeScript coverage thresholds are deliberately not set yet.** The port is incomplete, and a
-threshold written now would either be a number chosen to pass on a partial tree — which teaches
-nothing and hides the rest of the port — or a number that fails continuously. They go in when the port
-is complete, and `vitest.config.ts` says so where a reader would look for them.
+**The TypeScript thresholds are set, and B0 set them from measurement rather than choosing a number.**
+They live in `tools/check_coverage.ts` beside the contracts' two rules and the per-file `domain/` rule,
+rather than in `vitest.config.ts`, which cannot express a per-file requirement. `vitest.config.ts`
+says so where a reader would look for them.
 
 ## The ports
 
-Declared in the domain, implemented in `adapters/`. TypeScript: `calibrator/src/domain/ports.ts`.
-Python (being ported from): `bell_calibrator/domain/ports.py`.
+Declared in the domain, implemented in `adapters/`. `calibrator/src/domain/ports.ts`.
 
 | Port | What it abstracts | Why it is a port |
 |---|---|---|
@@ -201,14 +203,14 @@ estimator the premium publisher already names.
 Two things cross the language boundary, and both are specified once and tested on both sides.
 
 **The WAD encoding.** Solidity `uint256` at 1e18; a `Wad` value object off chain. Neither side passes
-a `float` across this boundary — there is no `float` in any Python domain signature, and no `number`
-in any TypeScript one, where `Wad` holds a `bigint` and the type is the double's only representation
-that is exact at 19 digits.
+a `float` across this boundary — there is no `number` in any TypeScript domain signature, where `Wad`
+holds a `bigint` and the type is the double's only representation that is exact at 19 digits. The
+Python signatures carried an arbitrary-precision `int` and were held to the same rule; that is what
+the `Wad` type inherited.
 
-**The commitment digest.** Paper Appendix B. `digest.ts` (and `digest.py`) builds the preimage;
+**The commitment digest.** Paper Appendix B. `calibrator/src/domain/digest.ts` builds the preimage;
 `keccak256(abi.encode(...))` builds the same bytes on chain. The fixture is `spec/digest.json`, read by
-`contracts/test/differential/Digest.t.sol`, `calibrator/tests/contract/digest.test.ts` and
-`calibrator/tests/contract/test_digest_contract.py`.
+`contracts/test/differential/Digest.t.sol` and `calibrator/tests/contract/digest.test.ts`.
 
 The pricing primitive is checked the same way against `spec/fixtures/moments.json`: 112 points
 computed at 50 significant digits, asserted by `Stat` against a tolerance derived from the on-chain
@@ -223,24 +225,23 @@ enforces it.
 ## Constants
 
 `spec/constants.yaml` is the only place a domain constant is written down. `tools/gen_constants.ts`
-generates four files from it: `contracts/src/generated/Constants.sol`,
-`calibrator/src/bell_calibrator/domain/constants.py`, `calibrator/src/domain/constants.ts` and
-`spec/fixtures/canonical.json`. Each side gets a generated module rather than a runtime read, because
-loading the YAML at runtime would put a filesystem read inside `domain/`, which the layer rule forbids.
-`make check-generated` fails if any of them is stale.
+generates three files from it: `contracts/src/generated/Constants.sol`,
+`calibrator/src/domain/constants.ts` and `spec/fixtures/canonical.json`. Each side gets a generated
+module rather than a runtime read, because loading the YAML at runtime would put a filesystem read
+inside `domain/`, which the layer rule forbids. `make check-generated` fails if any of them is stale.
 
-**The generator was the last thing in `tools/` written in Python, and it moved with the rest of them.**
-The port is verified the way it was specified — by byte-identity. `tools/gen_constants.ts` reproduces
-`Constants.sol`, `constants.py` and `canonical.json` exactly, and `make check-generated` runs **both**
-generators, so the pair keeps asserting that two independent renderings of one YAML agree. The Python
-half is the oracle rather than a copy and is deliberately not edited to match its successor; it goes
-when the Python does (Phase B), and the two banners that still name `tools/gen_constants.py` go with it.
-See `DESIGN_NOTES.md` F55.
+**The generator was the last thing in `tools/` written in Python, and byte-identity is how the port was
+accepted.** `tools/gen_constants.ts` reproduces `Constants.sol` and `canonical.json` exactly, and until
+B1 `make check-generated` ran **both** generators in `--check` mode, so the pair kept asserting that two
+independent renderings of one YAML agreed. Neither was edited to agree with the other, because an
+oracle adjusted to match its subject proves nothing. The Python is deleted, so there is one rendering
+now — and the Solidity banner it used to emit, which named `tools/gen_constants.py` in both because
+byte-identity was the test and correcting one side would have destroyed the diff that proved it, names
+the tool that actually writes the file. See `DESIGN_NOTES.md` F55 and F72.
 
-`constants.ts` emits every value as a `bigint`. The Python counterpart declares `int`, which is
-arbitrary precision, and `bigint` is the only TypeScript type that is the same thing; a `number` would
-be the IEEE-754 double the domain's whole discipline exists to keep out. `models.ts` imports `WAD` from
-it rather than declaring it, which was the one place the port departed from the single-source rule.
+`constants.ts` emits every value as a `bigint`: arbitrary precision, where a `number` would be the
+IEEE-754 double the domain's whole discipline exists to keep out. `models.ts` imports `WAD` from it
+rather than declaring it, which was the one place the port departed from the single-source rule.
 
 ## Tests
 
@@ -249,7 +250,7 @@ it rather than declaring it, which was the one place the port departed from the 
 | unit | `contracts/test/unit/`, `calibrator/tests/unit/`, `settlement/tests/unit/` | one function, literal inputs |
 | fuzz | `contracts/test/fuzz/` | the §10.3 invariants over generated inputs |
 | differential | `contracts/test/differential/` | Solidity agrees with the off-chain reference, via a shared fixture |
-| contract | `calibrator/tests/contract/` | the same fixtures, from the off-chain side — `*.test.ts` and `test_*.py` |
+| contract | `calibrator/tests/contract/` | the same fixtures, from the off-chain side — `*.test.ts` |
 | invariant | `contracts/test/invariant/` | the `Session` lifecycle and the pool, over generated call sequences |
 | gas | `contracts/test/gas/` | the §13.3 budget, measured as a `gasleft()` delta around a real call |
 | adversarial | `contracts/test/adversarial/` | a genuinely malicious collateral token, re-entering from inside `transferFrom` |
@@ -265,7 +266,7 @@ refuses the call, and the guard is there for the site someone adds later.
 
 ## The contract-side seams
 
-The Solidity is layered by *what each file is for*, and the same rule as the Python side applies: if
+The Solidity is layered by *what each file is for*, and the same rule as the off-chain side applies: if
 you cannot say in one sentence what a file is for, the seam is in the wrong place.
 
 | Contract | One sentence |
@@ -285,7 +286,7 @@ the code rather than merely shortening it.
 
 ## The settlement routes
 
-Five routes behind one `SettlementRoute` protocol, in `settlement/.../domain/routes/`. The route is a
+Five routes behind one `SettlementRoute` protocol, in `settlement/src/domain/routes/`. The route is a
 Strategy rather than a branch inside one function because the set is open, and because paper Table 22
 compares all five on cost — an `if`-chain would make adding a route a change to the settlement path,
 which is the last place a change should be.

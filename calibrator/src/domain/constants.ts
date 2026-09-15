@@ -4,8 +4,7 @@
  * Produced by tools/gen_constants.ts from spec/constants.yaml.
  * Regenerate with `make build`. `make check` fails if this file is stale.
  *
- * Every value is a `bigint`. The Python counterpart of this module declares `int`, which is
- * arbitrary precision; `bigint` is the only TypeScript type that is the same thing. A `number`
+ * Every value is a `bigint`. `bigint` is arbitrary precision and a `number` is not: a `number`
  * here would be an IEEE-754 double, and "a monetary value silently became one" is the failure the
  * `Wad` type exists to prevent. A caller that needs a count — a loop bound, a slice length —
  * converts explicitly at that one point, where the conversion is visible.

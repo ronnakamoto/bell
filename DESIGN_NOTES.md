@@ -2633,11 +2633,111 @@ present but none under a `domain/` root trips the "the rule was not applied to a
 than passing by absence. And `null` is gone from the tool: B0 removed the state it guarded, because a
 bar that can be switched off is a bar that will be.
 
+## F81 — The Python was not only in the Python: three things outside the workspaces depended on it
+
+**B1 deleted the two service workspaces, their tests and their packaging — 59 tracked files: 55 `.py`,
+two `py.typed` and two `pyproject.toml`**, plus the untracked build residue of the toolchain
+(`__pycache__`, `.pytest_cache`, `.mypy_cache`, `.ruff_cache`, both `.egg-info/` directories and both
+`.import_linter_cache/` directories). The tracker scoped the deletion to the workspaces, and that scope
+was wrong in three places. Each would have been a live defect rather than a missing tidy-up.
+
+**1. `tools/gen_constants.ts` was still *writing* the Python module it replaced.** Its `emits` list
+named four outputs, one of them `calibrator/src/bell_calibrator/domain/constants.py`, and `main` passed
+a `renderPython` result into the output map. Deleting the directory would not have removed the
+emission: `mkdirSync(dirname(path), { recursive: true })` runs before every write, so the next
+`make build` would have recreated `bell_calibrator/domain/constants.py` — a Python file inside a tree
+that no longer has Python — and `make check-generated` would have gone on asserting it as a build
+product. The emission is deleted rather than kept as a mode nobody runs, because a generator that can
+resurrect a deleted tree is not a generator with a spare feature.
+
+**2. The `Row.python` field was misnamed, not unused.** The obvious reading of "the Python is gone" is
+that a field called `python` is dead and should go. It is not: `renderTypeScript` reads it for the
+export name (`export const ${row.python} = ...n`), so it was the *TypeScript* identifier that the Python
+renderer happened to share. Deleting it would have deleted all 23 constants. It is renamed
+`Row.typescript`, which is what makes the `solidity`/`typescript` pair in the interface honest and what
+the `RouteRow` comment beside it already claimed. The rename is mechanical across 23 rows, and the
+check that it did not disturb the tables is that **no constant value changed**: after regeneration the
+only diff in `Constants.sol` and `constants.ts` is prose.
+
+**3. The F72 banner could finally be corrected, and it was one banner rather than two.**
+`gen_constants.ts`'s header recorded that both renderings emitted `Produced by tools/gen_constants.py`,
+that correcting either would destroy the diff that proved the port, and that they would be corrected
+"in one step with the Python's deletion" (F55, F72). The Python's own banner died with `renderPython`;
+the surviving one is the Solidity header, and it now names the tool that writes the file. The principle
+that licensed the wait is worth restating, because it is what made the wait correct rather than lazy:
+**a provenance banner is not a value.** Byte-identity was the acceptance test, and a banner is not a
+number two implementations could disagree about, so it could wait. A constant could not have.
+
+**`check_coverage.ts` carried a rule that could no longer be measured.** Requirement 3 was "each service
+workspace must be at least 95% on `coverage.py`'s combined measure", and it worked by running each
+workspace's pytest suite under `pytest-cov` with an interpreter the tool resolved and a caller could
+override with `--interpreter`. Deleting the suites makes the rule unmeasurable, and an unmeasurable
+rule is not a weaker assertion — it is prose. The rule, `PYTHON_REQUIRED_PERCENT`, `PYTHON_WORKSPACES`,
+`PythonTotals`, `interpreterFor`, `defaultInterpreter`, `measurePython`, `readTotals`, `checkPython`
+and the three flags that fed them are deleted, and the surviving rules renumber to 1–4. **The argument
+the rule rested on is kept, because the argument was never about Python:** `bell_settlement.domain.ports`
+forced the services onto the contracts' bar rather than a lower one because a `Protocol` body is a
+declaration, and a declaration nothing imports is a boundary nobody has checked. That is requirement 4
+now — the per-file `domain/` rule — and it is why the two `ports.ts` files are legal by having nothing
+to instrument rather than by exemption. *The rule numbers shifted by one in that renumbering: what F80
+calls rule 5 is requirement 4 in the tool today, and F80's rule 4 is requirement 3. The header is
+authoritative; F80 is left as the dated record of the measurement.*
+
+**Deleting the Python made eleven statements false, and they were corrected in the same step.** A
+docstring naming a module that does not exist is not a stale comment; it is a false claim about where
+the code is, and this repository's whole discipline is that a stated thing is a checked thing. Four
+Solidity docstrings pointed at Python that is gone — `PremiumStore`'s digest preimage,
+`SessionKind`'s counterpart enum, `Stat`'s shared formula, and `Moments.t.sol`'s reference generator
+(`tools/gen_moments_fixture.py`) — and each now names the TypeScript that replaced it. One test comment
+cited `tools/gen_constants.py` for the `prec = 60` that made the Python's ambient precision a hidden
+input; the lesson is kept and the deleted filename is not. `ARCHITECTURE.md` needed more than a
+sweep: it said the port was "in progress" with "both languages present", that the dependency rule was
+"enforced twice because the languages need different tools", that `check_layout` had "not yet been
+extended to the TypeScript tree", and that the coverage thresholds were "deliberately not set yet" —
+four statements that B0 and B1 had between them made false. It now describes one tree.
+
+**The Makefile lost its second toolchain, and the gate *names* were the interesting decision.**
+`PYTHON`, `BIN_DIR`, `venv`, `check-python`, `test-calibrator`, `test-settlement`, the two `pytest --cov`
+lines in `coverage`, and the ruff, mypy and `lint-imports` passes all went. The gate list is unchanged,
+and that is deliberate: `check-types` (mypy) and `check-architecture` (`lint-imports`) each had a
+surviving counterpart, so they name it — `npm run typecheck` and `npm run architecture` — rather than
+disappearing from a list a reader has learned. The two whose subject was Python and nothing else
+(`check-python`, and the per-workspace test targets) are deleted. `ts-check` then had to be *narrowed*:
+it used to run format, lint, types and the dependency rule, which would have made a full `make check`
+run `tsc` and `depcruise` twice each once `check-types` and `check-architecture` pointed at them. It
+now runs format and lint only, and `npm run verify` is the target that runs the whole TypeScript half in
+one go. `clean` gained the two build products it had stopped covering — `dist/` and the `tsc -b` build
+info — which is what keeps its docstring true and its two workspace variables in use.
+
+**Two gates died with the tree they guarded, and both say so where the check used to be.**
+`check_layout.py`'s first check walked Python's `ast` to prove `domain/` imported nothing but the
+standard library; TypeScript cannot parse Python, so it was never ported and has nothing left to guard.
+`check_coverage.py` was already outside `make check` — the Makefile said so and said why — and every
+rule it asserted is asserted by `check_coverage.ts`. Both TypeScript tools state their half's death in
+their headers rather than leaving it as a silent omission.
+
+**Verified, and the verification is the acceptance test the tracker named: `make build && make test &&
+make check` with no Python on the machine.** Run with `python`, `python3`, `pytest`, `ruff`, `mypy` and
+`lint-imports` all shadowed by stubs that exit 127, so a surviving invocation fails loudly rather than
+merely being absent. All three targets exit 0, and the three logs contain **zero** stub hits. **672
+tests** (353 Solidity, 319 TypeScript), down from 919 — the 164 calibrator and 83 settlement Python
+tests are what was deleted, and the TypeScript count is unchanged. The coverage verdict is identical to
+B0's: `calibrator/src` 98.38% lines / 96.64% branches, `settlement/src` 100% / 100%, and 23 `domain/`
+files at 100% on all four metrics.
+
+**The five `v8 ignore` hints were re-probed, because B0 left that as a condition of this step.** The
+worry was specific: `byteOf`'s width guard is unreachable *because* three callers each check its bound
+first, so one of those callers disappearing would make it reachable and turn a hint into a silenced
+test. Removing the hint in `leverage.ts` and re-running `check_coverage --typescript` still fails with
+**one** violation naming that file on three metrics (lines 97.37%, statements 97.62%, branches 95.83%),
+with the per-workspace rule silent — so the guards are still unreached and no caller was a Python-only
+path. The hint was restored byte-identically.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **complete and asserted**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — all four remaining tools exist in TypeScript with `check_layout` and `check_coverage` covering both trees, every Python test has a TypeScript counterpart matched by name rather than by total (F79), and the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80). `calibrator/src/bell_calibrator/` and `settlement/src/bell_settlement/` are still present and are **B1**'s to delete | B1 |
+| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). What is left is B2 (move the TypeScript up into `calibrator/src/`) and B3 (audit the gates that covered Python) | B2 |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |

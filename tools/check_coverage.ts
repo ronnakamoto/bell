@@ -2,11 +2,11 @@
 /**
  * Assert the brief's coverage requirements mechanically.
  *
- * The brief states two for the contracts and one for the services. Until this script existed, `make
- * coverage` printed tables and left every verdict to the reader — and for the contracts the reader
- * would have got it wrong, because `forge coverage`'s own `Total` row sums *every* instrumented
- * contract including the test helpers and mocks, so it reports a number several points below the
- * source tree's own. Both figures are true and only one of them answers the brief.
+ * The brief states two coverage rules for the contracts and one for the services. Until this script
+ * existed, `make coverage` printed tables and left every verdict to the reader — and for the contracts
+ * the reader would have got it wrong, because `forge coverage`'s own `Total` row sums *every*
+ * instrumented contract including the test helpers and mocks, so it reports a number several points
+ * below the source tree's own. Both figures are true and only one of them answers the brief.
  *
  * So this script answers the brief instead:
  *
@@ -16,33 +16,36 @@
  *        lines has branches nobody reached.
  *     2. The source tree as a whole — `src/**`, and nothing else — must be at least 95% lines.
  *
- *   Python
- *     3. Each service workspace must be at least 95% on `coverage.py`'s own measure, which counts
- *        branches. `bell_settlement.domain.ports` is the reason the two services need the same bar
- *        as the contracts rather than a lower one: a `Protocol` body is a declaration, and a
- *        declaration nothing imports is a boundary nobody has checked.
- *
  *   TypeScript
- *     4. Each workspace must be at least 95% on **lines and branches**, asserted separately rather
- *        than pooled. The number is the Python's; the shape is deliberately stronger than
- *        `coverage.py`'s combined measure, because either metric alone is satisfiable while the
- *        other is not — a workspace can reach 95% of its lines with every branch untaken, which is
- *        the exact shape requirement 3 refuses to accept for the services.
- *     5. Every file under a `domain/` tree must be 100% on lines, statements, branches and
+ *     3. Each workspace must be at least 95% on **lines and branches**, asserted separately rather
+ *        than pooled. The number is the brief's service bar, which was `coverage.py`'s combined
+ *        measure until R5 moved the services to TypeScript and B1 deleted the Python. The shape is
+ *        deliberately stronger than that combined measure, because either metric alone is satisfiable
+ *        while the other is not — a workspace can reach 95% of its lines with every branch untaken.
+ *     4. Every file under a `domain/` tree must be 100% on lines, statements, branches and
  *        functions. Requirement 1's analogue at the same layer: `domain/` is the boundary R5.1 draws
  *        as "no dependency that can reach the world", which is the role `contracts/src/libraries/`
  *        plays. A file with nothing to instrument counts as perfect — the convention requirement 1
  *        already applies to `forge`'s `N/A (0/0)`, and the one that makes both `ports.ts` files
  *        legal rather than exempt.
  *
- * **B0 set both bars, and measurement chose them rather than the other way round.** Before it the
- * two workspaces read 96.41/91.46 and 96.46/86.09 on lines/branches, and every shortfall turned out
- * to be a real gap rather than unreachable code: an uncalled `Wad.one`; `isZero`, `isNegative` and
- * `abs` never invoked; a `toDecimalString` never asked for a negative value; a comparator never
- * asked whether two values were equal, at both sort sites; a print whose magnitude was only ever
- * read for a negative gap; and a route layer whose fixtures carried one timestamp, one insertion
- * index and one shipping route. Sixteen tests closed all of it. Both workspaces now clear 95 on both
- * metrics, and every `domain/` file is perfect on all four.
+ * **There is no Python rule here, and B1 is why.** Requirement 3 used to be "each service workspace
+ * must be at least 95% on `coverage.py`'s own measure", measured by running that workspace's pytest
+ * suite under `pytest-cov` with an interpreter this tool resolved and a caller could override with
+ * `--interpreter`. The Python is deleted, so the rule is unmeasurable — and a rule that cannot be
+ * measured is not asserted, it is a line of prose. The argument the old rule rested on survives
+ * intact and is now requirement 4: a `Protocol` body is a declaration, and a declaration nothing
+ * imports is a boundary nobody has checked. That was why `bell_settlement.domain.ports` forced the
+ * services to carry the contracts' bar rather than a lower one.
+ *
+ * **B0 set both TypeScript bars, and measurement chose them rather than the other way round.** Before
+ * it the two workspaces read 96.41/91.46 and 96.46/86.09 on lines/branches, and every shortfall
+ * turned out to be a real gap rather than unreachable code: an uncalled `Wad.one`; `isZero`,
+ * `isNegative` and `abs` never invoked; a `toDecimalString` never asked for a negative value; a
+ * comparator never asked whether two values were equal, at both sort sites; a print whose magnitude
+ * was only ever read for a negative gap; and a route layer whose fixtures carried one timestamp, one
+ * insertion index and one shipping route. Sixteen tests closed all of it. Both workspaces now clear
+ * 95 on both metrics, and every `domain/` file is perfect on all four.
  *
  * **Five sites are unreached by construction and carry a `v8 ignore` in the source rather than an
  * exemption here.** Three are depth guards whose callers' arithmetic proves them — the rank guard in
@@ -62,19 +65,16 @@
  * Usage:
  *     tools/check_coverage.ts                          # runs everything
  *     tools/check_coverage.ts --solidity               # contracts only
- *     tools/check_coverage.ts --python                 # services only
  *     tools/check_coverage.ts --typescript             # the TypeScript tree only
  *     tools/check_coverage.ts --from FILE              # parse a saved forge report
  *     tools/check_coverage.ts --typescript-from FILE   # read a saved vitest summary
- *     tools/check_coverage.ts --interpreter PATH       # which python runs the service suites
- *     tools/check_coverage.ts --python-threshold N     # override the 95 for the services
  *     tools/check_coverage.ts --typescript-threshold N # override the 95 for the TypeScript tree
  */
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { isAbsolute, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
@@ -84,23 +84,21 @@ const CONTRACTS = join(REPO_ROOT, 'contracts');
 const LIBRARY_REQUIRED_PERCENT = 100;
 /** The bar the brief sets overall, applied to `src/**` rather than to `forge`'s Total row. */
 const SOURCE_REQUIRED_PERCENT = 95;
-/** The bar for each Python workspace, on `coverage.py`'s combined line-and-branch measure. */
-const PYTHON_REQUIRED_PERCENT = 95;
-/** The bar for each TypeScript workspace, on lines and branches separately. Set by B0. */
+/**
+ * The bar for each TypeScript workspace, on lines and branches separately.
+ *
+ * The brief's service bar, and the shape is B0's: 95 is the number the services already carried under
+ * `coverage.py`, and splitting it into two assertions rather than one combined measure is the
+ * strengthening R5 made possible when the subject became TypeScript.
+ */
 const TYPESCRIPT_REQUIRED_PERCENT = 95;
-
-/** Each Python workspace: its directory, and the package to measure. */
-const PYTHON_WORKSPACES: readonly (readonly [string, string])[] = [
-  ['calibrator', 'bell_calibrator'],
-  ['settlement', 'bell_settlement'],
-];
 
 /**
  * The roots the TypeScript measurement is split by.
  *
  * Per workspace rather than one number for the tree, because a single figure lets a well-covered
- * workspace carry a badly-covered one — which is the same reason the Python side measures the two
- * services separately, and the reason the contracts' rule is per library.
+ * workspace carry a badly-covered one — the same reason the contracts' rule is per library rather
+ * than a figure for `src/` as a whole.
  */
 const TYPESCRIPT_WORKSPACES: readonly string[] = ['calibrator/src', 'settlement/src'];
 
@@ -155,12 +153,9 @@ interface Coverage {
 
 interface Options {
   readonly solidity: boolean;
-  readonly python: boolean;
   readonly typescript: boolean;
   readonly forgeReport: string | undefined;
   readonly vitestSummary: string | undefined;
-  readonly interpreter: string;
-  readonly pythonThreshold: number;
   readonly typescriptThreshold: number;
 }
 
@@ -284,135 +279,6 @@ function checkSourceTotal(files: readonly Coverage[], report: string[]): number 
   return value;
 }
 
-// ---------------------------------------------------------------- the services
-
-interface PythonTotals {
-  readonly percent: number;
-  readonly covered: number;
-  readonly total: number;
-}
-
-/**
- * An interpreter path resolved against the **repository root**, not the caller's directory.
- *
- * **This is not a nicety, and the failure it prevents is silent.** Each service suite runs with its
- * own workspace as the working directory, so a relative interpreter path is resolved by the *child*
- * against `calibrator/` rather than against the repository root — and `make` passes exactly
- * `.venv/bin/python`, which would become `calibrator/.venv/bin/python`. The child then fails to
- * start, which this script would report as "the suite failed" rather than as a missing interpreter.
- *
- * A bare name with no separator is left alone: that is a `PATH` lookup, and resolving it would turn
- * `python3` into a path that does not exist.
- */
-function interpreterFor(name: string): string {
-  if (isAbsolute(name) || !name.includes('/')) return name;
-  return resolve(REPO_ROOT, name);
-}
-
-/** The interpreter the service suites run under: `PYTHON`, then a project-local `.venv`, then PATH. */
-function defaultInterpreter(): string {
-  const fromEnvironment = process.env['PYTHON'];
-  if (fromEnvironment !== undefined && fromEnvironment !== '') {
-    return interpreterFor(fromEnvironment);
-  }
-  const local = join(REPO_ROOT, '.venv', 'bin', 'python');
-  return existsSync(local) ? local : 'python3';
-}
-
-/**
- * Run one workspace's tests under `coverage.py` and return `(percent, covered, total)`.
- *
- * `coverage.py` is invoked through `pytest-cov` so the measurement is the one the project already
- * produces, rather than a second opinion that could disagree with `make coverage`.
- */
-function measurePython(workspace: string, packageName: string, interpreter: string): PythonTotals {
-  const scratch = mkdtempSync(join(tmpdir(), 'bell-coverage-'));
-  try {
-    const destination = join(scratch, 'coverage.json');
-    const result = spawnSync(
-      interpreter,
-      [
-        '-m',
-        'pytest',
-        'tests',
-        '-q',
-        `--cov=${packageName}`,
-        `--cov-report=json:${destination}`,
-        '--cov-report=', // no terminal table; this script is the report
-      ],
-      {
-        cwd: join(REPO_ROOT, workspace),
-        encoding: 'utf8',
-        // `coverage.py` writes a data file into the working directory unless it is told otherwise,
-        // which would leave a `calibrator/.coverage` behind on every `make check`. Pointing it at the
-        // scratch directory keeps the run self-contained, and the `finally` above removes it with
-        // everything else.
-        env: { ...process.env, COVERAGE_FILE: join(scratch, '.coverage') },
-      },
-    );
-    if (result.status !== 0) {
-      console.error(`${workspace}: pytest failed`);
-      console.error(tail(result.stdout, 3000));
-      console.error(tail(result.stderr, 3000));
-      die(
-        `  the interpreter '${interpreter}' could not run ${workspace}'s suite. ` +
-          "Run 'make venv', or name one that can: --interpreter /path/to/venv/bin/python",
-      );
-    }
-    if (!existsSync(destination)) {
-      die(
-        `${workspace}: no coverage JSON was written. Is \`pytest-cov\` installed?\n` +
-          "It is declared in the workspace's `dev` extra; run `make venv`.",
-      );
-    }
-    return readTotals(JSON.parse(readFileSync(destination, 'utf8')), workspace);
-  } finally {
-    rmSync(scratch, { recursive: true, force: true });
-  }
-}
-
-/** `coverage.py`'s `totals` block, narrowed from `unknown` rather than trusted. */
-function readTotals(report: unknown, workspace: string): PythonTotals {
-  if (typeof report !== 'object' || report === null) {
-    die(`${workspace}: the coverage JSON is not an object`);
-  }
-  const totals = (report as Record<string, unknown>)['totals'];
-  if (typeof totals !== 'object' || totals === null) {
-    die(`${workspace}: the coverage JSON has no 'totals' block`);
-  }
-  const fields = totals as Record<string, unknown>;
-  const percentCovered = fields['percent_covered'];
-  const covered = fields['covered_lines'];
-  const total = fields['num_statements'];
-  if (
-    typeof percentCovered !== 'number' ||
-    typeof covered !== 'number' ||
-    typeof total !== 'number'
-  ) {
-    die(`${workspace}: the coverage JSON's totals are not the shape this script reads`);
-  }
-  return { percent: percentCovered, covered, total };
-}
-
-/** Requirement 3: each service workspace is at least `required` percent, branches included. */
-function checkPython(report: string[], required: number, interpreter: string): string[] {
-  const summaries: string[] = [];
-  for (const [workspace, packageName] of PYTHON_WORKSPACES) {
-    const totals = measurePython(workspace, packageName, interpreter);
-    summaries.push(`${workspace} ${totals.percent.toFixed(2)}%`);
-    if (totals.percent < required) {
-      report.push(
-        `  ${workspace}: ${totals.percent.toFixed(2)}% ` +
-          `(${String(totals.covered)}/${String(totals.total)} statements); ` +
-          // `String`, not `toFixed(0)`: a fractional override would round to a different number than
-          // the one being applied, and a message that misstates its own rule is worse than none.
-          `requires ${String(required)}%`,
-      );
-    }
-  }
-  return summaries;
-}
-
 // ---------------------------------------------------------------- the typescript tree
 
 interface WorkspaceCoverage {
@@ -445,7 +311,7 @@ function readMetric(value: unknown, key: string): Metric {
 /**
  * One file's four metrics.
  *
- * All four, where requirement 4 reads two, because requirement 5 asks for all four and the summary
+ * All four, where requirement 3 reads two, because requirement 4 asks for all four and the summary
  * already carries them. Reading only what the first rule needs is how the second rule ends up
  * re-parsing the same object — and how the two rules come to disagree about a file.
  */
@@ -554,13 +420,13 @@ function runVitest(): unknown {
 }
 
 /**
- * Requirement 5: every file under a `domain/` tree is perfect on all four metrics.
+ * Requirement 4: every file under a `domain/` tree is perfect on all four metrics.
  *
  * **The TypeScript analogue of requirement 1, at the same layer rather than a similar one.**
  * `domain/` is the boundary R5.1 draws — no dependency that can reach the world — which is what
  * `contracts/src/libraries/` is, so both are the place where a branch nobody reached is a wrong
  * answer in the instrument rather than an untested convenience. A per-file rule is also the only
- * thing that closes the hole requirement 4 leaves open by construction: `calibrator/src/domain/
+ * thing that closes the hole requirement 3 leaves open by construction: `calibrator/src/domain/
  * models.ts` read 78.57% of its branches inside a workspace that read 91.46%, and an aggregate
  * cannot see that.
  *
@@ -598,11 +464,11 @@ function checkDomainFiles(rows: readonly WorkspaceCoverage[], report: string[]):
 }
 
 /**
- * Requirement 4: each workspace is at least `required` percent on lines **and** branches.
+ * Requirement 3: each workspace is at least `required` percent on lines **and** branches.
  *
  * Both metrics, because either alone is satisfiable while the other is not: a workspace can reach 95%
- * of its lines with every branch untaken, which is the exact shape `coverage.py`'s combined measure
- * refuses to accept on the Python side.
+ * of its lines with every branch untaken, which is the exact shape the single combined measure the
+ * services used to carry would have accepted.
  */
 function checkTypeScript(
   report: string[],
@@ -640,12 +506,9 @@ function checkTypeScript(
 
 function parseArguments(argv: readonly string[]): Options {
   let solidity = false;
-  let python = false;
   let typescript = false;
   let forgeReport: string | undefined;
   let vitestSummary: string | undefined;
-  let interpreter: string | undefined;
-  let pythonThreshold = PYTHON_REQUIRED_PERCENT;
   let typescriptThreshold = TYPESCRIPT_REQUIRED_PERCENT;
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -666,9 +529,6 @@ function parseArguments(argv: readonly string[]): Options {
       case '--solidity':
         solidity = true;
         break;
-      case '--python':
-        python = true;
-        break;
       case '--typescript':
         typescript = true;
         break;
@@ -678,12 +538,6 @@ function parseArguments(argv: readonly string[]): Options {
       case '--typescript-from':
         vitestSummary = value();
         break;
-      case '--interpreter':
-        interpreter = value();
-        break;
-      case '--python-threshold':
-        pythonThreshold = Number(value());
-        break;
       case '--typescript-threshold':
         typescriptThreshold = Number(value());
         break;
@@ -692,23 +546,19 @@ function parseArguments(argv: readonly string[]): Options {
     }
   }
 
-  if (!Number.isFinite(pythonThreshold)) die('--python-threshold must be a number');
   // No `!== null` guard, because B0 removed the state it guarded: the bar is a number now, and the
   // flag exists to *move* it — for a probe that has to show the assertion firing — rather than to
   // switch it off. `--typescript-threshold 0` still means what it says.
   if (!Number.isFinite(typescriptThreshold)) die('--typescript-threshold must be a number');
 
-  // Neither flag means all three; any flag means only those named. That is the Python tool's rule,
-  // kept, so a caller reaching for `--python` alone gets what it always got.
-  const anySelected = solidity || python || typescript;
+  // Neither flag means both; either flag means only the one named. That was the Python tool's rule
+  // and it is kept, so a caller reaching for `--solidity` alone still gets what it always got.
+  const anySelected = solidity || typescript;
   return {
     solidity: anySelected ? solidity : true,
-    python: anySelected ? python : true,
     typescript: anySelected ? typescript : true,
     forgeReport,
     vitestSummary,
-    interpreter: interpreter === undefined ? defaultInterpreter() : interpreterFor(interpreter),
-    pythonThreshold,
     typescriptThreshold,
   };
 }
@@ -735,10 +585,6 @@ function main(): number {
       `${String(libraryCount)} libraries at 100% on all four metrics, ` +
         `src/** at ${sourcePercent.toFixed(2)}% lines`,
     );
-  }
-
-  if (options.python) {
-    summary.push(...checkPython(failures, options.pythonThreshold, options.interpreter));
   }
 
   if (options.typescript) {

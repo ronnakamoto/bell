@@ -3,7 +3,7 @@ pragma solidity 0.8.26;
 
 /// @title Constants
 /// @notice GENERATED FILE - DO NOT EDIT BY HAND.
-/// @dev Produced by tools/gen_constants.py from spec/constants.yaml.
+/// @dev Produced by tools/gen_constants.ts from spec/constants.yaml.
 ///      Regenerate with `make build`. `make check` fails if this file is stale.
 ///
 ///      Every value carries its provenance. A constant that appears in a second source file

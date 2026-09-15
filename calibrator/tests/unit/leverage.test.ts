@@ -276,10 +276,10 @@ describe('the realised saturation rate', () => {
   it('reports the rate at the domain precision rather than an ambient one', () => {
     // One of three saturating, so the rate is a third and its digits *are* the precision. The Python
     // divided through the `decimal` module's ambient context, so it returned 28 significant digits
-    // from a plain call and 50 from inside a caller's `localcontext` — and 60 after importing
-    // `tools/gen_constants.py`, which sets `getcontext().prec = 60` at module scope. Same arguments,
-    // different value, depending on the process. The port states the precision instead
-    // (DESIGN_NOTES.md F57), and this asserts that it is the stated one.
+    // from a plain call and 50 from inside a caller's `localcontext` — and 60 once the constants
+    // generator had been imported, because that module set `getcontext().prec = 60` at module scope.
+    // Same arguments, different value, depending on the process. The port states the precision
+    // instead (DESIGN_NOTES.md F57), and this asserts that it is the stated one.
     const sample = [ratio(1n, 10n), ratio(1n, 100n), ratio(2n, 100n)];
     const digits = realisedSaturationRate(sample, whole(15)).toString().replace('0.', '');
     expect(digits).toBe('3'.repeat(50));

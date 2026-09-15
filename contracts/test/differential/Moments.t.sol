@@ -5,14 +5,16 @@ import {Test} from "forge-std/Test.sol";
 import {WadMath} from "../../src/libraries/WadMath.sol";
 import {Stat} from "../../src/libraries/Stat.sol";
 
-/// @notice The pricing primitive, checked against a high-precision Python reference.
+/// @notice The pricing primitive, checked against a high-precision reference.
 /// @dev This is the differential test the brief's §10.4 calls critical. The reference values in
-///      `spec/fixtures/moments.json` are computed by `bell_calibrator.domain.moments` at 50
-///      significant digits; this contract computes the same quantity with Abramowitz & Stegun
-///      7.1.26 and asserts the two agree inside the tolerance the fixture records.
+///      `spec/fixtures/moments.json` are computed at 50 significant digits -- by
+///      `bell_calibrator.domain.moments` when the file was first rendered, and by
+///      `calibrator/src/domain/moments.ts` since the port, the two having been checked
+///      byte-for-byte against each other. This contract computes the same quantity with Abramowitz &
+///      Stegun 7.1.26 and asserts the two agree inside the tolerance the fixture records.
 ///
 ///      The tolerance is not chosen here. It is derived from the on-chain error function's stated
-///      1.5e-7 absolute bound, and the derivation lives in `tools/gen_moments_fixture.py` where the
+///      1.5e-7 absolute bound, and the derivation lives in `tools/gen_moments_fixture.ts` where the
 ///      reference is produced, so that neither consumer re-derives it and the two cannot drift.
 contract MomentsDifferentialTest is Test {
     string internal constant FIXTURE = "../spec/fixtures/moments.json";

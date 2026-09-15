@@ -15,7 +15,3 @@ spec/
 # that reflows them would fight every future edit and produce a diff nobody can review.
 *.md
 docs/
-
-# Python, while the TypeScript port is in progress. Removed with the port.
-**/*.py
-**/pyproject.toml

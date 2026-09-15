@@ -17,16 +17,16 @@
  *
  * **Two things are deliberately not here, and both are stated rather than omitted.**
  *
- * - **The Python tree is `check_layout.py`'s until Phase B.** Its first check walks Python's `ast` to
- *   prove `domain/` imports nothing but the standard library, and TypeScript cannot parse Python. That
- *   check dies with the tree it guards, so it is not ported. The overlap on Solidity between the two
- *   tools is deliberate: this one is the half that survives.
+ * - **Python `domain/` import purity is gone with the Python.** `check_layout.py` walked Python's
+ *   `ast` to prove `domain/` imported nothing but the standard library, and TypeScript cannot parse
+ *   Python, so it was never ported. B1 deleted the tree it guarded and the check died with it. Nothing
+ *   replaces it and nothing needs to: there is no Python left to be impure.
  * - **TypeScript `domain/` import purity is `dependency-cruiser`'s** (`npm run architecture`). It
- *   already enforces the allow-list §7.4 narrows to, with an allow-list rather than a deny-list of
+ *   enforces the allow-list §7.4 narrows to, with an allow-list rather than a deny-list of
  *   categories, which is strictly the stronger check. Reproducing it here would be a second source of
  *   truth for one rule.
  *
- * **`tools/` is out of the 400-line scope, on purpose.** The Python checker's `WORKSPACES` are the two
+ * **`tools/` is out of the 400-line scope, on purpose.** The Python checker's `WORKSPACES` were the two
  * `src/` roots and never included `tools/`; `gen_constants.ts` is a row-table renderer that
  * `prettier --write` expands to 600+ lines, so inheriting the rule there would fail on a file whose
  * length is a formatting artefact (F56).
@@ -41,7 +41,7 @@ import { fileURLToPath } from 'node:url';
 const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const CONTRACTS = join(REPO_ROOT, 'contracts');
 
-/** The roots the 400-line and banned-name rules reach: what survives Phase B. */
+/** The roots the 400-line and banned-name rules reach. */
 const TYPESCRIPT_ROOTS: readonly string[] = [
   join(REPO_ROOT, 'calibrator/src'),
   join(REPO_ROOT, 'settlement/src'),
@@ -102,11 +102,12 @@ function typescriptSources(): string[] {
 }
 
 /**
- * Logical line count, matching Python's `str.splitlines()` and `wc -l`.
+ * Logical line count, matching `wc -l`.
  *
  * `split('\n')` on a file that ends with a newline yields a trailing empty element that is not a
- * line; dropping it is what makes this agree with the Python checker it replaces rather than
- * reporting every file as one line longer.
+ * line; dropping it is what makes this agree with `wc -l` rather than reporting every file as one
+ * line longer. `wc -l` is the definition rather than "lines of code" because it is the count a reader
+ * can reproduce, and it is the count the Python checker this replaced used.
  */
 function lineCount(text: string): number {
   const lines = text.split('\n');

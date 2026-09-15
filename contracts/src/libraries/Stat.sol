@@ -8,7 +8,8 @@ import {WadMath} from "./WadMath.sol";
 /// @notice The distributional primitives. Pure library; no storage, no events, no reverts except
 ///         where stated.
 /// @dev This is the mathematical core of the protocol and the one place a formula is shared with
-///      `bell_calibrator`. `test/differential` asserts the two agree on `spec/fixtures`.
+///      the calibrator (`calibrator/src/domain/`). `test/differential` asserts the two agree on
+///      `spec/fixtures`.
 ///
 ///      On the pricing primitive. `truncatedAbsMoment` returns `E[min(|G|, c)]` with `c = 1/lambda`
 ///      — the paper's Eq (12), and the fair premium is `lambda * truncatedAbsMoment(...)`. The

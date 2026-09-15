@@ -127,7 +127,7 @@ function main(): number {
     console.error(`check_fixtures: ${String(totalLosses)} lossy integer(s)`);
     console.error(
       '  A JSON number is exact only where a double is. Emit the value as a string instead: ' +
-        'BigInt, the Python reader and vm.parseJsonUint all accept a string-encoded number.',
+        'BigInt and vm.parseJsonUint both accept a string-encoded number.',
     );
     return 1;
   }

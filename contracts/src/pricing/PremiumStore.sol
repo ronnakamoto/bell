@@ -184,9 +184,9 @@ abstract contract PremiumStore {
     /// @dev Paper Appendix B, byte for byte:
     ///      `keccak256(abi.encode(nameId, forSession, lambdaWad, premiumWad, inputsHash))` with
     ///      `nameId` a `bytes32`, `forSession` a `uint64`, and the two parameters `uint256` at WAD
-    ///      scale. `bell_calibrator.domain.digest` builds the same preimage on the Python side, and
-    ///      `spec/digest.json` is the shared fixture both are checked against -- including from this
-    ///      contract, through `test/differential/Digest.t.sol`.
+    ///      scale. `calibrator/src/domain/digest.ts` builds the same preimage on the TypeScript
+    ///      side, and `spec/digest.json` is the shared fixture both are checked against -- including
+    ///      from this contract, through `test/differential/Digest.t.sol`.
     ///
     ///      The `uint64` matters. A `uint256` would encode differently and every honest challenge
     ///      would fail, which is a failure that looks exactly like a dishonest publisher.

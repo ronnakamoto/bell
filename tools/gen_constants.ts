@@ -5,27 +5,26 @@
  * The build brief (§6) makes `spec/constants.yaml` the only place a domain constant is written down,
  * and requires each language side to read it at build time. A *runtime* read would put a filesystem
  * access inside `domain/`, which §5.1 forbids, so each side gets a generated module instead. The YAML
- * is the source; these four are build products.
+ * is the source; these three are build products.
  *
  * Emits:
  *     contracts/src/generated/Constants.sol
- *     calibrator/src/bell_calibrator/domain/constants.py
  *     calibrator/src/domain/constants.ts
  *     spec/fixtures/canonical.json
  *
- * **This is the port of `tools/gen_constants.py`** (tracker A0), and the three files that already
- * existed are emitted **byte for byte**. That is the acceptance test, not a stylistic preference:
- * run this generator, and `git diff --exit-code` must be silent on all three.
+ * **This generator accepted the port, and the Python it was checked against is gone (B1).** Until
+ * Phase B it emitted a fourth file — `calibrator/src/bell_calibrator/domain/constants.py` — and
+ * `make check-generated` ran this generator and `tools/gen_constants.py` in `--check` mode together,
+ * so the pair asserted that two independent renderings of the same YAML produced the same bytes.
+ * Neither was edited to agree with the other: an oracle adjusted to match its subject proves nothing.
+ * With the Python tree deleted the differential has no second participant, so the emission is gone
+ * rather than kept as a mode nobody runs.
  *
- * The Python generator is deliberately *not* edited to agree with this one, because it is the oracle
- * the port is verified against and an oracle adjusted to match its subject proves nothing. It is
- * retained as a differential check — `make check-generated` runs both in `--check` mode, so the pair
- * asserts that two independent renderings of the same YAML agree — until Phase B retires it.
- *
- * One consequence is recorded rather than hidden: the two banners that name `tools/gen_constants.py`
- * stay as they are, so those artifacts name a generator that is no longer the build's producer.
- * Correcting them here would destroy the diff that proves the port, so they are corrected in one step
- * with the Python's deletion. See DESIGN_NOTES.md F55.
+ * **The banner names this generator now.** The Solidity header used to say "Produced by
+ * tools/gen_constants.py" in both renderings, because byte-identity was the test and correcting one
+ * side would have destroyed the diff that proved it — a provenance banner is not a value, so it
+ * waited (F55, F72). The Python's deletion is that one step: the banner now names the tool that
+ * actually writes the file.
  *
  * Determinism matters more here than anywhere else in the repository: `make check-generated` re-runs
  * this and fails if a committed file differs, which is what stops a hand-edit from silently
@@ -47,17 +46,20 @@ import { parse } from 'yaml';
 const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const SPEC = resolve(REPO_ROOT, 'spec/constants.yaml');
 const SOLIDITY_OUT = resolve(REPO_ROOT, 'contracts/src/generated/Constants.sol');
-const PYTHON_OUT = resolve(REPO_ROOT, 'calibrator/src/bell_calibrator/domain/constants.py');
 const TYPESCRIPT_OUT = resolve(REPO_ROOT, 'calibrator/src/domain/constants.ts');
 const CANONICAL_OUT = resolve(REPO_ROOT, 'spec/fixtures/canonical.json');
 
 const GENERATED_BANNER = 'GENERATED FILE - DO NOT EDIT BY HAND.';
 
-/** 1e18, as the exact integer. The Python side writes this as `10**18`; both are the same value. */
+/** 1e18, as the exact integer. `bigint` is the only type that holds it exactly. */
 const WAD = 10n ** 18n;
 
 /**
- * The decimal constructor, at the precision the Python generator sets on its context (`prec = 60`).
+ * The decimal constructor, at 60 significant digits.
+ *
+ * 60 is not a preference: it is the width the committed fixtures were rendered at and the width the
+ * port's differential was run at, so a narrower working precision here would silently re-render a
+ * fixture the Solidity suite already asserts.
  *
  * `Decimal.clone` rather than `Decimal.set`: a clone is a separate constructor carrying its own
  * precision, so this generator's width cannot leak into a caller's arithmetic and nothing can lower
@@ -89,11 +91,12 @@ function group(value: bigint | number): string {
 }
 
 /**
- * A YAML integer as the exact text both languages write.
+ * A YAML integer as exact text.
  *
- * Python's `str(int)` and JavaScript's `String` agree on an integer and disagree on everything else —
- * `94849.0` renders `"94849.0"` there and `"94849"` here. Every such value in the spec is an integer
- * today, so a non-integer is refused rather than rendered differently by the two generators.
+ * Refused rather than coerced when it is not one: the value lands in a JSON fixture as a string and
+ * in a TypeScript module as a `bigint` literal, and neither has a spelling for `94849.0`. Every such
+ * value in the spec is an integer today, so a non-integer is a spec error rather than a rendering
+ * choice, and it fails here where the message can name the file.
  */
 function exactInteger(value: number): string {
   if (!Number.isInteger(value)) {
@@ -104,20 +107,23 @@ function exactInteger(value: number): string {
 
 // ---------------------------------------------------------------------------- emission tables
 //
-// Ported from `gen_constants.py` verbatim. Written out longhand rather than derived from YAML keys so
-// that a rename in the YAML is a loud failure here rather than a silently missing constant.
+// Written out longhand rather than derived from YAML keys so that a rename in the YAML is a loud
+// failure here rather than a silently missing constant. The tables were transcribed from
+// `gen_constants.py` when this generator was its port, and that transcription is what the
+// differential checked; the Python is gone (B1) and these are now the only copy.
 
 interface Row {
   readonly solidity: string;
-  readonly python: string;
+  readonly typescript: string;
   readonly value: bigint;
   readonly note: string;
   readonly source: string;
 }
 
 /**
- * A route row. One identifier serves both languages here — the route code is carried by the name
- * (`ROUTE_R1_...`) — so unlike `Row` there is no separate `solidity`/`python` pair to get out of step.
+ * A route row. One identifier serves both sides here — the route code is carried by the name
+ * (`ROUTE_R1_...`) — so unlike `Row` there is no separate `solidity`/`typescript` pair to get out of
+ * step.
  */
 interface RouteRow {
   readonly name: string;
@@ -129,147 +135,147 @@ interface RouteRow {
 const UINT_ROWS: readonly Row[] = [
   {
     solidity: 'WAD',
-    python: 'WAD',
+    typescript: 'WAD',
     value: WAD,
     note: '1e18, the fixed-point scale',
     source: 'paper §2',
   },
   {
     solidity: 'ALPHA_WAD',
-    python: 'ALPHA_WAD',
+    typescript: 'ALPHA_WAD',
     value: wad('0.01'),
     note: 'saturation probability',
     source: 'paper §6.1 Eq 14',
   },
   {
     solidity: 'TIER1_HALT_BAND_WAD',
-    python: 'TIER1_HALT_BAND_WAD',
+    typescript: 'TIER1_HALT_BAND_WAD',
     value: wad('0.05'),
     note: 'guard G3, Tier-1 band',
     source: 'paper §12.4',
   },
   {
     solidity: 'HALT_BAND_DEFAULT_WAD',
-    python: 'HALT_BAND_DEFAULT_WAD',
+    typescript: 'HALT_BAND_DEFAULT_WAD',
     value: wad('0.25'),
     note: 'guard G3, legacy default',
     source: 'paper §9.4',
   },
   {
     solidity: 'COLLATERAL_DECIMALS',
-    python: 'COLLATERAL_DECIMALS',
+    typescript: 'COLLATERAL_DECIMALS',
     value: 6n,
     note: 'USDG decimals, asserted at construction',
     source: 'paper Table 6',
   },
   {
     solidity: 'EQUITY_TOKEN_DECIMALS',
-    python: 'EQUITY_TOKEN_DECIMALS',
+    typescript: 'EQUITY_TOKEN_DECIMALS',
     value: 18n,
     note: 'reference token decimals',
     source: 'paper check D1',
   },
   {
     solidity: 'PROTOCOL_FEE_ANNUALISED_WAD',
-    python: 'PROTOCOL_FEE_ANNUALISED_WAD',
+    typescript: 'PROTOCOL_FEE_ANNUALISED_WAD',
     value: wad('0.12'),
     note: 'eta_ann',
     source: 'paper §6.3 Eq 17',
   },
   {
     solidity: 'HOURS_PER_YEAR',
-    python: 'HOURS_PER_YEAR',
+    typescript: 'HOURS_PER_YEAR',
     value: 8760n,
     note: '365 * 24',
     source: 'paper §6.3 Eq 17',
   },
   {
     solidity: 'PROTOCOL_FEE_CAP_OF_PREMIUM_WAD',
-    python: 'PROTOCOL_FEE_CAP_OF_PREMIUM_WAD',
+    typescript: 'PROTOCOL_FEE_CAP_OF_PREMIUM_WAD',
     value: wad('0.05'),
     note: 'eta <= 0.05 * pL',
     source: 'paper §6.3 Eq 18',
   },
   {
     solidity: 'BLENDED_FEE_TARGET_BP_WAD',
-    python: 'BLENDED_FEE_TARGET_BP_WAD',
+    typescript: 'BLENDED_FEE_TARGET_BP_WAD',
     value: wad('4.106'),
     note: 'blended fee, basis points',
     source: 'paper §11.2',
   },
   {
     solidity: 'RAMP_PHI_0_WAD',
-    python: 'RAMP_PHI_0_WAD',
+    typescript: 'RAMP_PHI_0_WAD',
     value: wad('0.001'),
     note: 'trading fee at the close',
     source: 'paper §6.3 Eq 19',
   },
   {
     solidity: 'RAMP_PHI_1_WAD',
-    python: 'RAMP_PHI_1_WAD',
+    typescript: 'RAMP_PHI_1_WAD',
     value: wad('0.01'),
     note: 'trading fee at the open',
     source: 'paper §6.3 Eq 19',
   },
   {
     solidity: 'RAMP_TIME_AVERAGE_CEILING_WAD',
-    python: 'RAMP_TIME_AVERAGE_CEILING_WAD',
+    typescript: 'RAMP_TIME_AVERAGE_CEILING_WAD',
     value: wad('0.007'),
     note: 'phi_0 + (phi_1 - phi_0)*2/3',
     source: 'paper §6.3',
   },
   {
     solidity: 'TRADING_FEE_REFERENCE_WAD',
-    python: 'TRADING_FEE_REFERENCE_WAD',
+    typescript: 'TRADING_FEE_REFERENCE_WAD',
     value: wad('0.0055'),
     note: 'phi_ref, a fee not a volatility',
     source: 'paper §6.3 Eq 20',
   },
   {
     solidity: 'ROUNDING_LATTICE_WAD',
-    python: 'ROUNDING_LATTICE_WAD',
+    typescript: 'ROUNDING_LATTICE_WAD',
     value: wad('0.0025'),
     note: 'cap grid; 0.25% reproduces the published lambdas',
     source: 'paper §6.1, Table 26',
   },
   {
     solidity: 'STALENESS_SESSIONS',
-    python: 'STALENESS_SESSIONS',
+    typescript: 'STALENESS_SESSIONS',
     value: 12n,
     note: 'commitment usable horizon, in sessions',
     source: 'paper Table 19',
   },
   {
     solidity: 'BOND_LOCK_SESSIONS',
-    python: 'BOND_LOCK_SESSIONS',
+    typescript: 'BOND_LOCK_SESSIONS',
     value: 13n,
     note: 'rotation period plus challenge window',
     source: 'paper Table 19',
   },
   {
     solidity: 'PUBLISHER_KEYS_PER_NAME',
-    python: 'PUBLISHER_KEYS_PER_NAME',
+    typescript: 'PUBLISHER_KEYS_PER_NAME',
     value: 1n,
     note: 'one compromised key costs one name',
     source: 'paper Table 19',
   },
   {
     solidity: 'OVERNIGHT_WINDOW_SESSIONS',
-    python: 'OVERNIGHT_WINDOW_SESSIONS',
+    typescript: 'OVERNIGHT_WINDOW_SESSIONS',
     value: 504n,
     note: 'E, selected by forward error',
     source: 'paper §7.9 Table 15',
   },
   {
     solidity: 'OVERNIGHT_WINDOW_SESSIONS_AAPL',
-    python: 'OVERNIGHT_WINDOW_SESSIONS_AAPL',
+    typescript: 'OVERNIGHT_WINDOW_SESSIONS_AAPL',
     value: 378n,
     note: 'E for AAPL',
     source: 'paper §7.9 Table 15',
   },
   {
     solidity: 'WEEKEND_WINDOW_SESSIONS',
-    python: 'WEEKEND_WINDOW_SESSIONS',
+    typescript: 'WEEKEND_WINDOW_SESSIONS',
     value: 126n,
     note: 'W; the longest the sample supports',
     source: 'paper §7.9 Table 15',
@@ -281,14 +287,14 @@ const UINT_ROWS: readonly Row[] = [
 const BOND_ROWS: readonly Row[] = [
   {
     solidity: 'MIN_PUBLISHER_BOND',
-    python: 'MIN_PUBLISHER_BOND',
+    typescript: 'MIN_PUBLISHER_BOND',
     value: 500_000n * 10n ** 6n,
     note: '3x the largest one-session mispricing gain',
     source: 'paper Table 19',
   },
   {
     solidity: 'CHALLENGER_BOND',
-    python: 'CHALLENGER_BOND',
+    typescript: 'CHALLENGER_BOND',
     value: 50_000n * 10n ** 6n,
     note: 'upper bound on a guessing challenger',
     source: 'paper Table 19',
@@ -366,7 +372,7 @@ function renderSolidity(document: ConstantsDocument): string {
     '',
     '/// @title Constants',
     `/// @notice ${GENERATED_BANNER}`,
-    '/// @dev Produced by tools/gen_constants.py from spec/constants.yaml.',
+    '/// @dev Produced by tools/gen_constants.ts from spec/constants.yaml.',
     '///      Regenerate with `make build`. `make check` fails if this file is stale.',
     '///',
     '///      Every value carries its provenance. A constant that appears in a second source file',
@@ -425,55 +431,14 @@ function renderSolidity(document: ConstantsDocument): string {
   return `${lines.join('\n')}\n`;
 }
 
-function renderPython(document: ConstantsDocument): string {
-  const lines: string[] = [
-    `"""${GENERATED_BANNER}`,
-    '',
-    'Produced by tools/gen_constants.py from spec/constants.yaml.',
-    'Regenerate with `make build`. `make check` fails if this file is stale.',
-    '',
-    'Integers are exact. Nothing here is a float: `domain/` never sees one (brief §7.3).',
-    '"""',
-    '',
-    'from __future__ import annotations',
-    '',
-    'WAD: int = 10**18',
-    '',
-  ];
-  for (const row of UINT_ROWS) {
-    if (row.python === 'WAD') continue;
-    lines.push(`# ${row.note}. Source: ${row.source}.`);
-    lines.push(`${row.python}: int = ${group(row.value)}`);
-  }
-  lines.push('');
-  lines.push('# Bonds, in collateral base units (USDG, 6 decimals). Ruling R2 in DESIGN_NOTES.');
-  for (const row of BOND_ROWS) {
-    lines.push(`# ${row.note}. Source: ${row.source}.`);
-    lines.push(`${row.python}: int = ${group(row.value)}`);
-  }
-  lines.push('');
-  lines.push('# Settlement route costs, in basis points at WAD scale.');
-  for (const row of ROUTE_ROWS) {
-    lines.push(`# ${row.note}. Source: ${row.source}.`);
-    lines.push(`${row.name}: int = ${group(wad(row.decimal))}`);
-  }
-  lines.push('');
-  lines.push('# Chain');
-  lines.push(`CHAIN_ID: int = ${exactInteger(document.deployment.chain_id)}`);
-  lines.push(`FORK_BLOCK_L2: int = ${group(document.deployment.fork_block_l2)}`);
-  lines.push('');
-  return lines.join('\n');
-}
-
 /**
- * The TypeScript module. The one file here with no Python counterpart.
+ * The TypeScript module.
  *
- * **Every value is a `bigint`.** The Python declares `int`, which is arbitrary precision; `bigint` is
- * the only TypeScript type that is the same thing. A `number` would be an IEEE-754 double, and "a
- * monetary value silently became one" is the exact failure the WAD type exists to prevent — so the
- * module is uniform rather than splitting counts from amounts, and a caller that needs a count
- * converts explicitly at that one point, where the conversion is visible and the value is bounded by
- * construction.
+ * **Every value is a `bigint`.** `bigint` is arbitrary precision and a `number` is not: a `number`
+ * would be an IEEE-754 double, and "a monetary value silently became one" is the exact failure the
+ * WAD type exists to prevent — so the module is uniform rather than splitting counts from amounts,
+ * and a caller that needs a count converts explicitly at that one point, where the conversion is
+ * visible and the value is bounded by construction.
  */
 function renderTypeScript(document: ConstantsDocument): string {
   const lines: string[] = [
@@ -483,8 +448,7 @@ function renderTypeScript(document: ConstantsDocument): string {
     ' * Produced by tools/gen_constants.ts from spec/constants.yaml.',
     ' * Regenerate with `make build`. `make check` fails if this file is stale.',
     ' *',
-    ' * Every value is a `bigint`. The Python counterpart of this module declares `int`, which is',
-    ' * arbitrary precision; `bigint` is the only TypeScript type that is the same thing. A `number`',
+    ' * Every value is a `bigint`. `bigint` is arbitrary precision and a `number` is not: a `number`',
     ' * here would be an IEEE-754 double, and "a monetary value silently became one" is the failure the',
     ' * `Wad` type exists to prevent. A caller that needs a count — a loop bound, a slice length —',
     ' * converts explicitly at that one point, where the conversion is visible.',
@@ -500,7 +464,7 @@ function renderTypeScript(document: ConstantsDocument): string {
     if (section !== '') lines.push(`// ${section}`, '');
     for (const row of rows) {
       lines.push(`/** ${row.note}. Source: ${row.source}. */`);
-      lines.push(`export const ${row.python} = ${group(row.value)}n;`);
+      lines.push(`export const ${row.typescript} = ${group(row.value)}n;`);
       lines.push('');
     }
   }
@@ -588,8 +552,9 @@ function renderCanonical(document: ConstantsDocument): string {
       oneSessionGainUsd: exactInteger(row.one_session_gain_usd),
     })),
   };
-  // ensure_ascii=False on the Python side: the fixtures are read by humans as well as by two test
-  // suites, and the provenance strings carry section marks. `JSON.stringify` emits them raw too.
+  // The provenance strings carry section marks and the fixtures are read by humans as well as by two
+  // test suites, so the JSON is emitted with them raw rather than `\u`-escaped. `JSON.stringify` does
+  // that by default; the comment is here because the Python writer this replaced had to ask for it.
   return `${JSON.stringify(payload, null, 2)}\n`;
 }
 
@@ -597,7 +562,6 @@ function main(): number {
   const document = parse(readFileSync(SPEC, 'utf8')) as ConstantsDocument;
   const outputs = new Map<string, string>([
     [SOLIDITY_OUT, renderSolidity(document)],
-    [PYTHON_OUT, renderPython(document)],
     [TYPESCRIPT_OUT, renderTypeScript(document)],
     [CANONICAL_OUT, renderCanonical(document)],
   ]);
