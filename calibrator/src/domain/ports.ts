@@ -58,10 +58,18 @@ export interface DailyBarLike {
  *
  * **Declared, and nothing implements it or calls it, in either language.** In the Python this
  * protocol is referenced once — its own declaration — and `ARCHITECTURE.md` lists it in the port
- * table as though it were wired. It is not; it is the interface G1 (event-session shrinkage) will
- * need, and it is carried here so that the port does not silently drop a declaration, for the same
- * reason `HOLIDAY_SPANS_DAYS` was carried (F59). A reader of the architecture table should not assume
- * a caller exists.
+ * table as though it were wired. It is not; it is carried here so that the port does not silently
+ * drop a declaration, for the same reason `HOLIDAY_SPANS_DAYS` was carried (F59). A reader of the
+ * architecture table should not assume a caller exists.
+ *
+ * **This comment used to say G1 would need it, and G1 landed without it (F89).** The guess was
+ * reasonable — the event session is defined by scheduled announcements, so a fitter for it sounds
+ * like it must fetch announcement dates — and it was wrong: G1's rule is cross-sectional, taking the
+ * per-name estimates Table 17 publishes and shrinking them toward the pool, and it touches no
+ * calendar. What needs this port is *ingestion* — whatever applies `classify` upstream of the
+ * calibrator, which is the same unwritten caller `sessions.ts` already names. The correction is here
+ * rather than deleted because a stale "the next item will need this" is how a declaration acquires a
+ * caller in the reader's head that never existed in the code.
  */
 export interface AnnouncementCalendar {
   /** Scheduled announcement dates for `symbol`, ascending, as ISO 8601 `YYYY-MM-DD`. */

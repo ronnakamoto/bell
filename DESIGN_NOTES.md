@@ -3119,16 +3119,113 @@ number is now checked against the file. And the `rho^2 >= 1` branch needed a sea
 construction: the first two fixtures written for it were refused by the cone instead, and the test would
 have passed while testing the wrong refusal.
 
+## F89 — G1's estimator reproduces Table 17, and the published column resolves the fourth digit of τ
+
+**The rule the tracker states is right; one of its constants is rounded, and the column says so.** G1 is
+"pool the shape, keep the scale": the event session's *shape* is homogeneous and near-Gaussian —
+measured excess kurtosis −0.08 ± 0.48 against 13.24 ± 0.06 for the non-event pool — while its *scale* is
+name-specific and estimable, because the name's own level is pinned by roughly 2,479 non-event
+observations and only the ratio carries event information. A per-name empirical quantile at n = 34 is
+biased low by 13.8% with a spread of 16.4%; the parametric route is −0.4% with a spread of 12.6%. So
+`lambda_C = floor(1 / (q_C * r* * sigma_nonC))`, which is the rule `leverage.ts` already implements —
+`lambda* = 1 / Q_(1-alpha)(|G|)` — with the empirical quantile replaced by `q_C * sigma_C*`. That
+substitution is the whole architecture of §7.10: a quantile needs the tail, a scale does not.
+
+**The estimator is `r*_i = w_i r_i + (1 - w_i) mu` with `w_i = tau^2 / (tau^2 + SE(r_i)^2)`, and `mu` is
+the plain unweighted mean.** Three candidates were tested against the published column, and the
+measurement picks one. Solving each published `r*` for the target it implies gives 4.363776 to 4.379700,
+centred on `mean(r) = 4.371590909...`; the whole spread is explained by the quantisation of the published
+inputs, because the implied target's sensitivity is `1 / (1 - w)` — 62× for XOM, 3.3× for NFLX — so a
+5e-4 rounding in `r*` becomes exactly the deviation observed. The precision-weighted mean is 3.253, which
+is nothing like it, and the median (4.1565) is not either.
+
+**τ's fourth digit is resolved by the table, and the brief's 1.596 loses to it.** The method-of-moments
+estimator `sqrt(var(r) - mean(SE(r)^2))` over the 22 names, with the *sample* variance (`n - 1`), is
+**1.596142018792765...** The `n` form gives 1.554552 and the uncorrected `sqrt(var(r))` gives 1.697890;
+neither reproduces the column, so the variance convention is load-bearing rather than a detail. The
+tracker and the brief both state 1.596, and the paper's §7.10 body rounds it further to 1.58 — so the
+question is which the published `r*` column actually supports, and it is answerable: **fitting τ to that
+column by least squares puts the minimum at 1.596337**, which is 0.012% from the MM estimator and
+therefore two independent routes to the same number. Against that optimum, the brief's rounded 1.596 is
+**6.2% worse in rms**, and against the unrounded estimator 4.0% worse; it misses the published third
+decimal on two names (NFLX, NVDA) where the unrounded value misses on one (NVDA). The paper's 1.58 is 17×
+worse and misses 18 of 22. `spec/constants.yaml` therefore carries 1.596142, not 1.596, and the deviation
+from the tracker is this paragraph rather than a silent edit.
+
+**My own harness reported 12.7% for that comparison, and the number was wrong because the statistic was.**
+The reconnaissance script's "rms" accumulated squared deviations and never took the square root, so every
+ratio it printed was a ratio of variances. 1.0397² is 1.0810 — which is where 8.1% came from, and it is
+not the deviation of anything. The error was caught by the test failing against its own pinned value, and
+the corrected figures are the ones above. The same class of mistake the NIG work hit twice: a plausible
+number from a wrong formula is indistinguishable from a right one until something independent checks it.
+
+**`eventLeverage` takes the scale, not `(r*, sigma_nonC)`, and that is a decision about testability.**
+`sigma_nonC` is *not published* — Table 17 prints only `sigma_C* = r* * sigma_nonC`, to two decimals. A
+signature taking the unpublished input would force every check against the table to reconstruct it as
+`sigma_C* / r*`, which cancels the factor the test claims to be checking and would pass for any
+implementation of the quotient. So the module takes `sigma_C*`, which is the published object, and the
+one composition step is `eventScale`, unit-tested on its own fixture. A test that cannot fail is worse
+than no test, because it reads like evidence.
+
+**The interval is `r* ± SE(r)` — the shrunk point estimate with the *raw* standard error.** Five
+candidates were measured against all 22 published intervals: `r* ± SE(r)` misses 1, `r* ± SE(r*)` misses
+5, `r ± SE(r)` misses 8, `r* ± SE(r*)/w` misses 1, and a τ-inflated form misses 10. Two candidates tie at
+1 miss and `r* ± SE(r)` is the conservative one, which is the direction a published uncertainty band
+should err. It is also the one the paper's caption implies — "the uncertainty on `r*` alone" is the
+standard error of the measurement, not of the shrunk value.
+
+**A real defect in the module's first draft, caught by asserting the order rather than the set.**
+`eventLeverageBand` returned `[13, 10]` for AAPL. The leverage is the *reciprocal* of the scale, so the
+upper multiplier gives the *smaller* leverage, and the two locals were named `high` and `low` for the ends
+they were computed from rather than the ends they are. Ascending is the opposite of the order the
+arithmetic produces. A test comparing the pair as a set would have passed.
+
+**What reproduces.** All 22 `lambda_C` exactly, from the published 2-dp `sigma_C*`; the canonical three
+are NVDA 5, TSLA 5, AAPL 11. All 22 `r*` within 1.0e-3 — a bound *derived* rather than fitted, being the
+sum of two half-steps at 3 dp, since `r` is published at 3 dp and so is `r*` and `r*` is a convex
+combination of `r` and the mean of `r`. Measured worst is NVDA at 9.2866e-4, 93% of the bound, and 21 of
+22 also agree to the published third decimal. The interval reproduces 21 of 22: KO's low end computes to
+17.98 against a published 18, and the scale that would flip it is 0.0216785 — 0.099% below the published
+0.0217, whose own 2-dp quantisation is ±0.23%. The miss is inside the input's rounding, and it is
+recorded rather than absorbed by widening a tolerance that would then hide a real error.
+
+**Two constants had no consumer in either language, which is why G1 needed a generator change.**
+`pooled_shape_q_C` was emitted into `spec/fixtures/canonical.json` as `eventSession.pooledShapeQWad` and
+read by nothing; `cross_sectional_tau` was emitted nowhere at all. Both were declarations awaiting this
+work. They are emitted into `constants.ts` as TypeScript-only rows — the chain receives a leverage, never
+a shape, so `Constants.sol` is the wrong home — and, unlike `UINT_ROWS` and `ROUTE_ROWS`, those two rows
+*read* the YAML rather than transcribing it. See F90 for why that distinction had to be made explicitly.
+
+**One declaration was waiting for a caller that never came, and the comment said otherwise.**
+`ports.ts`'s `AnnouncementCalendar` documented itself as "the interface G1 (event-session shrinkage) will
+need". G1 landed without it: the rule is cross-sectional over per-name estimates the paper publishes, and
+it fetches no announcement date. The guess was reasonable — the event session *is* defined by scheduled
+announcements, so a fitter for it sounds like it must reach a calendar — which is exactly why the
+correction is recorded rather than quietly deleted. What needs that port is ingestion, the same unwritten
+caller `sessions.ts` already names for `classify`.
+
+**Probed, and the probe is the point.** The same discipline G0 used: a coverage claim is worth nothing
+unless the file is instrumented, because a file the config silently excludes reports 100% and reports it
+identically. Planting an unreachable branch in `eventLeverage` — `if (eventScale.raw < 0n) return
+Wad.zero;` after a guard that has already thrown for every `raw <= 0` — makes the checker fail with
+`calibrator/src/domain/shrinkage.ts: statements 97.14% (34/35), branches 91.67% (11/12)` and one
+violation. The domain file count moves 24 → 25, and the restore is byte-identical. `shrinkage.ts` is 231
+lines, under §8.1's limit.
+
+**Verified.** 25 tests in `shrinkage.test.ts`; `check_coverage` reports 25 `domain/` files at 100% on all
+four metrics; `make check` exits 0; `depcruise` finds no dependency violation, so `decimal.js` is still
+the only thing `domain/` may reach.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). **C0 has extended the layout gate** — it now reads three scopes decided separately rather than one inherited, the coverage hints are bounded by an allow-list, the `dist/` rule can no longer pass vacuously, and the one rule the measurement rejected is recorded rather than added (F86). **G0 has landed the NIG fallback** — by method of moments rather than §7.11's maximum likelihood, with the quadrature's range and point count measured against the WAD grid, and with F39's Bessel premise corrected rather than obeyed (F87). Phases A, B and C are complete and G0 is done; what remains is D, E, F and G1–G2 | — |
+| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). **C0 has extended the layout gate** — it now reads three scopes decided separately rather than one inherited, the coverage hints are bounded by an allow-list, the `dist/` rule can no longer pass vacuously, and the one rule the measurement rejected is recorded rather than added (F86). **G0 has landed the NIG fallback** — by method of moments rather than §7.11's maximum likelihood, with the quadrature's range and point count measured against the WAD grid, and with F39's Bessel premise corrected rather than obeyed (F87). **G1 has landed the event-session parameter set** — the shape pooled, the scale shrunk toward the cross-section, all 22 published `lambda_C` reproduced exactly and all 22 `r*` within a derived 1.0e-3, with the fourth digit of τ taken from the column rather than from the brief's rounding (F89). Phases A, B and C are complete and G0 and G1 are done; what remains is D, E, F and G2 | — |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
 | F88 | `erf` computes a continued fraction for arguments above 11, where it is exactly 1 at working precision; measured at 29.2% of the NIG quadrature's calls and a factor of 2.4 on that path | nothing; recorded rather than taken, because `moments.ts` is the Solidity differential's reference and the change is not part of G0 |
-| G1 | event-session shrinkage estimator not shipped (F9 constants pinned from Table 17) | event-session `λC` |
+| F90 | `gen_constants.ts`'s `UINT_ROWS` and `ROUTE_ROWS` carry their values as literals, so they are a second copy of scalars `spec/constants.yaml` also declares and nothing asserts the two agree — the single-source rule is read for structure but transcribed for scalars | nothing today; the TS-only event-session rows read the YAML instead, which is the pattern the rest should follow |
 | G2 | BELL-IV inversion and freshness stamp are not built | Table 31 P1 |
 | F84 | the two services have no entry point, and the brief describes them as services without supplying one | the deployment story |
 | F85 | `ruff`'s `I` had a second half — import *ordering* — and no gate enforces it | nothing; recorded rather than closed, because closing it needs an import-sorting plugin and a tree-wide reformat |

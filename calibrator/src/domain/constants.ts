@@ -81,6 +81,14 @@ export const MIN_PUBLISHER_BOND = 500_000_000_000n;
 /** upper bound on a guessing challenger. Source: paper Table 19. */
 export const CHALLENGER_BOND = 50_000_000_000n;
 
+// Event session (C), read by the off-chain shrinkage rule only.
+
+/** q_C, the pooled shape constant: median over names of Q_0.99(|G_C|) / sigma_C. Source: paper §7.10, Table 17. */
+export const EVENT_SESSION_POOLED_SHAPE_Q_WAD = 2_294_000_000_000_000_000n;
+
+/** tau, the cross-sectional spread of the event multiplier r = sigma_C / sigma_nonC. Source: derived from paper Table 17 (F9, F89); unrounded, not the brief's 1.596. */
+export const EVENT_SESSION_CROSS_SECTIONAL_TAU_WAD = 1_596_142_000_000_000_000n;
+
 // Settlement route costs, in basis points at WAD scale.
 
 /** void at 0.50. Source: paper Table 22. */

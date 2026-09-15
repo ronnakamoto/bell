@@ -132,6 +132,53 @@ interface RouteRow {
   readonly source: string;
 }
 
+/**
+ * A row with a TypeScript consumer and no Solidity one.
+ *
+ * The single-source rule says `spec/constants.yaml` is the only place a domain constant is written
+ * down; it does not say every consumer is Solidity. The event session's shape constant and
+ * cross-sectional spread are read by the off-chain shrinkage rule and by nothing on chain — the
+ * chain receives a leverage, never a shape — so they are emitted here and deliberately not into
+ * `Constants.sol`.
+ *
+ * **These two read the YAML rather than transcribing it, unlike `UINT_ROWS` and `ROUTE_ROWS`.** Those
+ * tables carry their values as literals, which makes them a second copy of scalars the YAML also
+ * declares and nothing asserts the two agree — recorded as F90. Reproducing that pattern here would
+ * have meant writing `1.596142` in two places, and the whole reason the constant is being emitted at
+ * all is that a second copy can diverge silently. So this table is a function of the parsed document
+ * and cannot.
+ *
+ * `pooled_shape_q_C` already reached `spec/fixtures/canonical.json` as `eventSession.pooledShapeQWad`
+ * before this table existed, and that emission is read by nothing — neither the Solidity suite nor the
+ * TypeScript one. It is left in place rather than removed here because the fixture is a published
+ * object with its own readers; the constant now has a real consumer on this side.
+ * `cross_sectional_tau` had no consumer at all in either language. Both were declarations awaiting
+ * G1, which is this.
+ */
+interface TypeScriptOnlyRow {
+  readonly typescript: string;
+  readonly value: bigint;
+  readonly note: string;
+  readonly source: string;
+}
+
+function typescriptOnlyRows(document: ConstantsDocument): readonly TypeScriptOnlyRow[] {
+  return [
+    {
+      typescript: 'EVENT_SESSION_POOLED_SHAPE_Q_WAD',
+      value: wad(document.event_session.pooled_shape_q_C.value),
+      note: 'q_C, the pooled shape constant: median over names of Q_0.99(|G_C|) / sigma_C',
+      source: 'paper §7.10, Table 17',
+    },
+    {
+      typescript: 'EVENT_SESSION_CROSS_SECTIONAL_TAU_WAD',
+      value: wad(document.event_session.cross_sectional_tau.value),
+      note: 'tau, the cross-sectional spread of the event multiplier r = sigma_C / sigma_nonC',
+      source: "derived from paper Table 17 (F9, F89); unrounded, not the brief's 1.596",
+    },
+  ];
+}
+
 const UINT_ROWS: readonly Row[] = [
   {
     solidity: 'WAD',
@@ -352,6 +399,7 @@ interface ConstantsDocument {
   readonly event_session: {
     readonly pooled_shape_q_C: { readonly value: string };
     readonly gaussian_shape_reference: { readonly value: string };
+    readonly cross_sectional_tau: { readonly value: string };
   };
   readonly bond_sizing: {
     readonly rows: readonly {
@@ -467,6 +515,13 @@ function renderTypeScript(document: ConstantsDocument): string {
       lines.push(`export const ${row.typescript} = ${group(row.value)}n;`);
       lines.push('');
     }
+  }
+
+  lines.push('// Event session (C), read by the off-chain shrinkage rule only.', '');
+  for (const row of typescriptOnlyRows(document)) {
+    lines.push(`/** ${row.note}. Source: ${row.source}. */`);
+    lines.push(`export const ${row.typescript} = ${group(row.value)}n;`);
+    lines.push('');
   }
 
   lines.push('// Settlement route costs, in basis points at WAD scale.', '');

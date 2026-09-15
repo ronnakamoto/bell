@@ -62,6 +62,30 @@ likelihood, because MLE's 2–6% variance understatement on short windows is exa
 fallback exists for, and it refuses a window whose standardised shape falls outside the family
 rather than mis-fitting it (F87).
 
+## The event session (paper §7.10)
+
+The event session is the one session where a per-name empirical quantile cannot be published: 34
+observations against 7.2 expected tail draws, which the paper measures as a 13.8% one-signed bias in
+`Q` with a 16.4% spread. But the two quantities a quantile conflates separate cleanly. The *shape* is
+homogeneous and near-Gaussian — measured excess kurtosis −0.08 ± 0.48 against 13.24 ± 0.06 for the
+non-event pool — and is pooled into a single constant `q_C = 2.294`. The *scale* is name-specific and
+estimable, because the name's own level is pinned by roughly 2,479 non-event observations and only the
+ratio carries event information, so `r = sigma_C / sigma_nonC` is shrunk toward the cross-section with
+weight `tau^2 / (tau^2 + SE(r)^2)`.
+
+`lambda_C = floor(1 / (q_C * r* * sigma_nonC))` is therefore the same rule `leverage.ts` already
+implements, with the empirical quantile replaced by the parametric one `q_C * sigma_C*`. **G1 has landed
+it** in `domain/shrinkage.ts`: all 22 of Table 17's `lambda_C` reproduce exactly from the published
+two-decimal `sigma_C*`, all 22 `r*` land within a derived `1.0e-3` bound, and the interval reproduces 21
+of 22 with the single miss shown to be inside the published input's own rounding. The cross-sectional
+spread is carried unrounded — the column resolves the fourth digit, and the brief's `1.596` is measurably
+worse than `1.596142` (F89).
+
+`AnnouncementCalendar` is still declared and still uncalled, and G1 did not need it: the shrinkage is a
+cross-sectional rule over published per-name estimates, and nothing in it fetches an announcement date.
+The port that *does* need it is ingestion, which is what applies `classify` upstream of the calibrator —
+see the note on that port.
+
 ## BELL-IV (paper §5.2)
 
 Because `E[min(|G|, c)]` is strictly increasing in `σ` and maps `[0, ∞)` onto `[0, c)`, the pool
