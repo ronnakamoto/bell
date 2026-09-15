@@ -83,6 +83,20 @@ export default tseslint.config(
         'error',
         { considerDefaultExhaustiveForUnions: false },
       ],
+      // An intentionally unused *parameter* is marked with a leading underscore.
+      //
+      // This is parity with the Python side rather than a relaxation of it: `ruff`'s `ARG` is not in
+      // that workspace's selection, so an unused function argument is not flagged there at all, and
+      // `settlement/tests/unit/test_ports.py` has two. The port needs the convention for a reason the
+      // Python does not have to state — a port's signature is imposed by the interface it satisfies,
+      // so the *smallest conforming object* necessarily ignores its arguments, and renaming them to
+      // something the body reads would be a lie about what the stub is.
+      //
+      // The gate still catches the case it exists for: a parameter renamed in a signature but not in
+      // the body is only ignored if the author prefixed it, which is a deliberate act. `varsIgnorePattern`
+      // is deliberately **not** set — a local that nothing reads is a defect whatever it is called,
+      // and only parameters have a reason to be unused.
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
 

@@ -15,9 +15,9 @@
  * 1. **`publish` is `async`.** The Python's `ParameterPublisher.publish` returns `str` synchronously,
  *    which is honest for its only implementation — a recording double in a test — and wrong for the
  *    real one, which posts a transaction. The port's other outward-facing ports already return
- *    promises (`GapSource.dailyBars`, `CommittedInputStore.rowsDigest`), so the port matches them
- *    rather than the Python. The refusal path still returns without awaiting anything, which is what
- *    the "the publisher is not called on a refusal" test is about.
+ *    promises (`GapSource.dailyBars`, and the settlement's `CommittedInputStore.rowsDigest`), so the
+ *    port matches them rather than the Python. The refusal path still returns without awaiting
+ *    anything, which is what the "the publisher is not called on a refusal" test is about.
  * 2. **`current_session` is an options object rather than a keyword-only argument.** TypeScript has no
  *    keyword-only parameters; `publish(request, publisher, keccak, { currentSession })` keeps the call
  *    site readable at the one position where a bare `10n` would be ambiguous against `forSession`.

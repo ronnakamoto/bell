@@ -49,29 +49,6 @@ export interface DailyBarLike {
 }
 
 /**
- * Where a committed fit's raw inputs are retrieved from.
- *
- * The digest is the key, not the session: the commitment names an `inputsHash`, and a store that
- * could only be asked by session could return a different input set from the one committed.
- *
- * **This port is the settlement service's, not the calibrator's.** In the Python it is declared in
- * `bell_settlement.domain.ports`; here it sits beside the calibrator's ports because there is no
- * `settlement/src/` yet. Recorded as F62 rather than left as an accident — A6 owns the move, once
- * `ReferencePrint` exists and the settlement's own `ports.ts` can be complete rather than a single
- * declaration in a directory of one file.
- */
-export interface CommittedInputStore {
-  /**
-   * The digest of the rows the committed fit consumed, or `undefined` if they are unavailable.
-   *
-   * `undefined` rather than an exception, because an unavailable input is an ordinary outcome that
-   * adjudication reports as `InputsUnavailable`. Making it an exception would force every caller to
-   * catch one to say the same thing.
-   */
-  rowsDigest(inputsHash: Uint8Array): Promise<Uint8Array | undefined>;
-}
-
-/**
  * A source of *scheduled* announcement dates.
  *
  * Scheduled, not reported. The distinction is the whole basis of the event-session calibration:
@@ -102,8 +79,9 @@ export interface AnnouncementCalendar {
  * **Asynchronous, where the Python's is a plain call.** The Python returns `str` synchronously, which
  * is honest for its only implementation — a recording double — and wrong for the real one, which
  * posts a transaction. The port's other outward-facing ports are already `Promise`-returning for the
- * same reason (`GapSource.dailyBars`, `CommittedInputStore.rowsDigest`), so this matches them rather
- * than the Python. The consequence is that `publish` is `async`; see `application/publish.ts`.
+ * same reason (`GapSource.dailyBars` here, and the settlement's `CommittedInputStore.rowsDigest`),
+ * so this matches them rather than the Python. The consequence is that `publish` is `async`; see
+ * `application/publish.ts`.
  */
 export interface ParameterPublisher {
   /** Commit `parameters` for `forSession`; return the commitment digest as `0x`-prefixed hex. */

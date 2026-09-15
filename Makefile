@@ -46,6 +46,8 @@ build: ## Generate spec-derived artifacts, then compile everything
 	$(PYTHON) $(TOOLS)/gen_digest_fixture.py
 	@echo "== compiling contracts =="
 	cd $(CONTRACTS) && forge build
+	@echo "== compiling the TypeScript workspaces =="
+	npm run build
 
 # ---------------------------------------------------------------------------- test
 
@@ -144,6 +146,18 @@ check-coverage: check-python ## Every coverage rule the brief states, asserted r
 
 # The surrounding code is TypeScript (ruling R5). These targets are the counterparts of the Python
 # ones above, and they run alongside them while the port is in progress.
+#
+# **`ts-build` is a prerequisite of both `ts-test` and `ts-check`, and it is not a formality.** The
+# settlement consumes the calibrator through its `exports` map, which points at `dist/` -- so with no
+# build, `tsc` reports `Cannot find module '@bell/calibrator/domain/...'` and vitest cannot resolve the
+# same specifier at runtime. That dependency was invisible until A6 created the first cross-workspace
+# import, which is why it was not a prerequisite before. The alternative -- a `paths` mapping from the
+# specifier to `../calibrator/src/` -- would make the type checker read sources while node runs `dist`,
+# i.e. check one thing and execute another, which is the divergence this repository exists to avoid.
+#
+# The prerequisite also removes a staleness hazard the tests would otherwise have: editing a
+# calibrator domain module and running the settlement suite without rebuilding would exercise the
+# *previous* build and pass.
 
 ts-install: ## Install the TypeScript workspaces
 	npm install
@@ -151,10 +165,10 @@ ts-install: ## Install the TypeScript workspaces
 ts-build: ## Compile the TypeScript workspaces
 	npm run build
 
-ts-test: ## The TypeScript suites
+ts-test: ts-build ## The TypeScript suites
 	npm run test
 
-ts-check: ## Format, lint, types and the §5.3 dependency rule, for TypeScript
+ts-check: ts-build ## Format, lint, types and the §5.3 dependency rule, for TypeScript
 	npm run format:check
 	npm run lint
 	npm run typecheck

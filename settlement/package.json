@@ -3,5 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "BELL settlement-route evaluation and challenge adjudication"
+  "description": "BELL settlement-route evaluation and challenge adjudication",
+  "dependencies": {
+    "@bell/calibrator": "0.1.0"
+  }
 }

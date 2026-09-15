@@ -283,6 +283,28 @@ export function hexOf(bytes: Uint8Array): string {
   return out;
 }
 
+/**
+ * Whether two byte arrays hold the same bytes.
+ *
+ * **`===` on two `Uint8Array`s is reference equality, and Python's `bytes == bytes` is not.** This
+ * is the port's only translation whose *wrong* form is the one that looks right: `computed ===
+ * expected` reads exactly like the Python's `computed == expected` and compiles, and it is `false`
+ * for two arrays holding identical bytes that were not created by the same expression. In
+ * `adjudication.ts` that turns a digest that does reproduce into a reported `DigestMismatch` — so a
+ * challenger whose challenge cannot lose is told it cannot win, and the mechanism that makes a
+ * challenge a verification degrades back to testimony.
+ *
+ * Named and exported rather than inlined at the two call sites, because the failure is a *shape* a
+ * reader has to recognise and `bytesEqual(a, b)` cannot be misread the way `a === b` can.
+ */
+export function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) return false;
+  }
+  return true;
+}
+
 /** Parse a `0x`-prefixed hex string into bytes. Rejects an odd length or a non-hex character. */
 export function bytesFromHex(text: string): Uint8Array {
   const body = text.startsWith('0x') ? text.slice(2) : text;

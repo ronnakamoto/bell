@@ -5,7 +5,7 @@
   "type": "module",
   "description": "BELL off-chain calibration and publishing service",
   "exports": {
-    "./domain/*": {
+    "./domain/*.js": {
       "types": "./dist/domain/*.d.ts",
       "default": "./dist/domain/*.js"
     }

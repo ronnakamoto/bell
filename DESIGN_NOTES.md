@@ -2241,11 +2241,125 @@ The port does not refuse this one — it has exactly eighteen decimal places, so
 digits where Python's ambient context carries 28. The guard and the precision close the same defect from
 two directions, and only the fixture shows that either is doing anything.
 
+## F67 — The probe harness only ran in the terminal that wrote it
+
+`probe.py` shells out to `.recon/a6/dump.py` through `subprocess.run(...)`, which inherits the
+environment and passes nothing of its own. `dump.py` imports `bell_calibrator` and `bell_settlement`,
+which are importable only when `PYTHONPATH=calibrator/src:settlement/src` is exported — and `dump.py`'s
+own docstring said so, which is precisely why the requirement stayed invisible: every run so far had
+been typed by hand, into a shell where it held.
+
+Run from a bare shell, the harness printed
+
+```
+the oracle dump failed; nothing to probe against
+```
+
+and returned **before probing anything**. That message reads like a diagnosis of the code under test. It
+was the harness failing to start. Had this been the first and only run, A6 would have been recorded as
+"16 probes, all behaving as declared" with none of them having run — which is F53 and F66's lesson in a
+third form: not a check that enforces nothing, but a check that never executed, and a failure message
+that points at the wrong thing.
+
+`dump.py` now puts the two source roots on `sys.path` itself, so both it and `probe.py` run from a bare
+shell. The general form is narrower than "test your tests": **a harness that depends on ambient state is
+reproducible only for the person who set that state, and that person is the one least able to notice it
+is missing.**
+
+## F68 — Three fixtures that never reached the branch they were written for
+
+Probing a gate with a deliberate break does two things at once: it proves the acceptance test catches a
+break, and it proves the *fixtures* are adequate to catch it. Three of A6's sixteen breaks were initially
+not caught by the differential at all, because no fixture sat on the boundary the branch tests:
+
+- **`r4_band_exclusive`** (`<=` → `<` on the plausibility band) survived. No input had a magnitude
+  exactly equal to the band, so the two operators agreed on every case. Added `at_band`,
+  `gap_wad = 250000000000000000`.
+- **`age_not_floored`** (dropping the `now >= timestamp` guard in `age`) survived. The guard only fires
+  for a print *newer* than `now`, and it is only *observable* when the freshness bound is zero or less —
+  otherwise a negative age is still inside the bound. Added
+  `select/future_negative_freshness` (`freshness_bound: -1, stale_bound: 0`).
+- **`premium_tolerance_inclusive`** (`>` → `>=` against `PREMIUM_TOLERANCE_WAD`) survived. The three
+  premium fixtures used deltas of ~5×10¹⁰ against a tolerance of 5×10¹³, so all three landed far inside
+  the bound and the two operators agreed on every one of them. Corrected to `174049999999999999` /
+  `174050000000000000` / `174050000000000001` — tolerance−1, tolerance, tolerance+1.
+
+The third is the one worth keeping, because the fixture *looked* like a boundary test: it is named
+`adj/upheld_at_tolerance` and it was not at the tolerance. **A fixture whose name asserts a boundary it
+does not sit on is worse than no fixture at all, because it closes the question.**
+
+## F69 — Two build defects that only the cross-workspace edge could reveal
+
+A6 is the first item that makes the settlement import the calibrator (`settlement/src/domain` →
+`@bell/calibrator/domain`, one-way, enforced by `.dependency-cruiser.cjs`). Both defects below had been
+present — and invisible — for exactly as long as that edge did not exist.
+
+- **The calibrator's `exports` map was off by one extension.** It read
+  `"./domain/*": { "default": "./dist/domain/*.js" }`, so the specifier
+  `@bell/calibrator/domain/constants.js` — the one TypeScript's `NodeNext` resolution requires, and the
+  only one a reader would write — resolved to `dist/domain/constants.js.js`. Nothing outside the
+  calibrator had ever imported the calibrator, so it had never been exercised once.
+- **`make build` did not compile TypeScript.** `ts-test` and `ts-check` resolve the calibrator through
+  `exports` → `dist/`, so on a fresh clone they failed on a missing `dist/`. `npm run build` is now part
+  of `build`, and `ts-build` is a prerequisite of both. A `paths` mapping to `../calibrator/src/` would
+  have *hidden* this by making the type checker read sources while node ran `dist` — two different
+  programs, one build.
+
+Both were found by probing the gate rather than reading it: the first by importing across the new edge
+and watching it fail, the second by running the tests in a tree that had no `dist/`. Neither is
+detectable by any test that lives inside a single workspace, which is the reason a monorepo's first
+cross-workspace import is worth running early and on purpose.
+
+## F70 — `decimal.js`'s ambient precision is 20, and the payoff-observable drift is the *small* one
+
+`decimal.js` defaults to **20** significant digits; CPython's `decimal` default context carries **28**.
+The port had inherited the 20 by using the bare `Decimal` constructor, and in `adjustedGapWad` —
+`(1 + G) · m_reg / m_now`, then truncated to a WAD — that is short by exactly enough.
+
+The quotient's integer part is **eighteen digits**, so 20 significant digits leave only **two** fractional
+places, and the true fraction here is `.99627…`, which rounds up in the second place and carries into the
+integer part. With `gapWad = −0.02·WAD` and `multiplierNow = 1.000318` the exact quotient is
+`979688459070015734.996271185762927389…`:
+
+| working precision | the division rounds to | truncate | `adjustedGapWad` |
+|---|---|---|---|
+| 20 (`decimal.js` default) | `979688459070015735.00` | `…735` | `−20311540929984265` |
+| 28 (CPython default) | `979688459070015734.9962711858` | `…734` | `−20311540929984266` |
+
+One wei, which `payoffLongWad` multiplies by `λ = 15` → **15 wei of payoff** (`304673113949763990`
+against `304673113949763975`), and well below the cap, so it is not absorbed.
+
+**The larger drift hides it, and that is the trap.** At `multiplierNow = 0.100052` the two precisions
+still disagree by one wei in the adjusted gap (`8794906648542757766` against `…765`), but the payoff is
+`WAD` under both, because `15 × 8.79×10¹⁸` saturates. So the divergence is visible in the quantity the
+contract actually pays *only* at the small drift, and the ported suite's corporate-action case — a 2%
+drift, which truncates identically at 20 and at 28 — does not reach it either. `probe.py`'s `precision_20`
+probe therefore has the shape the tracker's rule is written for: **caught by the differential, clean in
+the suite.**
+
+Fixed with a named `D28 = Decimal.clone({ precision: 28 })`. Named, and not `D`, because `moments.ts`
+already exports a `D` at 50 digits and the two must not be confusable at a call site.
+
+## F71 — Reference equality on `Uint8Array` is the port's only translation whose wrong form looks right
+
+Every other translation in this port fails loudly when it is wrong. `left === right` on two
+`Uint8Array`s does not. It compiles, it type-checks, it reads as the obvious spelling of "are these the
+same bytes", and it compares two *object identities*. Python's `bytes == bytes` is content equality. The
+consequence is the worst available one: the oracle's `digest_matches` and the port's would disagree for
+every *correct* digest, so the port would report `DigestMismatch` on exactly the inputs that should pass
+— i.e. slash every honest publisher, and do it deterministically.
+
+`bytesEqual` was added to the calibrator's `models.ts` beside `hexOf`, with its header stating that it is
+the port's only translation of this kind, and it is used at both digest-comparison sites. `probe.py`'s
+`bytes_equal_by_reference` probe confirms the ported suite catches the substitution, so the guard is
+demonstrated rather than declared. The general form: **a language's `==` is not a semantics that carries
+over for free, and the dangerous cases are the ones where the wrong spelling is the shorter one.**
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` and `application/` are written and verified against the committed fixtures — `digest`, `moments`, `constants`, `leverage`, `sessions`, `dates` and `families` — the application layer against a 1,203-line differential dump and the CSV adapter against a 58-fixture one; the settlement service, the remaining tools and the remaining ported tests follow | the port |
+| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` and `application/` are written and verified against the committed fixtures — `digest`, `moments`, `constants`, `leverage`, `sessions`, `dates` and `families` — the application layer against a 1,203-line differential dump, the CSV adapter against a 58-fixture one, and the **settlement workspace** (`prints`, the five routes, `adjudication`) against a 125-case one; the remaining tools and the remaining ported tests follow | the port |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
