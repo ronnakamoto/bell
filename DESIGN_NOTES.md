@@ -1943,11 +1943,92 @@ ingestion is expected to apply upstream of the calibrator, and nothing asserts t
 Recorded because it is the kind of thing a reader of the pipeline assumes is wired: the classification
 is tested, and tested well, but the label on a session in the pipeline does not come from here yet.
 
+## F60 — The ambient-precision defect is systemic, and observability depends on what a function returns
+
+F57 found `realised_saturation_rate` dividing through `decimal`'s ambient context. It is not one
+function's slip. An AST sweep of every function in `domain/` that does decimal arithmetic without
+wrapping it in `localcontext` finds **nine sites across four modules**:
+
+| module | function | the precision-sensitive step | returns |
+|---|---|---|---|
+| `leverage.py` | `realised_saturation_rate` | the division | a raw `Decimal` |
+| `leverage.py` | `empirical_quantile` | `probability * Decimal(len)` | an `int` rank |
+| `models.py` | `from_decimal` | `value * 1e18` | an `int` |
+| `models.py` | `to_decimal` | `Decimal(raw) / 1e18` | a raw `Decimal` |
+| `moments.py` | `truncated_abs_moment` | `1 / lam`, before the guarded cap form | a `Decimal` |
+| `families/base.py` | `sigma_wad` | the mean, the squared deviations, the sqrt | an `int` |
+| `families/base.py` | `quantile_magnitude_wad` | `probability * Decimal(len)` | an `int` |
+| `families/gaussian.py` | `dimensionless` | the division by 1e18 | a raw `Decimal` |
+| `families/gaussian.py` | `to_wad` | the multiply by 1e18, before rounding | an `int` |
+
+**Which of them are observable is decided by one thing: whether the result is quantised to a WAD
+integer.** The ambient error at 28 digits is a relative 1e-28, so on a value of order 1e16 it is about
+1e-11 of a wei — invisible unless the true result falls within 1e-11 of a quantisation boundary.
+A function ending in `int(...)` discards that difference; a function returning the `Decimal` itself
+does not.
+
+Measured, and the measurements are the whole of the argument:
+
+- `sigma_wad` over **240** samples — sizes 2 to 5,000, gaps drawn across the full WAD range — computed
+  at precision 28 and at 50: **zero** disagreements. `gaussian_premium_wad` over **400** random
+  `(lambda, sigma)` pairs: **zero**.
+- `realised_saturation_rate`, F57's site: differs, visibly — 28 significant digits against 50.
+- `to_decimal` and `from_decimal`: **they differ**, for a raw above roughly 1e28.
+  `Wad(10**31 + 123456789).to_decimal()` is `1000000000000.000000000123457` at 28 digits and
+  `1000000000000.000000000123456789` at 50; `from_decimal("123456789012345678.123456789012345678")`
+  gives `...123456789000000000` against `...123456789012345678`.
+
+So the class has **two observable members and seven masked ones**, and the masking is an accident of the
+WAD grid rather than a property anyone chose. The `to_decimal` member needs a quantity above 1e10 to
+reach, which this protocol does not carry — latent, not live, and recorded as latent rather than
+dropped.
+
+**The port states the precision at every one of the nine**, through the domain's single `Decimal.clone`
+in `moments.ts`, rather than inheriting it. That is a departure from the Python in principle and, for
+the seven masked sites, unobservable in fact — which is stated rather than relied on, because "it
+happens not to show" is not the same as "it is not there". The two live sites are the ones to watch if
+the WAD grid ever widens.
+
+## F61 — The oracle's suite cannot tell floor division from truncating division, and the difference is observable
+
+Every `//` in the Python was translated to an explicit `floorDiv`, because `bigint`'s `/` truncates
+toward zero and the two disagree by one whenever the quotient is negative and inexact: `(-1n) / 3n` is
+`0n`, where `-1 // 3` is `-1`. This is not a theoretical case. `relative_error_wad` divides
+`(estimated - reference) * WAD` by `reference`, and for the light-tailed sample its own test asserts,
+that numerator is **negative** — so the difference is one wei on a quantity the registry publishes.
+
+**The Python's test suite passes under either operator.** Verified by probing the port: replacing
+`floorDiv` with `/` in `relativeErrorWad` leaves all 31 ported tests green, because
+`relative_error_wad(90 * WAD, 100 * WAD)` divides exactly — the assertion the Python chose is one where
+floor and truncation agree. Only the differential run against the oracle found it, and it found it as
+**7 diverging fields**.
+
+The same probe run produced the useful contrast:
+
+| deliberate break | ported suite | differential |
+|---|---|---|
+| `sigma_wad` rounds instead of truncating | 1 failure | 19 fields |
+| **`floorDiv` becomes truncating division** | **passes** | **7 fields** |
+| `to_wad` truncates instead of rounding half-even | 1 failure | 68 fields |
+| `truncated_mean_wad` stops capping | 3 failures | 81 fields |
+| `familyFor` merges its two refusal types | 1 failure | 0 fields |
+| *control:* `floorDiv` becomes `/` where both operands are non-negative | passes | 0 fields |
+
+Two things to take from it. The **negative control** matters as much as the others: a break that
+genuinely cannot change the answer must leave both checks clean, or "the differential catches things"
+and "the differential fails on any edit" would look the same. And the two checks are **complementary,
+not redundant** — the suite is the only thing that sees the error *type* (`familyFor`), the
+differential is the only thing that sees the floor/truncate divergence.
+
+Recorded because the port's acceptance test is not the oracle's suite. A translated operator that the
+oracle's own assertions cannot distinguish is exactly the kind of thing a green suite hides, which is
+F55's lesson in a different costume.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` is written and verified against the committed fixtures — `digest`, `moments`, `constants`, `leverage` and `sessions`; `families`, the application layer, the adapters, the settlement service, the remaining tools and the remaining ported tests follow | the port |
+| R5 | the TypeScript port is **in progress**: the calibrator's `domain/` is written and verified against the committed fixtures — `digest`, `moments`, `constants`, `leverage`, `sessions` and `families`; the application layer, the adapters, the settlement service, the remaining tools and the remaining ported tests follow | the port |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
