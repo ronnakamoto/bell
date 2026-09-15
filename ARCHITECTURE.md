@@ -93,10 +93,39 @@ price `pL` inverts uniquely into an implied session volatility (Eq 13). The prot
 publishes, continuously and permissionlessly, a closed-session implied-vol term structure — a risk
 input for lending haircuts and market-maker quoting, independent of the derivative itself.
 
+The root-find is done in the **truncation ratio** `u = c/σ` rather than in `σ`, and that is what makes
+the surface's two guarantees derivable. With `g(u) = E[min(|Z|, u)]` and `λσ = 1/u`, the equation
+`λ E[min(|G|, c)] = pL` becomes `g(u)/u = pL` — a function of `u` alone, with the leverage entering
+only through the final `σ = 1/(λu)`. Three consequences: the map is a fixed strictly-decreasing
+`h : (0, ∞) → (0, 1)`, so the root is unique and independent of the leverage; **`pL ≥ 1` has no
+solution at all**, which is the saturation ceiling `λc = 1` restated and is refused rather than
+inverted; and the relative error in `u` *is* the relative error in `σ`. The bracket is closed form —
+`u ≥ (1 − pL)/√(2/π)` from `h(u) ≥ 1 − 2φ(0)u`, and `u ≤ √(2/π)/pL` from the Mills ratio — so no
+search is needed and Newton converges inside it.
+
+**G2 has landed it** in `domain/implied.ts`. The 112 points of the committed `moments.json` are the
+corpus: inverting each `premiumWad` recovers the Python reference's `sigmaWad` with a worst relative
+error of 3.195e-17 against the paper's M15 bound of 1.16e-13. The accuracy is not a number the
+algorithm reaches but the input's information content — the price arrives as a `Wad`, so the root-find
+stops at one wei and the bound is `quantum/(pL·|e_h|)`, which the suite checks at every point (worst
+0.637 of it). Two published figures do not survive measurement and are recorded rather than smoothed
+over: M14's 4.023e-01 is the moment at ratio one half, a derivative along a ray rather than the
+fixed-leverage derivative its stated purpose needs, which on the same grid bottoms at 0.0938; and X8's
+"unity to within 0.21% while `c/σ ≥ 3`" is 1.027% at `c/σ = 3`, reaching 0.21% at 3.4924 (F91).
+
 BELL-IV is a function of the pool price, so a pool that has not traded reports the old volatility
 exactly. The guard is provenance stamping with a freshness bound and a named trailing-realised
-fallback (paper G2/T2, Table 31 P1). **This surface is not built yet.** The truncated moment is
-on-chain; the inversion and the freshness stamp are not. See `.workbuddy-ai/TODO.md` Phase G.
+fallback (paper G2/T2, Table 31 P1), and it is three decisions rather than a check. The bound is
+**inclusive**, because Table 19's rotation period equals the staleness bound. Past it with no fallback
+the call **refuses** — Table 19's "the pool refuses to price rather than pricing on a stale fit" — and
+returns a reading rather than a boolean, so a caller cannot render a refusal as a number. A reading
+carries its provenance as a named union, because `trailing-realised` is a different claim from `pool`.
+
+**Nothing calls the surface yet, in either direction.** `impliedVolatility` has no reader of a live
+pool price and `publishedVolatility` has no publisher: both are the web app's job (F1, Phase F), which
+the brief also requires to render the freshness stamp or omit the number. Until then the module is
+reachable only from its own suite — the same position `AnnouncementCalendar` is in, and recorded for
+the same reason.
 
 ## The service layering
 

@@ -3216,17 +3216,142 @@ lines, under §8.1's limit.
 four metrics; `make check` exits 0; `depcruise` finds no dependency violation, so `decimal.js` is still
 the only thing `domain/` may reach.
 
+## F91 — G2 inverts the pool price in the truncation ratio, and M14 measures a derivative its stated purpose does not need
+
+**The rule is Eq (13), and the root-find belongs in a different variable from the one the paper writes it
+in.** G2 is "the unique `sigma` solving `lam * E[min(|G|, c)] = pL` with `c = 1/lam`". Writing `u = c/sigma`
+and `g(u) = E[min(|Z|, u)]` gives `E[min(|G|, c)] = sigma g(u)` and `lam sigma = 1/u`, so
+
+    lam * E[min(|G|, c)]  =  g(u) / u  =  h(u),
+
+and the equation is `h(u) = pL` — a function of `u` **alone**, with the leverage entering only through the
+final `sigma = 1/(lam u)`. That is the same equation, in the variable that makes it well conditioned, and
+three things follow that the volatility form does not give:
+
+- `h` is a fixed map `(0, inf) -> (0, 1)`, strictly decreasing (`h'(u) = -2(phi(0) - phi(u))/u^2 < 0`), so
+  the inversion is a one-dimensional monotone root-find whose answer does not depend on the leverage.
+- The reachable set is **provable** rather than asserted. `h(u) < 1` for every `u`, so `pL >= 1` has no
+  solution at all — the same statement as `lam c = 1`, the saturation ceiling. The module refuses such a
+  price instead of returning the large `sigma` a bisection would hand back.
+- The relative error in `u` *is* the relative error in `sigma`, because `sigma = 1/(lam u)`. So the paper's
+  M15 bound is a statement about solving `h(u) = pL`, and that is what the suite measures.
+
+**The bracket is closed form, and the reason it had to be is that the suite timed out.** The first draft
+bisected with a doubling search, which is correct and needs about sixty moment evaluations per inversion.
+`moments.ts` computes at fifty digits and one evaluation costs ~3 ms, so the 112-point round trip took over
+five seconds and vitest killed it. The fix is not a bigger timeout: two bounds on `h` hold for every
+`u > 0` and bound the root with no search at all.
+
+    h(u) >= 1 - 2 phi(0) u   gives   u >= (1 - pL) / sqrt(2/pi)
+    h(u) <= sqrt(2/pi) / u   gives   u <= sqrt(2/pi) / pL
+
+The second is the Mills ratio, `1 - Phi(u) <= phi(u)/u`. The first follows from `h(u) >= 2(1 - Phi(u))`,
+whose two sides agree to first order at zero. Both are written in `sqrt(2/pi)`, which is exactly `2 phi(0)`
+— and which is also `E[|Z|]`, so this is a third place where the F16 confusion between it and
+`TWO_OVER_SQRT_PI` would be silent. Newton inside that bracket converges quadratically, a rejected step
+falls back to bisecting it, and the 112 inversions now take **892 ms** — about eight evaluations each
+rather than sixty.
+
+**The paper's M14 check is reproduced to four figures, and identifying it is the finding.** The published
+"minimum discrete derivative over 5 truncation ratios × 400 volatilities is 4.023e-01" is
+
+    unitCapMoment(1/2) = 0.402291446000253296692826626067,
+
+which says what the quantity is: `dE/dsigma` along a ray where the cap scales with `sigma`, i.e. `g(u)`
+itself. The derivative that governs invertibility at a **fixed** leverage is a different one,
+`2(phi(0) - phi(u))`, and on the same five-ratio grid its minimum is
+**0.093753907274266400330531236676** — smaller by a factor of 4.29. The two are related by the exact
+identity `g(u) = 2(phi(0) - phi(u)) + 2u(1 - Phi(u))`, and at `u = 1/2` the tail term is `0.3085`, which
+is 3.3× the term that actually bounds the inversion. So the published figure is dominated by the piece
+that has nothing to do with conditioning. This does **not** make the map non-invertible — it is strictly
+increasing either way, and both derivatives are positive — but a check whose number is not the number its
+stated purpose needs is worth recording, because a reader comparing M14 against this module's arithmetic
+would otherwise find two different numbers and no explanation. Both are pinned in the suite, together with
+the identity.
+
+**The accuracy is the input's information content, and that makes the tolerance derivable rather than
+observed.** The pool price arrives as a `Wad`, so it carries nothing about `sigma` below one wei; the
+root-find stops when `|h(u) - pL|` reaches one wei, and therefore
+
+    du / u  <=  quantum / (pL * |e_h|),     |e_h| = |u h'/h|.
+
+The suite checks that inequality at all 112 fixture points instead of pinning a worst case, because a
+pinned worst case would pass for an implementation that was accidentally good at 111 points and wrong at
+one. The measured worst is **0.637 of the bound**. The round trip itself recovers every one of the 112
+reference volatilities with a worst relative error of **3.195e-17**, against M15's published 1.16e-13 — a
+factor of 3630 inside it. Re-pricing the recovered `sigma` back through `truncatedAbsMoment` lands within
+**467 wei** (4.708e-16), which the M15 round trip does not cover: a `sigma` that recovered the right
+`sigma` but not the right price would pass the first assertion.
+
+**Check X8 does not reproduce, in the conservative direction.** The paper says the inversion's elasticity
+"is unity to within 0.21% while `c/sigma >= 3`". Measured, it is **1.027%** from unity at `c/sigma = 3`,
+and 0.21% is not reached until `c/sigma = 3.492403635244047`. The sentence the figure is attached to —
+"a 1% relative price error produces a 1% relative volatility error" — *does* hold at `c/sigma >= 3`, from
+`3.008758104335780`; so the tolerance is optimistic by a factor of 4.9 and the conclusion it supports is
+not. Both thresholds are pinned. The tangent elasticity is the quantity, and it was confirmed against a
+secant at `eps = 1e-9` and `1e-12`, which converge to it.
+
+**The freshness guard is a rule with three decisions in it, and each is recorded rather than assumed.**
+The bound is **inclusive** — an age equal to the staleness bound is still the pool's own reading — because
+Table 19 makes the rotation period equal the bound, so a set *at* the bound is one the publisher is
+already due to replace; reading it as exclusive would price on it for one session too many. Beyond the
+bound with no fallback supplied the call **refuses**, which is Table 19's "the pool refuses to price rather
+than pricing on a stale fit", and the function returns a reading rather than a boolean so that a caller
+cannot render a refusal as a number. A reading carries its provenance as a named union rather than a flag,
+because `trailing-realised` is a different claim from `pool` and a consumer deciding whether to trust the
+number needs to see which it holds. `ageAt` refuses a session *before* the reading's own, because a
+negative age compared against a bound reads as maximally fresh, which is the one direction that fails
+unsafe.
+
+**`STALENESS_SESSIONS` had no consumer, and this is the third constant of that kind.** It was declared in
+`constants.ts`, emitted into `Solidity`'s fixture and into nothing that reads it by value — the same shape
+F89 found for `pooled_shape_q_C` and `cross_sectional_tau`. It is now the default `boundSessions` of
+`publishedVolatility`, which is a real consumer and is also the right design: the protocol states one
+staleness bound and a caller should not restate it, while a test still needs to pass a bound of its own.
+
+**Two defects in my own reconnaissance, both of which produced plausible numbers.** The derivative was
+first evaluated as `truncatedFirstMoment(1, u)`, which is `u * 2(phi(0) - phi(1/u))`, where the argument
+that yields `2(phi(0) - phi(u))` is `truncatedFirstMoment(1/u, 1)`; the two agree only as `u -> infinity`
+and differ by a factor of **7.4 at `u = 1/2`**. And the safeguarded Newton shrank the bracket *before*
+taking the step and ignored the residual's sign, so the bisection fallback became a one-way ratchet toward
+`upper` — it converged to the bracket's end for every point, and the fixture round trip read 70% instead
+of 3e-17. Both were caught by a finite-difference check and by the fixture disagreeing, not by inspection.
+A third: a `targetRelative` default of `null` made the step count compute to `Infinity` and the first
+reconnaissance run hung for two minutes before it was killed.
+
+**One deliberate duplication, checked rather than trusted.** `implied.ts` carries its own two-line
+half-even WAD quantiser rather than importing `families/gaussian.ts`'s `toWad`, so that the pool-price
+surface does not read as depending on the *Gaussian family strategy* — the conversion is generic and only
+happens to live beside the family that first needed it. The direction of the rounding is a recorded
+decision (half-even, against `GapSample.sigmaWad`'s truncation), so a second copy is a drift risk, and the
+suite removes it: `capRatioForPrice` is the shared input, so comparing `impliedVolatility` against
+`toWad(1/(lam u))` isolates the quantiser and nothing else. This is the discipline `families/base.ts`
+already applies to its duplicated nearest-rank rule.
+
+**Probed, and the probe is the point.** The same discipline G0 and G1 used: a new `domain/` file at 100% is
+only meaningful if it is *instrumented*. Planting an unreachable branch in `capRatioForPrice` — `if
+(lower.gt(upper)) return ONE;`, after a bracket whose ends are ordered for every price in `(0, 1)` because
+`(1 - pL) pL <= 1/4 < 2/pi` — makes the checker fail with `calibrator/src/domain/implied.ts: lines 98.25%
+(56/57), statements 98.28% (57/58), branches 97.37% (37/38)` and one violation. The domain file count moves
+25 → 26 and the restore is byte-identical.
+
+**Verified.** 26 tests in `implied.test.ts`; `check_coverage` reports **26 `domain/` files at 100% on all
+four metrics**; `make check` exits 0; `depcruise` finds no dependency violation across 33 modules, so
+`decimal.js` is still the only thing `domain/` may reach. `implied.ts` is 357 lines, under §8.1's limit —
+but it is now the **longest TypeScript file in either `src/` tree** (`nig.ts` is 344, `models.ts` 352) and
+the third-longest file overall behind `Session.sol` at 376 and `ReferenceRegistry.sol` at 364, so a further
+addition to the surface should expect to be split rather than appended.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). **C0 has extended the layout gate** — it now reads three scopes decided separately rather than one inherited, the coverage hints are bounded by an allow-list, the `dist/` rule can no longer pass vacuously, and the one rule the measurement rejected is recorded rather than added (F86). **G0 has landed the NIG fallback** — by method of moments rather than §7.11's maximum likelihood, with the quadrature's range and point count measured against the WAD grid, and with F39's Bessel premise corrected rather than obeyed (F87). **G1 has landed the event-session parameter set** — the shape pooled, the scale shrunk toward the cross-section, all 22 published `lambda_C` reproduced exactly and all 22 `r*` within a derived 1.0e-3, with the fourth digit of τ taken from the column rather than from the brief's rounding (F89). Phases A, B and C are complete and G0 and G1 are done; what remains is D, E, F and G2 | — |
+| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). **C0 has extended the layout gate** — it now reads three scopes decided separately rather than one inherited, the coverage hints are bounded by an allow-list, the `dist/` rule can no longer pass vacuously, and the one rule the measurement rejected is recorded rather than added (F86). **G0 has landed the NIG fallback** — by method of moments rather than §7.11's maximum likelihood, with the quadrature's range and point count measured against the WAD grid, and with F39's Bessel premise corrected rather than obeyed (F87). **G1 has landed the event-session parameter set** — the shape pooled, the scale shrunk toward the cross-section, all 22 published `lambda_C` reproduced exactly and all 22 `r*` within a derived 1.0e-3, with the fourth digit of τ taken from the column rather than from the brief's rounding (F89). **G2 has landed BELL-IV** — the pool price inverted in the truncation ratio, where the reachable set and the accuracy bound are both derivable rather than asserted, with the closed-form bracket that replaced a doubling search, all 112 committed points recovered to 3.195e-17 against M15's 1.16e-13, the paper's M14 figure identified as a derivative its stated purpose does not need, and the freshness guard's three decisions recorded (F91). Phases A, B and C are complete and G0, G1 and G2 are done; what remains is D, E and F | — |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
 | F88 | `erf` computes a continued fraction for arguments above 11, where it is exactly 1 at working precision; measured at 29.2% of the NIG quadrature's calls and a factor of 2.4 on that path | nothing; recorded rather than taken, because `moments.ts` is the Solidity differential's reference and the change is not part of G0 |
 | F90 | `gen_constants.ts`'s `UINT_ROWS` and `ROUTE_ROWS` carry their values as literals, so they are a second copy of scalars `spec/constants.yaml` also declares and nothing asserts the two agree — the single-source rule is read for structure but transcribed for scalars | nothing today; the TS-only event-session rows read the YAML instead, which is the pattern the rest should follow |
-| G2 | BELL-IV inversion and freshness stamp are not built | Table 31 P1 |
 | F84 | the two services have no entry point, and the brief describes them as services without supplying one | the deployment story |
 | F85 | `ruff`'s `I` had a second half — import *ordering* — and no gate enforces it | nothing; recorded rather than closed, because closing it needs an import-sorting plugin and a tree-wide reformat |
 
