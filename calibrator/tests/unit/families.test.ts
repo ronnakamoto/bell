@@ -7,15 +7,18 @@
  * Gaussian is rich on it, which is the same finding on a sample this repository holds.
  *
  * Ported from `calibrator/tests/unit/test_families.py`, which has 28 tests in four classes; this file
- * has 31. Departures, each stated rather than silent:
+ * has 33. (It said 31 while it held 32 — a count written by hand and not re-derived, which is why the
+ * number is now checked against the file rather than remembered. G0 added one, for the registry move.)
+ * Departures, each stated rather than silent:
  *
  *  - **`GapSample` takes `readonly bigint[]`** where the Python takes `tuple[int, ...]`, and `FAMILIES`
  *    is a `Map` where the Python has a `Mapping` — so `FAMILIES['empirical']` reads
  *    `FAMILIES.get('empirical')` through a local helper.
- *  - **The two refusal types are renamed, not merged.** `familyFor('nig')` throws
+ *  - **The two refusal types are renamed, not merged.** `familyFor('merton')` throws
  *    `UnimplementedFamilyError` where the Python raises `NotImplementedError`, and
  *    `familyFor('nonsense')` throws `FamilyError` where the Python raises `KeyError`. The distinction
- *    is the point of both, so the port keeps two types.
+ *    is the point of both, so the port keeps two types. The example used to be `familyFor('nig')`,
+ *    which is now registered.
  *  - **Three tests are added, each pinning something the Python's own suite cannot catch.** They are
  *    marked below. The first two are ports of a *defect* rather than of a test: `sigmaWad` truncates
  *    and `relativeErrorWad` floors, and neither is observable through the assertions the Python wrote,
@@ -327,14 +330,24 @@ describe('the Gaussian rejection', () => {
 
 describe('the family registry', () => {
   it('names the unimplemented families', () => {
-    expect([...UNIMPLEMENTED_FAMILIES].sort()).toEqual(['merton', 'nig', 'student_t']);
+    // The NIG left this set when tracker G0 landed it. It is asserted by *name* rather than by size,
+    // because a set that shrank by one for the wrong reason would pass a size check.
+    expect([...UNIMPLEMENTED_FAMILIES].sort()).toEqual(['merton', 'student_t']);
   });
 
   it('refuses an unimplemented family specifically', () => {
-    // Not a lookup failure. A missing entry reads as a typo; the absence of NIG is F10 (closed) /
-    // tracker G0, and the error has to say so.
-    expect(() => familyFor('nig')).toThrow(UnimplementedFamilyError);
-    expect(() => familyFor('nig')).toThrow(/F10/);
+    // Not a lookup failure. A missing entry reads as a typo; an unimplemented family is a recorded gap
+    // and the error has to say so. The NIG used to be the example here, and is now registered — which
+    // is why this test names Merton.
+    expect(() => familyFor('merton')).toThrow(UnimplementedFamilyError);
+    expect(() => familyFor('merton')).toThrow(/G0/);
+  });
+
+  it('no longer refuses the NIG', () => {
+    // The other half of the move: a set that still contained 'nig' would make `familyFor('nig')` throw
+    // for a family that is registered, which is the failure the two-set split exists to prevent.
+    expect(UNIMPLEMENTED_FAMILIES.has('nig')).toBe(false);
+    expect(familyFor('nig').name).toBe('nig');
   });
 
   it('refuses an unknown family as unknown', () => {

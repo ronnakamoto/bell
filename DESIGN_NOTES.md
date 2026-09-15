@@ -3022,15 +3022,112 @@ four violations, so every verdict in that report was a false negative and the fi
 between runs. The fix is a line of `rm -f` at the top of the harness plus a recorded
 `git status --porcelain` in the report itself, so a contaminated run is visible rather than plausible.
 
+## F87 — G0's premise was wrong: the NIG needs no Bessel function, and the fit that avoids one is exact
+
+G0 is the tracker's *"NIG as the thin-sample fallback"*, and it carried its conclusion in its own text:
+*"the modified Bessel K of the second kind is a numerical routine: it belongs in an adapter, not in
+`domain/` (F39)."* That premise is wrong, and correcting it is the finding.
+
+**The marginal density is never formed.** Written as a normal variance-mean mixture — `G | V ~
+N(mu + beta*V, V)` with `V ~ IG(delta/gamma, delta^2)` — the truncated absolute moment is a
+one-dimensional integral of an elementary function against an elementary density:
+
+    E[min(|G|, c)] = (1/sqrt(2 pi)) * integral exp(shape - s/2 - shape*cosh s)
+                                               * M(c, mu + beta*v0*exp(s), sqrt(v0*exp(s))) ds
+
+with `v0 = delta/gamma` and `shape = delta*gamma`. No `K_1` appears, because the mixture representation
+integrates against the *mixing* density rather than evaluating the marginal. So F39's placement rule is
+not exercised by this family at all: `nig.ts` lives in `domain/` with no adapter, which is the outcome
+F39 argued for, reached by a route it did not anticipate. The rule is not violated, and the record says
+so rather than leaving a rule that looks violated for the next reader to re-derive.
+
+**The inner moment is `moments.ts`'s primitive with the mean freed, and it reduces to it.** `|X|` at a
+non-zero mean is folded normal, and `truncatedAbsMoment` refuses that case — correctly, since its closed
+form does not apply. The free-mean form is the same split taken at the sign change as well:
+
+    M = mean*(Phi(u_c) - 2*Phi(u_0) + Phi(u_m)) - scale*(phi(u_c) - 2*phi(u_0) + phi(u_m))
+        + cap*(1 - Phi(u_c) + Phi(u_m))
+
+At a zero mean the first bracket becomes `Phi(u_c) - 1 + Phi(-u_c) = 0`, the second `2*(phi(u_c) -
+phi(0))` and the third `2*cap*(1 - Phi(u_c))`, which is `truncatedAbsMomentAtCap` written out.
+**Measured over 88 `(cap, scale)` pairs the worst relative difference is 1.79e-49** — the last digit of
+the fifty-digit working precision, because the two routes differ algebraically rather than numerically.
+The test asserts 1e-45 and the docstring says *reduces* rather than *equals*: the first draft claimed an
+exact identity, and the measurement refused it.
+
+**The fit is by method of moments, which is a deliberate deviation from §7.11.** The paper fits by
+maximum likelihood and records that MLE understates the variance by 2–6% on short windows — which is
+precisely the regime the fallback exists for. The closed-form inversion has no iteration, no starting
+values and no convergence criterion, so it either returns a parameter set or refuses; what it costs is
+conditioning, since a thin sample's fourth moment is a noisy statistic. From the standardised moments
+`s` and `k`, with `rho = beta/alpha` and `shape = delta*gamma`:
+
+    rho^2 = s^2 / (3k - 4s^2)          shape = 9 / (3k - 4s^2)
+
+The scale then follows from the variance, `m2 = shape / (gamma^2 (1 - rho^2))`, and `mu` from the mean,
+`m1 = mu + delta*beta/gamma`. **Round-tripped against the exact cumulants of known parameter sets and
+recovered to 3.9e-46 or better** across eight sets spanning `rho` from −0.96 to +0.97 and `shape` from
+0.23 to 65.
+
+**The inversion formula the reconnaissance notes carried was wrong, and the round trip is what caught
+it.** The notes had `gamma = 3*m2^(3/2)/m3`, which is sign-dependent — it inverts a *positive* skewness
+to a negative `gamma` — and on a case whose true parameters were known it returned `d(beta) = 3.0e+0`
+and `d(delta) = 1.7e+0`, and `NaN` on the symmetric case. It is recorded here because the notes were
+the only place it lived, and a formula that produces a plausible number for the wrong reason is exactly
+what a round trip against known parameters is for. The pair above eliminates without a quadratic, which
+is not obvious in advance: the two standardised moments of a NIG are `3*rho/sqrt(shape)` and
+`3(1 + 4*rho^2)/shape`, and substituting the first into the second cancels the quadratic term.
+
+**Three refusals, and the third is the one that is easy to miss.** A sample with no variance; a sample
+whose `(skewness, kurtosis)` pair fails `3k - 4s^2 > 0`; and one that fails `rho^2 < 1`. The reachable
+band for the third is `(4/3)s^2 < k <= (5/3)s^2` — a factor of 1.25 wide — and it took a search to land
+in it: about one random small sample in 20,000, with the systematic form `{0.005, -0.007, 0 x 5}` giving
+`rho^2 = 1.637`. The second condition is far more restrictive than the third: **of 60,000 deterministic
+random small samples, 59,947 were refused by the cone and 53 fitted.** That is not a defect — a NIG is
+leptokurtic by construction, so a sample with a negative excess kurtosis has no parameter set at all —
+but it bounds where the fallback applies, and it is worth knowing before wiring it in.
+
+**The quadrature's range and point count are measured, not chosen.** Substituting `v = v0*exp(s)` and
+then `s = t/sqrt(shape)` turns the exponent into `shape - s/2 - shape*cosh s`, whose width in `t` scales
+with `sqrt(shape)` while its range grows only logarithmically. So the node count is a multiple of
+`acosh`, and the multiple was found by converging in `N` against a target the WAD grid sets: `toWad`
+rounds at 1e-18, so the moment needs about 1e-22 and everything tighter is paid for in nodes. The rule is
+`N = max(64, ceil(12*acosh(1 + 150/shape)))`, and over `shape` from 1e-4 to 1e3 **the worst mass error
+is 7.3e-26** — four orders under the bar. The range has a derivable limit, `tMax -> sqrt(300)`, and its
+approach is `DECAY/(12*shape)`, which the test asserts as a coefficient rather than a tolerance.
+
+**The cost is set by the sample's excess kurtosis, not by the code.** Since `shape = 3/(k - 4s^2/3)`, a
+fatter-tailed window needs more nodes: the fixture's `k = 97` gives `shape = 0.031` and 111 nodes at
+465 ms, while a near-Gaussian sample gives `shape = 21` and 64 nodes at 104 ms. The TypeScript suite went
+from 747 ms to 2.83 s. **One available optimisation was measured and deliberately not taken**: 29.2% of
+the quadrature's `Phi` arguments exceed 11, where `erf` is exactly 1 at fifty digits (`erfc(11) =
+1.5e-54`), and short-circuiting there cut the fixture's path from 814 ms to 342 ms — a factor of 2.4.
+It was left out because `moments.ts` is the reference the Solidity differential is derived from, and a
+feature commit is the wrong place to change how it computes. Recorded as F88 so the next person can take
+it in one line rather than re-measure it.
+
+**Probed, and the probe is the point.** The claim "the new file is at 100% on all four metrics" is worth
+nothing unless the file is instrumented at all — a file the coverage config silently excludes also
+reports 100%, and reports it identically. So the harness plants a branch that cannot be reached
+(`cap.lt(0)` after a guard that has already thrown for every `cap <= 0`) and requires the checker to
+fail. It does: `nig.ts: statements 98.89% (89/90), branches 95.00% (19/20)`, exit 1. The domain file
+count moves from 23 to 24, and the restore is byte-identical. `nig.ts` is 344 lines, under §8.1's limit.
+
+**Two smaller corrections, recorded because both were invisible.** The header of `families.test.ts`
+claimed 31 tests while the file held 32 — a count written by hand and never re-derived, which is why the
+number is now checked against the file. And the `rho^2 >= 1` branch needed a search rather than a
+construction: the first two fixtures written for it were refused by the cone instead, and the test would
+have passed while testing the wrong refusal.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). **C0 has extended the layout gate** — it now reads three scopes decided separately rather than one inherited, the coverage hints are bounded by an allow-list, the `dist/` rule can no longer pass vacuously, and the one rule the measurement rejected is recorded rather than added (F86). Phases A and B are complete and C0 is done; what remains is C1, D, E, F and G | — |
+| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). **C0 has extended the layout gate** — it now reads three scopes decided separately rather than one inherited, the coverage hints are bounded by an allow-list, the `dist/` rule can no longer pass vacuously, and the one rule the measurement rejected is recorded rather than added (F86). **G0 has landed the NIG fallback** — by method of moments rather than §7.11's maximum likelihood, with the quadrature's range and point count measured against the WAD grid, and with F39's Bessel premise corrected rather than obeyed (F87). Phases A, B and C are complete and G0 is done; what remains is D, E, F and G1–G2 | — |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
-| G0 | NIG fallback unimplemented (F10 closed as paper-primary; the family is still missing) | thin-sample calibration |
+| F88 | `erf` computes a continued fraction for arguments above 11, where it is exactly 1 at working precision; measured at 29.2% of the NIG quadrature's calls and a factor of 2.4 on that path | nothing; recorded rather than taken, because `moments.ts` is the Solidity differential's reference and the change is not part of G0 |
 | G1 | event-session shrinkage estimator not shipped (F9 constants pinned from Table 17) | event-session `λC` |
 | G2 | BELL-IV inversion and freshness stamp are not built | Table 31 P1 |
 | F84 | the two services have no entry point, and the brief describes them as services without supplying one | the deployment story |

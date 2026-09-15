@@ -44,7 +44,10 @@ R5 in `PremiumRegistry`.
 The Gaussian truncated moment has a closed form in `φ` and `Φ`, cheap enough to evaluate on-chain
 (paper baseline 37,439 gas; this repository measures 26,911). NIG has no such closed form: a
 32-term quadrature is 18× that cost, a 256-term quadrature 146×. Reading a published premium from
-storage is ~260× cheaper than the cheapest credible quadrature.
+storage is ~260× cheaper than the cheapest credible quadrature. G0's implementation lands between
+the paper's two figures — 64 nodes for a near-Gaussian window, 111 for the overnight fixture, both
+set by the sample's excess kurtosis rather than chosen (F87) — so the gap is a measurement rather
+than an extrapolation.
 
 So the oracle publishes the **fitted premium**, not a volatility the contract then transforms. That
 is the largest new trust assumption the pricing revision introduces, and it is why `PremiumRegistry`
@@ -53,7 +56,11 @@ case is a session priced on the fallback rather than a session priced wrong.
 
 The launch pricing model (paper §5.3, Table 31 P0): the empirical truncated distribution is the
 seed; a fitted fat tail (NIG) is used only where the sample cannot place the cap; Gaussian never
-seeds. D1 takes the paper over the brief, which had promoted NIG to production.
+seeds. D1 takes the paper over the brief, which had promoted NIG to production. **All three are now
+implemented**, NIG included. It is fitted by method of moments rather than §7.11's maximum
+likelihood, because MLE's 2–6% variance understatement on short windows is exactly the regime the
+fallback exists for, and it refuses a window whose standardised shape falls outside the family
+rather than mis-fitting it (F87).
 
 ## BELL-IV (paper §5.2)
 
