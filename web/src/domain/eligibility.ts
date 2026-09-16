@@ -8,5 +8,5 @@ export function isEligible(attestation: Attestation | null | undefined): boolean
     return false;
   }
 
-  return attestation.notUsPerson === true && attestation.tosResetAcknowledged === true;
+  return attestation.notUsPerson && attestation.tosResetAcknowledged;
 }
