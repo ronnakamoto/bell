@@ -101,7 +101,7 @@ describe('the corpus folds into one settled session', () => {
     expect(session?.salt).toHaveLength(66);
   });
 
-  it('shows the session registered, which the factory itself does not do (F93)', () => {
+  it('shows the session registered as part of listing (F93)', () => {
     expect(session?.registered).toBe(true);
     expect(session?.multiplier).toBe(1_000_000_000_000_000_000n);
   });
@@ -215,7 +215,7 @@ describe('the three singleton addresses must be distinct', () => {
 });
 
 describe('a created session is visible before it is registered', () => {
-  it('keeps the row and leaves registered false (F93)', () => {
+  it('keeps the row and leaves registered false when SessionRegistered is absent', () => {
     const created = firstWith(SESSION_CREATED);
     const folded = foldLogs([created], configOf());
     expect(folded.sessions).toHaveLength(1);

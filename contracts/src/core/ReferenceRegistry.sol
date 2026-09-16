@@ -107,7 +107,9 @@ contract ReferenceRegistry is ReferencePrintBook {
     /// @return lamWad the session's leverage, read from the session.
     /// @dev The multiplier is read here rather than passed in, so that the value the session is
     ///      judged against is the value the token actually reported at registration and not a value
-    ///      a caller supplied.
+    ///      a caller supplied. `SessionFactory.createSession` calls this after deploy (F93); the
+    ///      function stays permissionless so a session created outside the factory can still be
+    ///      registered, and so the duplicate path remains a named, testable error.
     function registerSession(address session, address referenceToken)
         external
         returns (uint256 expiryTimestamp, uint256 lamWad)

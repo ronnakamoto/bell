@@ -141,17 +141,11 @@ contract LogFixtureTest is Test {
         collateral.mint(publisher, Constants.MIN_PUBLISHER_BOND * 2);
         collateral.mint(challenger, Constants.CHALLENGER_BOND * 2);
 
-        // 1. SessionCreated, and the factory's SessionRegistered.
+        // 1. SessionCreated, then SessionRegistered — both from createSession (F93).
         uint256 expiry = block.timestamp + 17.5 hours;
         address sessionAddress =
             factory.createSession(address(referenceToken), LAM, expiry, NOTIONAL_CAP, 0);
         session = Session(sessionAddress);
-
-        // The factory deploys the session and hands it the registry, but does **not** register it
-        // with that registry: `registerSession` is permissionless and nothing calls it internally,
-        // so a created session is unsettleable until somebody sends this transaction. Recorded as
-        // DESIGN_NOTES.md F93; the fixture performs it because a real lifecycle has to.
-        registry.registerSession(sessionAddress, address(referenceToken));
 
         // The session is deployed by the factory, so its address is only known now -- and it is the
         // session, not the factory, that pulls collateral and claims.

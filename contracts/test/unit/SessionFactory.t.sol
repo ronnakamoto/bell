@@ -4,10 +4,12 @@ pragma solidity 0.8.26;
 import {Test} from "forge-std/Test.sol";
 import {Constants} from "../../src/generated/Constants.sol";
 import {Payoff} from "../../src/libraries/Payoff.sol";
+import {ReferenceRegistry} from "../../src/core/ReferenceRegistry.sol";
 import {Session} from "../../src/core/Session.sol";
 import {SessionFactory} from "../../src/core/SessionFactory.sol";
 import {SessionPool} from "../../src/core/SessionPool.sol";
 import {MockERC20, MockNonRevertingERC20} from "../mocks/MockERC20.sol";
+import {MockReferenceToken} from "../mocks/MockProbes.sol";
 
 /// @notice The listing gates and the deterministic deployment.
 /// @dev Both gates are tested in both directions. A guard that has never been observed to fire is
@@ -16,15 +18,24 @@ import {MockERC20, MockNonRevertingERC20} from "../mocks/MockERC20.sol";
 contract SessionFactoryTest is Test {
     uint256 internal constant UNIT = 1e6;
     uint256 internal constant NOTIONAL_CAP = 5_000_000 * UNIT;
-    address internal constant REFERENCE_TOKEN = address(0xBEEF);
-    address internal constant REFERENCE_REGISTRY = address(0xA11CE);
+    uint256 internal constant TIER1_BAND = 0.05e18;
+    uint256 internal constant PLAUSIBILITY_BAND = 0.25e18;
+    uint256 internal constant FRESHNESS = 600;
+    uint256 internal constant STALENESS = 7_200;
+
+    address internal constant AUTHORITY = address(0xA17);
 
     MockERC20 internal collateral;
+    MockReferenceToken internal referenceToken;
+    ReferenceRegistry internal registry;
     SessionFactory internal factory;
 
     function setUp() public {
         collateral = new MockERC20("USD Global", "USDG", 6);
-        factory = new SessionFactory(collateral, REFERENCE_REGISTRY);
+        referenceToken = new MockReferenceToken(1e18);
+        registry =
+            new ReferenceRegistry(AUTHORITY, PLAUSIBILITY_BAND, TIER1_BAND, FRESHNESS, STALENESS);
+        factory = new SessionFactory(collateral, address(registry));
         vm.warp(1_800_000_000);
     }
 
@@ -142,43 +153,54 @@ contract SessionFactoryTest is Test {
 
     function test_createSession_deploysAndRecordsTheListing() public {
         uint256 expiry = block.timestamp + 17.5 hours;
-        address session = factory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, 0);
+        address session =
+            factory.createSession(address(referenceToken), 15e18, expiry, NOTIONAL_CAP, 0);
 
         assertGt(session.code.length, 0, "code was deployed");
         Session deployed = Session(session);
         assertEq(deployed.lamWad(), 15e18);
-        assertEq(deployed.referenceToken(), REFERENCE_TOKEN);
+        assertEq(deployed.referenceToken(), address(referenceToken));
         assertEq(deployed.expiryTimestamp(), expiry);
         assertEq(deployed.notionalCapWad(), NOTIONAL_CAP);
         assertEq(deployed.factory(), address(factory));
-        assertTrue(factory.sessionDeployed(factory.saltFor(REFERENCE_TOKEN, 15e18, expiry)));
+        assertTrue(factory.sessionDeployed(factory.saltFor(address(referenceToken), 15e18, expiry)));
+
+        // Registration is part of createSession (F93): a listed session is settleable without a
+        // second transaction, and the multiplier G8 will judge against was read from the token.
+        ReferenceRegistry.SessionRecord memory record = registry.sessionRecord(session);
+        assertEq(record.referenceToken, address(referenceToken));
+        assertEq(record.multiplierAtRegistration, 1e18, "read from the token, not supplied");
+        assertEq(record.lamWad, 15e18);
+        assertEq(record.expiryTimestamp, expiry);
     }
 
     function test_createSession_addressIsPredictableInAdvance() public {
         uint256 expiry = block.timestamp + 17.5 hours;
-        address predicted = factory.predictSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP);
-        address actual = factory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, 0);
+        address predicted =
+            factory.predictSession(address(referenceToken), 15e18, expiry, NOTIONAL_CAP);
+        address actual =
+            factory.createSession(address(referenceToken), 15e18, expiry, NOTIONAL_CAP, 0);
         assertEq(actual, predicted, "the CREATE2 address is knowable before deployment");
     }
 
     function test_createSession_addressIsSensitiveToEachKey() public {
         uint256 expiry = block.timestamp + 17.5 hours;
-        bytes32 base = factory.saltFor(REFERENCE_TOKEN, 15e18, expiry);
+        bytes32 base = factory.saltFor(address(referenceToken), 15e18, expiry);
         assertTrue(base != factory.saltFor(address(0xCAFE), 15e18, expiry), "reference token");
-        assertTrue(base != factory.saltFor(REFERENCE_TOKEN, 16e18, expiry), "leverage");
-        assertTrue(base != factory.saltFor(REFERENCE_TOKEN, 15e18, expiry + 1), "expiry");
+        assertTrue(base != factory.saltFor(address(referenceToken), 16e18, expiry), "leverage");
+        assertTrue(base != factory.saltFor(address(referenceToken), 15e18, expiry + 1), "expiry");
     }
 
     function test_createSession_refusesADuplicate() public {
         uint256 expiry = block.timestamp + 17.5 hours;
-        factory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, 0);
+        factory.createSession(address(referenceToken), 15e18, expiry, NOTIONAL_CAP, 0);
         vm.expectRevert(
             abi.encodeWithSelector(
                 SessionFactory.DuplicateSession.selector,
-                factory.saltFor(REFERENCE_TOKEN, 15e18, expiry)
+                factory.saltFor(address(referenceToken), 15e18, expiry)
             )
         );
-        factory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, 0);
+        factory.createSession(address(referenceToken), 15e18, expiry, NOTIONAL_CAP, 0);
     }
 
     function test_createSession_appliesTheGates() public {
@@ -189,12 +211,12 @@ contract SessionFactoryTest is Test {
                 (Constants.WAD * Constants.WAD) / 15.5e18
             )
         );
-        factory.createSession(REFERENCE_TOKEN, 15.5e18, expiry, NOTIONAL_CAP, 0);
+        factory.createSession(address(referenceToken), 15.5e18, expiry, NOTIONAL_CAP, 0);
 
         vm.expectRevert(
             abi.encodeWithSelector(SessionFactory.ListingGateCapNotBelowOne.selector, Constants.WAD)
         );
-        factory.createSession(REFERENCE_TOKEN, 1e18, expiry, NOTIONAL_CAP, 0);
+        factory.createSession(address(referenceToken), 1e18, expiry, NOTIONAL_CAP, 0);
     }
 
     function test_createSession_refusesAnExpiryInThePast() public {
@@ -203,7 +225,7 @@ contract SessionFactoryTest is Test {
                 SessionFactory.ExpiryNotReached.selector, block.timestamp, block.timestamp
             )
         );
-        factory.createSession(REFERENCE_TOKEN, 15e18, block.timestamp, NOTIONAL_CAP, 0);
+        factory.createSession(address(referenceToken), 15e18, block.timestamp, NOTIONAL_CAP, 0);
     }
 
     function test_createSession_refusesAZeroReferenceToken() public {
@@ -224,7 +246,8 @@ contract SessionFactoryTest is Test {
         collateral.approve(address(factory), seed);
 
         uint256 expiry = block.timestamp + 17.5 hours;
-        address session = factory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, seed);
+        address session =
+            factory.createSession(address(referenceToken), 15e18, expiry, NOTIONAL_CAP, seed);
 
         Session deployed = Session(session);
         assertEq(deployed.totalPairSupply(), seed, "the seed minted a pair per unit");
@@ -238,7 +261,7 @@ contract SessionFactoryTest is Test {
     function test_createSession_withAZeroSeedLeavesThePoolUnseeded() public {
         uint256 expiry = block.timestamp + 17.5 hours;
         Session deployed =
-            Session(factory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, 0));
+            Session(factory.createSession(address(referenceToken), 15e18, expiry, NOTIONAL_CAP, 0));
         assertEq(deployed.longReserve(), 0, "unseeded");
         assertEq(deployed.totalPairSupply(), 0, "and nothing minted");
         vm.expectRevert(SessionPool.PoolDepthZero.selector);
@@ -262,7 +285,7 @@ contract SessionFactoryTest is Test {
 
         uint256 expiry = block.timestamp + 17.5 hours;
         vm.expectRevert(abi.encodeWithSelector(SessionFactory.SeedTooSmall.selector, uint256(1)));
-        factory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, 1);
+        factory.createSession(address(referenceToken), 15e18, expiry, NOTIONAL_CAP, 1);
     }
 
     /// @dev The smallest seed that *can* be split is two, and it must still work: one unit to each
@@ -274,7 +297,7 @@ contract SessionFactoryTest is Test {
 
         uint256 expiry = block.timestamp + 17.5 hours;
         Session deployed =
-            Session(factory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, 2));
+            Session(factory.createSession(address(referenceToken), 15e18, expiry, NOTIONAL_CAP, 2));
 
         assertEq(deployed.totalPairSupply(), 2, "two pairs minted");
         assertEq(deployed.longReserve(), 1, "one unit to the long leg");
@@ -287,10 +310,12 @@ contract SessionFactoryTest is Test {
     ///      it had not funded. `MockNonRevertingERC20` is the token that reaches this branch.
     function test_createSession_refusesACollateralThatWillNotMove() public {
         MockNonRevertingERC20 hostile = new MockNonRevertingERC20("Hostile", "HST", 6);
-        SessionFactory hostileFactory = new SessionFactory(hostile, REFERENCE_REGISTRY);
+        SessionFactory hostileFactory = new SessionFactory(hostile, address(registry));
 
         uint256 expiry = block.timestamp + 17.5 hours;
         vm.expectRevert(SessionFactory.SeedTransferFailed.selector);
-        hostileFactory.createSession(REFERENCE_TOKEN, 15e18, expiry, NOTIONAL_CAP, 1_000 * UNIT);
+        hostileFactory.createSession(
+            address(referenceToken), 15e18, expiry, NOTIONAL_CAP, 1_000 * UNIT
+        );
     }
 }

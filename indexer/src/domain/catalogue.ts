@@ -13,9 +13,11 @@
  * `bytes32`, and `addressOf` refuses it). A print is an insertion in the book, keyed by the index
  * the registry assigned. Folding any of them into another would invent a join the logs do not make.
  *
- * **`registered` is a field rather than a filter.** `createSession` deploys a session and never
- * calls `registerSession` (F93), so a created session is a first-class row that may still be
- * unsettleable. Dropping the unregistered ones would hide the liveness gap the listing path has.
+ * **`registered` is a field rather than a filter.** Until F93, `createSession` deployed a session
+ * and never registered it, so a created session was a first-class row that could still be
+ * unsettleable. The factory now registers as part of listing; the field remains because a session
+ * can still be deployed outside the factory, and because the fold must record what the logs show
+ * rather than what the listing path intends.
  */
 
 import { type Branch } from './branch.js';
@@ -79,7 +81,7 @@ export interface ResolutionSnapshot {
 
 /** One session, as the fold has reconstructed it. */
 export interface SessionRecord extends SessionIdentity {
-  /** Whether `SessionRegistered` has been seen. False after `createSession` alone (F93). */
+  /** Whether `SessionRegistered` has been seen. False only for a session created outside the factory. */
   readonly registered: boolean;
   /** The multiplier recorded at registration, against which G8 will judge. */
   readonly multiplier: bigint | undefined;

@@ -3417,12 +3417,12 @@ byte-identical. That is the digit-edit F92 said would be lost before `wad()` saw
 
 ## F93 — `createSession` deploys a session it never registers, and nothing else does either
 
-`SessionFactory.createSession` deploys the session, hands it `referenceRegistry` in the constructor, and
-emits `SessionCreated`. It does **not** call `ReferenceRegistry.registerSession`. Nothing in `src/` calls
-it: `registerSession` is declared `external`, permissionless, and its only reference in the tree is its
-own declaration. `registerSession` is therefore a step the listing path does not perform.
+`SessionFactory.createSession` deployed the session, handed it `referenceRegistry` in the constructor, and
+emitted `SessionCreated`. It did **not** call `ReferenceRegistry.registerSession`. Nothing in `src/`
+called it: `registerSession` was declared `external`, permissionless, and its only reference in the
+tree was its own declaration. `registerSession` was therefore a step the listing path did not perform.
 
-**What that costs.** A freshly created session is `Open` and fully usable — it can be seeded, traded and
+**What that cost.** A freshly created session was `Open` and fully usable — it could be seeded, traded and
 resolved *by the registry* only after registration, because `resolve` opens with
 
 ```solidity
@@ -3430,23 +3430,29 @@ SessionRecord storage record = _sessions[session];
 if (record.referenceToken == address(0)) revert NotRegistered(session);
 ```
 
-So between `createSession` and somebody sending `registerSession`, the session is **unsettleable**. Its
-collateral is not at risk: the instrument is fully collateralised, and `claim` and `withdrawPool` both sit
+So between `createSession` and somebody sending `registerSession`, the session was **unsettleable**. Its
+collateral was not at risk: the instrument is fully collateralised, and `claim` and `withdrawPool` both sit
 behind `inState(State.Settled)`, which no path reaches without a `settle` that only the registry can call.
-This is a liveness gap rather than a hole — but it is a gap a participant reaches by following the listing
-path correctly, and it makes the listing **two** transactions when it looks like one.
+This was a liveness gap rather than a hole — but it was a gap a participant reached by following the listing
+path correctly, and it made the listing **two** transactions when it looked like one.
 
-**Why it is not simply folded in.** `registerSession` reads three things rather than accepting them: the
+**Why it looked like a design decision.** `registerSession` reads three things rather than accepting them: the
 session's `expiryTimestamp`, the session's `lamWad`, and the reference token's `multiplier()` — and the
 third is read here *on purpose*, so that the multiplier a session is judged against is the value the token
 reported at registration rather than a value a caller supplied. G8 compares that recorded multiplier
 against the token's multiplier at resolution, so registration time is a load-bearing input and not a
-bookkeeping step. Whether the factory should perform it — and if so, whether that reopens the
-caller-supplied-multiplier question — is a design decision rather than a bug fix, and it is left open.
+bookkeeping step. The open question was whether the factory performing the call would reopen the
+caller-supplied-multiplier question.
 
-**Where it was found.** While writing the log fixture (F94). The fixture performs the registration
-explicitly, because a real lifecycle has to; `LogFixture.t.sol` names it at the call site so the fixture
-does not read as though the factory did it.
+**Closed.** It does not. The factory passes the same `referenceToken` it already used for CREATE2;
+`registerSession` still reads the multiplier from the token and the expiry/leverage from the session.
+The factory now calls `registerSession` after emitting `SessionCreated`, so listing is one transaction.
+`registerSession` stays permissionless for sessions created outside the factory, and the duplicate path
+remains a named, testable error. The log fixture no longer performs a second registration; the Deploy
+script test asserts the record exists after `createSession` alone.
+
+**Where it was found.** While writing the log fixture (F94). The fixture used to perform the registration
+explicitly; it no longer has to.
 
 ## F94 — the log fixture's provenance note asserted an event the corpus did not contain
 
@@ -3624,7 +3630,6 @@ spelling rather than the one the author had in mind.
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
 | F88 | `erf` computes a continued fraction for arguments above 11, where it is exactly 1 at working precision; measured at 29.2% of the NIG quadrature's calls and a factor of 2.4 on that path | nothing; recorded rather than taken, because `moments.ts` is the Solidity differential's reference and the change is not part of G0 |
-| F93 | `createSession` deploys a session and never calls `registerSession`, and nothing in `src/` does, so a session is unsettleable until somebody sends a second transaction; the collateral is not at risk, the liveness is | the listing path and anything a participant touches (F50) |
 | F84 | the two services have no entry point, and the brief describes them as services without supplying one | the deployment story |
 | F85 | `ruff`'s `I` had a second half — import *ordering* — and no gate enforces it | nothing; recorded rather than closed, because closing it needs an import-sorting plugin and a tree-wide reformat |
 
