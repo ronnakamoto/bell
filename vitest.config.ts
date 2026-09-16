@@ -1,3 +1,4 @@
+import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -17,7 +18,9 @@ import { defineConfig } from 'vitest/config';
  * separately by `check-generated`.
  */
 export default defineConfig({
+  plugins: [react()],
   test: {
+    environmentMatchGlobs: [['web/tests/**/*.test.tsx', 'jsdom']],
     include: [
       'calibrator/tests/**/*.test.ts',
       'settlement/tests/**/*.test.ts',

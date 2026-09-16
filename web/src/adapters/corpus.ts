@@ -5,14 +5,18 @@
  * in every use case. The three anchors match `spec/fixtures/logs.json` and the fold suite.
  */
 
+import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { type IndexerConfig } from '@bell/indexer/domain/ports.js';
 
+const adapterDir = path.dirname(fileURLToPath(import.meta.url));
+
 /** Path to the producer log corpus, resolved from the repo root. */
-export const LOGS_PATH = fileURLToPath(
-  new URL('../../../spec/fixtures/logs.json', import.meta.url),
-);
+export const LOGS_PATH = path.resolve(adapterDir, '../../../spec/fixtures/logs.json');
+
+/** Path to the committed quote fixture, resolved from the repo root. */
+export const QUOTES_PATH = path.resolve(adapterDir, '../../../spec/fixtures/quotes.json');
 
 /** The three singleton addresses the fold attributes against. */
 export const INDEXER_CONFIG: IndexerConfig = {
