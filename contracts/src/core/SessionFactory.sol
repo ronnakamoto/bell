@@ -5,6 +5,7 @@ import {Constants} from "../generated/Constants.sol";
 import {Payoff} from "../libraries/Payoff.sol";
 import {WadMath} from "../libraries/WadMath.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
+import {ReferenceRegistry} from "./ReferenceRegistry.sol";
 import {Session} from "./Session.sol";
 
 /// @title SessionFactory
@@ -217,6 +218,11 @@ contract SessionFactory {
     ///      starting condition rather than a calibration: the leverage fixes the payoff, and the
     ///      pool's price is whatever the two reserves imply from then on. A seeder who wants a
     ///      different opening price should create unseeded and seed it herself at her own ratio.
+    ///
+    ///      Registration with the reference registry is part of this call, not a second transaction.
+    ///      A session that exists but is not registered is unsettleable (F93); the multiplier G8
+    ///      will judge against is still read from the token at registration time, never supplied by
+    ///      the caller, so folding the step in does not reopen that question.
     function createSession(
         address referenceToken,
         uint256 lamWad,
@@ -274,6 +280,10 @@ contract SessionFactory {
         emit SessionCreated(
             session, referenceToken, lamWad, expiryTimestamp, capWad, notionalCapWad, salt
         );
+
+        // Registration is part of listing, not a second transaction (F93). The multiplier G8 will
+        // judge against is still read from the token here, never supplied by the caller.
+        ReferenceRegistry(referenceRegistry).registerSession(session, referenceToken);
     }
 
     /// @notice The address a session for these parameters would have, without deploying it.

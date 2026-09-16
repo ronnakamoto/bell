@@ -75,9 +75,10 @@ contract DeployScriptTest is Test {
         assertEq(listed.referenceRegistry(), manifest.referenceRegistry, "settle authority");
         assertEq(listed.factory(), manifest.sessionFactory, "fee authority");
 
-        // The registry must know the session before it will resolve it.
+        // createSession registers with the registry (F93); a second call would be AlreadyRegistered.
         ReferenceRegistry registry = ReferenceRegistry(manifest.referenceRegistry);
-        registry.registerSession(session, address(referenceToken));
+        ReferenceRegistry.SessionRecord memory record = registry.sessionRecord(session);
+        assertEq(record.referenceToken, address(referenceToken), "registered at create");
 
         vm.warp(listed.expiryTimestamp() + 1);
         (uint256 payoff, Branch branch) = registry.resolve(session);

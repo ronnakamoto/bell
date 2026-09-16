@@ -24,8 +24,9 @@ saturation happens by construction rather than by accident.
 | `contracts/src/` | Solidity 0.8.26: the arithmetic libraries, the session and its pool, the factory, the two registries |
 | `contracts/test/` | unit, fuzz, invariant and cross-language differential suites |
 | `contracts/script/` | deployment, and the diagnostics printer |
-| `calibrator/` | Python: gap ingestion, classification, fitting, publication |
-| `settlement/` | Python: the five settlement routes, and the challenge adjudication |
+| `calibrator/` | TypeScript: gap ingestion, classification, fitting, publication |
+| `settlement/` | TypeScript: the five settlement routes, and the challenge adjudication |
+| `indexer/` | TypeScript: fold the lifecycle's logs into a session catalogue |
 | `spec/` | The single source of truth for every shared number and fixture |
 | `GAS_REPORT.md` | Per-operation gas against the brief's §13.3 budget |
 | `docs/` | The research paper this implements |
@@ -33,44 +34,30 @@ saturation happens by construction rather than by accident.
 ## Build, test, check
 
 ```
-make venv        # create .venv and install both workspaces' dev dependencies
+make ts-install  # one-off: install the TypeScript workspaces
 make build       # generate spec-derived artifacts, then compile
-make test        # Solidity + Python suites
-make check       # formatter, linters, mypy --strict, import-linter, layout, coverage
+make test        # Solidity + TypeScript suites
+make check       # formatter, linters, architecture, layout, coverage, fixtures
 make test-fork   # fork suite; needs BELL_RPC_URL, skipped if unset
 make diagnostics # print the lattice, canonical, AMM and fee numbers from the deployed code
 ```
 
-`make build` needs Foundry and a Python 3.12+ environment. `make venv` is a one-off setup step; after
-it, `make build`, `make test` and `make check` run with no further arguments. `make help` lists every
+`make build` needs Foundry and Node. `make ts-install` is a one-off setup step; after it,
+`make build`, `make test` and `make check` run with no further arguments. `make help` lists every
 target; there are no tribal commands.
-
-If you would rather use an interpreter you already have, name it and nothing else changes:
-
-```
-make test PYTHON=/path/to/venv/bin/python
-```
-
-The Makefile prefers a project-local `.venv`, then `python3`. If neither carries the test toolchain,
-`make check` says so and tells you which of the two lines above to run, rather than failing somewhere
-inside a recipe with `No module named pytest`.
 
 ## Current status
 
 | Suite | Tests |
 |---|---|
-| Solidity — unit, fuzz, invariant, differential, gas, adversarial | 353 |
-| TypeScript — calibrator (in progress) | 31 |
-| Calibrator — Python (being ported to TypeScript) | 164 |
-| Settlement — Python (being ported to TypeScript) | 83 |
-| **Total** | **631** |
+| Solidity — unit, fuzz, invariant, differential, gas, adversarial | 354 |
+| TypeScript — calibrator, settlement, indexer | 486 |
+| **Total** | **840** |
 
-**The stack is Solidity for the contracts and TypeScript for everything around them** (ruling R5),
-which supersedes the brief's §6. The port is in progress: the workspace scaffold, the gates and the
-calibrator's `domain/digest` are done and verified against the committed fixture; `moments`, the rest
-of the domain, the application layer, the adapters, the settlement service, `tools/` and the 247
-ported tests remain. Both stacks are present while the port runs, and `make test` / `make check` cover
-both.
+**The stack is Solidity for the contracts and TypeScript for everything around them** (ruling R5).
+The Python port is complete and deleted. Phases A–C, G0 (NIG fallback), G1 (event-session
+shrinkage) and G2 (BELL-IV) are done. Discovery (F0) has landed: the indexer folds the producer
+corpus into a catalogue, and listing registers the session in the same transaction (F93).
 
 `make build`, `make test` and `make check` all pass. Every coverage rule the brief states is met and
 asserted by `make check-coverage` rather than eyeballed:
@@ -78,9 +65,11 @@ asserted by `make check-coverage` rather than eyeballed:
 | Scope | Rule | Measured |
 |---|---|---|
 | `contracts/src/libraries/` | 100% on lines, statements, branches, functions | **100%** |
-| `contracts/src/**` | ≥ 95% lines | **99.46%** |
-| `calibrator/` | ≥ 95% | **99.09%** |
-| `settlement/` | ≥ 95% | **99.03%** |
+| `contracts/src/**` | ≥ 95% lines | **99.47%** |
+| `calibrator/src` | ≥ 95% lines and branches | **98.80% / 97.29%** |
+| `settlement/src` | ≥ 95% lines and branches | **100% / 100%** |
+| `indexer/src` | ≥ 95% lines and branches | **99.46% / 97.92%** |
+| every `domain/**` file | 100% on all four metrics | **100%** (33 files) |
 
 One brief requirement is not met and is recorded rather than hidden: `commit` costs 158,247 gas against
 a §13.3 cap of 150,000 — see F42 in `DESIGN_NOTES.md` and `GAS_REPORT.md` for the attribution and the
@@ -90,13 +79,10 @@ The fork suite is the one item that cannot run here: the brief requires tests ag
 block on chain 4663 but supplies no RPC endpoint, so `make test-fork` skips with an explanation
 (F6). Everything else in the brief is executable and executed.
 
-`DESIGN_NOTES.md` carries 54 findings. Most are defects the build found in itself rather than
-objections to the brief, and most of those were surfaced by reading the coverage report as a
-diagnostic rather than by reading code: a pool-draining swap path in `Amm` (F44), a missing depth
-guard in `SessionPool` (F45), three files with no tests at all (F46), a `resolve`/`preview`
-divergence that panicked and left a session permanently unsettleable (F47), a one-pair seed that
-stranded a claim and made `close()` unreachable (F48), and a coverage target that could not run
-because its dependency was never declared (F49).
+`DESIGN_NOTES.md` carries the findings. Most are defects the build found in itself rather than
+objections to the brief. What remains open without a ruling or an input is the web app (F1), the
+fork suite (F6), the Eq (20) volatility pin (F11), the `commit` gas cap (F42), and the two service
+entry points the brief names without supplying (F84).
 
 F50 records the one gap that is a matter of scope rather than defect: the brief's three artifacts are
 the protocol and its two services, and none of them is the surface a participant touches. The paper
