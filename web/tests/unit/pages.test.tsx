@@ -50,6 +50,8 @@ describe('SessionPage', () => {
     expect(screen.getByLabelText('Resolution')).toBeInTheDocument();
     expect(screen.getByTestId('trade-preview')).toBeEnabled();
     expect(screen.getByTestId('lp-preview')).toBeEnabled();
+    expect(screen.getByTestId('claim-preview')).toBeEnabled();
+    expect(screen.getByTestId('withdraw-pool-preview')).toBeEnabled();
   });
 
   it('calls notFound for an unknown address', async () => {

@@ -37,6 +37,8 @@ describe('SessionPage without linked names', () => {
     render(page);
     expect(screen.getByTestId('quote-refuse')).toBeInTheDocument();
     expect(screen.getByTestId('trade-disabled-refuse')).toBeInTheDocument();
+    expect(screen.getByTestId('claim-disabled-not-settled')).toBeInTheDocument();
+    expect(screen.queryByTestId('claim-preview')).toBeNull();
     expect(screen.queryByLabelText('Linked names')).toBeNull();
   });
 });
