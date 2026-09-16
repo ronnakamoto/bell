@@ -156,6 +156,10 @@ domain function by calling it with literal arguments, it is in the wrong layer.
 | domain | `indexer/src/domain/` | itself, `calibrator/src/domain`, and `decimal.js` |
 | application | `indexer/src/application/` | domain |
 | adapters | `indexer/src/adapters/` | domain and application |
+| domain | `web/src/domain/` | itself, `indexer/src/domain`, `calibrator/src/domain`, and `decimal.js` |
+| application | `web/src/application/` | domain |
+| adapters | `web/src/adapters/` | domain and application |
+| pages | `web/src/app/` | application and adapters (Next.js routes) |
 
 **The port is complete and the Python it replaced is gone** (ruling R5; B1 deleted the tree). The
 TypeScript paths above are the only paths. Until Phase B a second implementation sat beside each of
@@ -208,7 +212,7 @@ make check-architecture   # `npm run architecture` (dependency-cruiser)
 make check-layout         # the structural rules that are not import edges
 ```
 
-The contracts live in `.dependency-cruiser.cjs`, and there are seven:
+The contracts live in `.dependency-cruiser.cjs`, and there are nine:
 
 - *`calibrator-domain-is-hermetic`* — `calibrator/src/domain` may import itself and `decimal.js` and
   nothing else. An allow-list of one named package rather than a category, which is what R5.1 narrowed
@@ -216,8 +220,13 @@ The contracts live in `.dependency-cruiser.cjs`, and there are seven:
 - *`settlement-domain-takes-only-the-shared-core`* — the same, plus `calibrator/src/domain`.
 - *`indexer-domain-takes-only-the-shared-core`* — the same, plus `calibrator/src/domain`. The port is
   the point: an indexer that reached `node:fs` from `domain/` would not be an indexer with a seam.
+- *`web-domain-takes-only-the-shared-core`* — `web/src/domain` may import itself, `indexer/src/domain`,
+  `calibrator/src/domain`, and `decimal.js`. The participant surface reads the catalogue and the
+  committed quotes; settlement domain is not on the list.
 - *`application-does-not-import-adapters`* — the high-level policy must not reach a low-level driver.
 - *`the-calibrator-never-imports-the-settlement-service`* — the cross-workspace direction.
+- *`nothing-imports-the-web`* — the web is a consumer at the edge; a shared module it needs belongs
+  in the calibrator or the indexer.
 - *`nothing-imports-the-indexer`* — the indexer is a consumer at the edge; a shared module it needs
   belongs in the calibrator. All three spellings, because this rule was written first and fired on
   nothing (F96).

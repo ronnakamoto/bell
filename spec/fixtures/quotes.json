@@ -1,0 +1,24 @@
+{
+  "_note": "Fixture quotes for the web honest-quote slice (F1). Integers above 2^53 are strings.",
+  "quotes": [
+    {
+      "nameId": "0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb",
+      "forSession": "1",
+      "verdict": "Usable",
+      "lambdaWad": "15000000000000000000",
+      "premiumWad": "174000000000000000"
+    },
+    {
+      "nameId": "0x00000000000000000000000000000000000000000000000000000000000000f1",
+      "forSession": "2",
+      "verdict": "Fallback",
+      "lambdaWad": "10000000000000000000",
+      "premiumWad": "100000000000000000"
+    },
+    {
+      "nameId": "0x00000000000000000000000000000000000000000000000000000000000000f2",
+      "forSession": "3",
+      "verdict": "Refuse"
+    }
+  ]
+}

@@ -104,6 +104,7 @@ const TYPESCRIPT_WORKSPACES: readonly string[] = [
   'calibrator/src',
   'settlement/src',
   'indexer/src',
+  'web/src',
 ];
 
 /**
@@ -118,6 +119,7 @@ const TYPESCRIPT_DOMAIN_ROOTS: readonly string[] = [
   'calibrator/src/domain',
   'settlement/src/domain',
   'indexer/src/domain',
+  'web/src/domain',
 ];
 const TYPESCRIPT_DOMAIN_REQUIRED_PERCENT = LIBRARY_REQUIRED_PERCENT;
 

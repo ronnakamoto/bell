@@ -1,3 +1,4 @@
+import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -17,15 +18,25 @@ import { defineConfig } from 'vitest/config';
  * separately by `check-generated`.
  */
 export default defineConfig({
+  plugins: [react()],
   test: {
+    environmentMatchGlobs: [['web/tests/**/*.test.tsx', 'jsdom']],
     include: [
       'calibrator/tests/**/*.test.ts',
       'settlement/tests/**/*.test.ts',
       'indexer/tests/**/*.test.ts',
+      'web/tests/**/*.test.ts',
+      'web/tests/**/*.test.tsx',
     ],
     coverage: {
       provider: 'v8',
-      include: ['calibrator/src/**/*.ts', 'settlement/src/**/*.ts', 'indexer/src/**/*.ts'],
+      include: [
+        'calibrator/src/**/*.ts',
+        'settlement/src/**/*.ts',
+        'indexer/src/**/*.ts',
+        'web/src/**/*.ts',
+        'web/src/**/*.tsx',
+      ],
       exclude: [
         // Generated from `spec/constants.yaml`; its freshness is checked separately.
         'calibrator/src/domain/constants.ts',
