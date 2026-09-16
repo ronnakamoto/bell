@@ -54,6 +54,62 @@ export default async function SessionPage({
         <dt>Salt</dt>
         <dd>{session.salt}</dd>
       </dl>
+      {session.pool !== undefined ? (
+        <section aria-label="Pool">
+          <h3>Pool</h3>
+          <dl>
+            <dt>Long in</dt>
+            <dd>{session.pool.longIn}</dd>
+            <dt>Short in</dt>
+            <dd>{session.pool.shortIn}</dd>
+            <dt>Long reserve</dt>
+            <dd>{session.pool.longReserve}</dd>
+            <dt>Short reserve</dt>
+            <dd>{session.pool.shortReserve}</dd>
+          </dl>
+        </section>
+      ) : null}
+      {session.lastTrade !== undefined ? (
+        <section aria-label="Last trade">
+          <h3>Last trade</h3>
+          <dl>
+            <dt>Trader</dt>
+            <dd>{session.lastTrade.trader}</dd>
+            <dt>Bought long</dt>
+            <dd>{String(session.lastTrade.boughtLong)}</dd>
+            <dt>Collateral in</dt>
+            <dd>{session.lastTrade.collateralIn}</dd>
+            <dt>Claim out</dt>
+            <dd>{session.lastTrade.claimOut}</dd>
+          </dl>
+        </section>
+      ) : null}
+      {session.settlement !== undefined ? (
+        <section aria-label="Settlement">
+          <h3>Settlement</h3>
+          <dl>
+            <dt>Payoff long</dt>
+            <dd>{session.settlement.payoffLongWad}</dd>
+            <dt>Stale reference</dt>
+            <dd>{String(session.settlement.staleReference)}</dd>
+          </dl>
+        </section>
+      ) : null}
+      {session.resolution !== undefined ? (
+        <section aria-label="Resolution">
+          <h3>Resolution</h3>
+          <dl>
+            <dt>Branch</dt>
+            <dd>{session.resolution.branch}</dd>
+            <dt>Gap</dt>
+            <dd>{session.resolution.gapWad}</dd>
+            <dt>Payoff</dt>
+            <dd>{session.resolution.payoffWad}</dd>
+            <dt>Settled</dt>
+            <dd>{String(session.resolution.settled)}</dd>
+          </dl>
+        </section>
+      ) : null}
       {session.names.length > 0 ? (
         <section aria-label="Linked names">
           <h3>Linked names</h3>

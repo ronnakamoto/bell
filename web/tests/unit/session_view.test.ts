@@ -98,7 +98,70 @@ describe('toSessionDetail', () => {
     expect(detail.referenceToken).toBe('0xref');
     expect(detail.notionalCap).toBe('3');
     expect(detail.cap).toBe('2');
+    expect(detail.expiryTimestamp).toBe('1800000000');
     expect(detail.names).toHaveLength(1);
     expect(detail.names[0]?.forSession).toBe('1');
+    expect(detail.pool).toBeUndefined();
+    expect(detail.lastTrade).toBeUndefined();
+    expect(detail.settlement).toBeUndefined();
+    expect(detail.resolution?.branch).toBe('LivePrint');
+    expect(detail.resolution?.settled).toBe(true);
+  });
+
+  it('omits resolution when the fold has none', () => {
+    const detail = toSessionDetail(baseSession, []);
+    expect(detail.resolution).toBeUndefined();
+    expect(detail.settled).toBe(false);
+  });
+
+  it('maps pool, trade, and settlement snapshots when present', () => {
+    const session: SessionRecord = {
+      ...settledSession,
+      pool: {
+        longIn: 1_000_000_000_000n,
+        shortIn: 200_000_000_000n,
+        longReserve: 1_000_000_000_000n,
+        shortReserve: 200_000_000_000n,
+      },
+      lastTrade: {
+        trader: '0xtrader',
+        boughtLong: true,
+        collateralIn: 50_000_000_000n,
+        claimOut: 40_000_000_000n,
+      },
+      settlement: {
+        payoffLongWad: 300_000_000_000_000_000n,
+        staleReference: false,
+      },
+      resolution: {
+        branch: 'LivePrint',
+        gapWad: 20_000_000_000_000_000n,
+        payoffWad: 300_000_000_000_000_000n,
+        settled: true,
+      },
+    };
+    const detail = toSessionDetail(session, []);
+    expect(detail.pool).toEqual({
+      longIn: '1000000000000',
+      shortIn: '200000000000',
+      longReserve: '1000000000000',
+      shortReserve: '200000000000',
+    });
+    expect(detail.lastTrade).toEqual({
+      trader: '0xtrader',
+      boughtLong: true,
+      collateralIn: '50000000000',
+      claimOut: '40000000000',
+    });
+    expect(detail.settlement).toEqual({
+      payoffLongWad: '0.3',
+      staleReference: false,
+    });
+    expect(detail.resolution).toEqual({
+      branch: 'LivePrint',
+      gapWad: '0.02',
+      payoffWad: '0.3',
+      settled: true,
+    });
   });
 });

@@ -34,8 +34,13 @@ describe('loadSession', () => {
     const detail = await loadSession(logSource, INDEXER_CONFIG, CORPUS_SESSION_ADDRESS);
     expect(detail?.address).toBe(CORPUS_SESSION_ADDRESS);
     expect(detail?.settled).toBe(true);
+    expect(detail?.expiryTimestamp).toBe('1800063000');
     expect(detail?.names).toHaveLength(1);
     expect(detail?.names[0]?.forSession).toBe('1');
+    expect(detail?.pool?.longIn).toBe('1000000000000');
+    expect(detail?.lastTrade?.boughtLong).toBe(true);
+    expect(detail?.settlement?.payoffLongWad).toBe('0.3');
+    expect(detail?.resolution?.branch).toBe('LivePrint');
   });
 
   it('returns undefined for an address the corpus does not hold', async () => {

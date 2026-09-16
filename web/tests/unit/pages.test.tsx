@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { CORPUS_SESSION_ADDRESS } from '../../src/adapters/corpus.js';
@@ -27,6 +27,7 @@ describe('HomePage', () => {
     render(page);
     expect(screen.getByRole('heading', { level: 2, name: 'Sessions' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: CORPUS_SESSION_ADDRESS })).toBeInTheDocument();
+    expect(screen.getByText(/expiry 1800063000/)).toBeInTheDocument();
   });
 });
 
@@ -41,6 +42,12 @@ describe('SessionPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('quote-premium')).toBeInTheDocument();
     expect(screen.getByLabelText('Linked names')).toBeInTheDocument();
+    const pool = screen.getByLabelText('Pool');
+    expect(within(pool).getByText('Long in')).toBeInTheDocument();
+    expect(within(pool).getByText('Short in')).toBeInTheDocument();
+    expect(screen.getByLabelText('Last trade')).toBeInTheDocument();
+    expect(screen.getByLabelText('Settlement')).toBeInTheDocument();
+    expect(screen.getByLabelText('Resolution')).toBeInTheDocument();
   });
 
   it('calls notFound for an unknown address', async () => {

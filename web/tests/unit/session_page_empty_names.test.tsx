@@ -17,6 +17,10 @@ vi.mock('../../src/application/catalogue.js', () => ({
       cap: '1',
       salt: '0xsalt',
       names: [],
+      pool: undefined,
+      lastTrade: undefined,
+      settlement: undefined,
+      resolution: undefined,
     }),
   ),
 }));
