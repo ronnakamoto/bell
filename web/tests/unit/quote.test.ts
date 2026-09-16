@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+
 import { formatQuote, type Quote } from '../../src/domain/quote.js';
 
 describe('formatQuote', () => {
@@ -33,5 +34,34 @@ describe('formatQuote', () => {
     expect(d).not.toHaveProperty('premium');
     expect(d.message.toLowerCase()).toMatch(/not|do not|cannot|refuse|unprice/);
     expect(d.message).not.toMatch(/^\d/);
+  });
+
+  it('formats whole and fractional WAD values, including negatives', () => {
+    const whole = formatQuote({
+      verdict: 'Usable',
+      lambdaWad: 10n ** 18n,
+      premiumWad: 5n * 10n ** 17n,
+    });
+    expect(whole.kind).toBe('price');
+    if (whole.kind !== 'price') return;
+    expect(whole.lambda).toBe('1');
+    expect(whole.premium).toBe('0.5');
+
+    const fractional = formatQuote({
+      verdict: 'Usable',
+      lambdaWad: 123_456_789_000_000_000n,
+      premiumWad: -1_500_000_000_000_000_000n,
+    });
+    if (fractional.kind !== 'price') return;
+    expect(fractional.lambda).toBe('0.123456789');
+    expect(fractional.premium).toBe('-1.5');
+
+    const negativeWhole = formatQuote({
+      verdict: 'Usable',
+      lambdaWad: -(10n ** 18n),
+      premiumWad: 1n,
+    });
+    if (negativeWhole.kind !== 'price') return;
+    expect(negativeWhole.lambda).toBe('-1');
   });
 });

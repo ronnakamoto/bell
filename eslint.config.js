@@ -22,6 +22,7 @@ export default tseslint.config(
   {
     ignores: [
       '**/dist/**',
+      '**/.next/**',
       '**/coverage/**',
       '**/node_modules/**',
       // Reconnaissance scratch. Gitignored, and the tracker's convention is that it is not
@@ -35,6 +36,8 @@ export default tseslint.config(
       'calibrator/src/domain/constants.ts',
       'spec/**',
       'tools/**/*.generated.ts',
+      // Next.js toolchain file; triple-slash refs are required for generated route types.
+      'web/next-env.d.ts',
     ],
   },
 
@@ -110,7 +113,13 @@ export default tseslint.config(
   {
     // The services: no console output. A library that prints is a library with an undeclared side
     // effect, and the adapters are where output belongs.
-    files: ['calibrator/src/**/*.ts', 'settlement/src/**/*.ts', 'indexer/src/**/*.ts'],
+    files: [
+      'calibrator/src/**/*.ts',
+      'settlement/src/**/*.ts',
+      'indexer/src/**/*.ts',
+      'web/src/**/*.ts',
+      'web/src/**/*.tsx',
+    ],
     rules: {
       'no-console': 'error',
     },
@@ -133,6 +142,7 @@ export default tseslint.config(
       'calibrator/src/domain/**/*.ts',
       'settlement/src/domain/**/*.ts',
       'indexer/src/domain/**/*.ts',
+      'web/src/domain/**/*.ts',
     ],
     rules: {
       'no-restricted-properties': [

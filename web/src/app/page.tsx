@@ -20,8 +20,7 @@ export default async function HomePage(): Promise<ReactNode> {
           {catalogue.sessions.map((session) => (
             <li key={session.address}>
               <Link href={`/sessions/${session.address}`}>{session.address}</Link>
-              {' — '}
-              λ {session.lam}, registered {String(session.registered)}, settled{' '}
+              {' — '}λ {session.lam}, registered {String(session.registered)}, settled{' '}
               {String(session.settled)}
             </li>
           ))}

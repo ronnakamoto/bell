@@ -64,6 +64,24 @@ module.exports = {
       },
     },
     {
+      name: 'web-domain-takes-only-the-shared-core',
+      comment:
+        'web/src/domain may import itself, the shared calibrator domain, the indexer domain, and ' +
+        'decimal.js — nothing else. The web reads the catalogue the indexer folds and the quotes ' +
+        'the calibrator publishes; those are the only permitted cross-workspace edges into domain/. ' +
+        'Settlement domain is not on the list: the participant surface does not adjudicate routes.',
+      severity: 'error',
+      from: { path: '^web/src/domain' },
+      to: {
+        pathNot: [
+          `^web/(src|dist)/domain`,
+          `^indexer/(src|dist)/domain`,
+          `^calibrator/(src|dist)/domain`,
+          'node_modules/decimal\\.js',
+        ],
+      },
+    },
+    {
       name: 'indexer-domain-takes-only-the-shared-core',
       comment:
         'indexer/src/domain may import itself, the shared calibrator domain, and decimal.js -- ' +
@@ -92,12 +110,12 @@ module.exports = {
         'guards a spelling that does not resolve today, because no workspace `exports` an ' +
         '`adapters` path; it is here because the rule names a *target*, not a way of writing it.',
       severity: 'error',
-      from: { path: '^(calibrator|settlement|indexer)/src/application' },
+      from: { path: '^(calibrator|settlement|indexer|web)/src/application' },
       to: {
         path: [
-          '^@bell/(calibrator|settlement|indexer)/adapters',
-          '^(calibrator|settlement|indexer)/src/adapters',
-          '^(calibrator|settlement|indexer)/dist/adapters',
+          '^@bell/(calibrator|settlement|indexer|web)/adapters',
+          '^(calibrator|settlement|indexer|web)/src/adapters',
+          '^(calibrator|settlement|indexer|web)/dist/adapters',
         ],
       },
     },
@@ -118,6 +136,18 @@ module.exports = {
       from: { path: '^calibrator/src' },
       to: {
         path: ['^@bell/settlement', '^settlement/src', '^settlement/dist'],
+      },
+    },
+    {
+      name: 'nothing-imports-the-web',
+      comment:
+        'The web is a consumer at the edge: it reads the other workspaces and nothing reads it. ' +
+        'A shared module the web needs belongs in the calibrator or the indexer — so an import edge ' +
+        'pointing *into* the web from a service is either a misplaced module or a cycle in the making.',
+      severity: 'error',
+      from: { path: '^(calibrator|settlement|indexer)/src' },
+      to: {
+        path: ['^@bell/web', '^web/src', '^web/dist'],
       },
     },
     {

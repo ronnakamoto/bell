@@ -15,8 +15,8 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "build": "tsc -b calibrator/tsconfig.build.json settlement/tsconfig.build.json indexer/tsconfig.build.json",
-    "typecheck": "tsc -p calibrator/tsconfig.json && tsc -p settlement/tsconfig.json && tsc -p indexer/tsconfig.json && tsc -p tools/tsconfig.json",
+    "build": "tsc -b calibrator/tsconfig.build.json settlement/tsconfig.build.json indexer/tsconfig.build.json && npm run build -w @bell/web",
+    "typecheck": "tsc -p calibrator/tsconfig.json && tsc -p settlement/tsconfig.json && tsc -p indexer/tsconfig.json && tsc -p web/tsconfig.json && tsc -p tools/tsconfig.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -24,7 +24,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "architecture": "depcruise calibrator/src settlement/src indexer/src",
+    "architecture": "depcruise calibrator/src settlement/src indexer/src web/src",
     "verify": "npm run build && npm run format:check && npm run lint && npm run typecheck && npm run architecture && npm run test"
   },
   "devDependencies": {

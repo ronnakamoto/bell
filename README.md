@@ -27,6 +27,7 @@ saturation happens by construction rather than by accident.
 | `calibrator/` | TypeScript: gap ingestion, classification, fitting, publication |
 | `settlement/` | TypeScript: the five settlement routes, and the challenge adjudication |
 | `indexer/` | TypeScript: fold the lifecycle's logs into a session catalogue |
+| `web/` | Next.js: browse the catalogue and read honest oracle quotes (F1) |
 | `spec/` | The single source of truth for every shared number and fixture |
 | `GAS_REPORT.md` | Per-operation gas against the brief's §13.3 budget |
 | `docs/` | The research paper this implements |

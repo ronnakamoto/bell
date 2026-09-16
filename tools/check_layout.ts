@@ -99,6 +99,7 @@ const WORKSPACE_SOURCE_ROOTS: readonly string[] = [
   join(REPO_ROOT, 'calibrator/src'),
   join(REPO_ROOT, 'settlement/src'),
   join(REPO_ROOT, 'indexer/src'),
+  join(REPO_ROOT, 'web/src'),
 ];
 
 /** The three workspaces' test trees. Subject to the naming and marker rules, and to nothing else. */
@@ -106,6 +107,7 @@ const WORKSPACE_TEST_ROOTS: readonly string[] = [
   join(REPO_ROOT, 'calibrator/tests'),
   join(REPO_ROOT, 'settlement/tests'),
   join(REPO_ROOT, 'indexer/tests'),
+  join(REPO_ROOT, 'web/tests'),
 ];
 
 /** The build scripts: type-checked by `tools/tsconfig.json` and linted, but not `src/`. */
@@ -129,6 +131,7 @@ const DOMAIN_ROOTS: readonly string[] = [
   join(REPO_ROOT, 'calibrator/src/domain'),
   join(REPO_ROOT, 'settlement/src/domain'),
   join(REPO_ROOT, 'indexer/src/domain'),
+  join(REPO_ROOT, 'web/src/domain'),
 ];
 
 const MAX_SOURCE_LINES = 400;

@@ -1,11 +1,7 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "ES2023"
-    ],
+    "lib": ["dom", "dom.iterable", "ES2023"],
     "jsx": "preserve",
     "module": "ESNext",
     "moduleResolution": "bundler",
@@ -22,13 +18,9 @@
       }
     ],
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     },
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "esModuleInterop": true,
     "resolveJsonModule": true
   },
@@ -40,7 +32,5 @@
     "tests/**/*.tsx",
     ".next/types/**/*.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+  "exclude": ["node_modules"]
 }

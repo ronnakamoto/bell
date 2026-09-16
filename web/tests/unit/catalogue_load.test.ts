@@ -6,8 +6,7 @@ import { loadCatalogue, loadSession } from '../../src/application/catalogue.js';
 
 const logSource = new FileLogSource(LOGS_PATH);
 
-const CORPUS_NAME_ID =
-  '0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb';
+const CORPUS_NAME_ID = '0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb';
 
 describe('loadCatalogue', () => {
   it('recovers one settled session and one name from the producer corpus', async () => {
