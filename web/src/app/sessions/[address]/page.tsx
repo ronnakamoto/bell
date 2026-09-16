@@ -9,6 +9,7 @@ import { loadSession } from '../../../application/catalogue.js';
 import { loadQuote } from '../../../application/quote.js';
 import { QuotePanel } from '../../../components/QuotePanel.js';
 import { SessionIntents } from '../../../components/SessionIntents.js';
+import { SessionSettlementIntents } from '../../../components/SessionSettlementIntents.js';
 import { type Quote } from '../../../domain/quote.js';
 
 const logSource = new FileLogSource(LOGS_PATH);
@@ -126,6 +127,7 @@ export default async function SessionPage({
       ) : null}
       <QuotePanel quote={quote} />
       <SessionIntents quote={quote} />
+      <SessionSettlementIntents settled={session.settled} />
     </div>
   );
 }
