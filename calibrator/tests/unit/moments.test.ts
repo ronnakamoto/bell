@@ -36,11 +36,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   D,
+  ERF_SATURATION,
   SQRT_PI,
   SQRT_TWO,
   SQRT_TWO_OVER_PI,
   SQRT_TWO_PI,
   TWO_OVER_SQRT_PI,
+  erf,
   standardNormalCdf,
   standardNormalPdf,
   truncatedAbsMoment,
@@ -90,6 +92,23 @@ describe('standardNormalCdf', () => {
     const trueValue = new WIDE('1.279812543885835004383623690780832998035E-12');
     const computed = new WIDE(standardNormalCdf(D('-7')));
     expect(within(computed, trueValue, '1e-40')).toBe(true);
+  });
+});
+
+describe('erf', () => {
+  it('is exactly one at and above the saturation point (F88)', () => {
+    // erfc(11) = 1.5e-54, which is zero at the module's 50 digits. The continued fraction is pure
+    // cost past here; short-circuiting was measured at 29.2% of the NIG quadrature's Phi arguments.
+    expect(erf(ERF_SATURATION).equals(D(1))).toBe(true);
+    expect(erf(D(100)).equals(D(1))).toBe(true);
+    expect(erf(ERF_SATURATION.neg()).equals(D(-1))).toBe(true);
+  });
+
+  it('is still below one just under the saturation point', () => {
+    // The short-circuit must not fire early: the continued fraction is what keeps Phi(-7) honest,
+    // and the band between SERIES_BREAKPOINT and ERF_SATURATION is where it earns its keep. At the
+    // module's 50 digits erf(10.5) is still distinguishable from 1; erf(10.9) already is not.
+    expect(erf(D('10.5')).lt(D(1))).toBe(true);
   });
 });
 
