@@ -42,6 +42,11 @@ describe('SessionPage', () => {
       screen.getByRole('heading', { level: 2, name: CORPUS_SESSION_ADDRESS }),
     ).toBeInTheDocument();
     expect(screen.getByTestId('quote-premium')).toBeInTheDocument();
+    const shownIv = screen.getByTestId('bell-iv-show');
+    expect(shownIv).toHaveTextContent('0.2');
+    expect(shownIv).toHaveTextContent('pool');
+    expect(shownIv).toHaveTextContent('0');
+    expect(screen.queryByTestId('bell-iv-omit')).toBeNull();
     expect(screen.getByLabelText('Linked names')).toBeInTheDocument();
     const pool = screen.getByLabelText('Pool');
     expect(within(pool).getByText('Long in')).toBeInTheDocument();

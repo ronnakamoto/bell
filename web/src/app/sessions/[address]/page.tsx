@@ -3,10 +3,13 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-import { INDEXER_CONFIG, LOGS_PATH, QUOTES_PATH } from '../../../adapters/corpus.js';
+import { INDEXER_CONFIG, IV_PATH, LOGS_PATH, QUOTES_PATH } from '../../../adapters/corpus.js';
+import { FileIvSource } from '../../../adapters/iv_source_file.js';
 import { FileQuoteSource } from '../../../adapters/quote_source_file.js';
 import { loadSession } from '../../../application/catalogue.js';
+import { loadPublishedIv } from '../../../application/iv.js';
 import { loadQuote } from '../../../application/quote.js';
+import { BellIvPanel } from '../../../components/BellIvPanel.js';
 import { EligibilityGate } from '../../../components/EligibilityGate.js';
 import { QuotePanel } from '../../../components/QuotePanel.js';
 import { SessionIntents } from '../../../components/SessionIntents.js';
@@ -15,6 +18,7 @@ import { type Quote } from '../../../domain/quote.js';
 
 const logSource = new FileLogSource(LOGS_PATH);
 const quoteSource = new FileQuoteSource(QUOTES_PATH);
+const ivSource = new FileIvSource(IV_PATH);
 
 export default async function SessionPage({
   params,
@@ -32,6 +36,7 @@ export default async function SessionPage({
   } else {
     quote = await loadQuote(quoteSource, linkedName.nameId, BigInt(linkedName.forSession));
   }
+  const iv = await loadPublishedIv(ivSource, session.address);
 
   return (
     <div>
@@ -127,6 +132,7 @@ export default async function SessionPage({
         </section>
       ) : null}
       <QuotePanel quote={quote} />
+      <BellIvPanel iv={iv} />
       <EligibilityGate>
         <SessionIntents quote={quote} />
         <SessionSettlementIntents settled={session.settled} />
