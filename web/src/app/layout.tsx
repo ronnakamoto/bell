@@ -12,7 +12,9 @@ export default function RootLayout({ children }: { children: ReactNode }): React
       <body>
         <header>
           <h1>BELL</h1>
-          <p>Discovery and pricing only — no trading in this build.</p>
+          <p>
+            Discovery, pricing, and intent builder — transactions are not broadcast in this build.
+          </p>
         </header>
         <main>{children}</main>
       </body>
