@@ -3099,12 +3099,11 @@ approach is `DECAY/(12*shape)`, which the test asserts as a coefficient rather t
 **The cost is set by the sample's excess kurtosis, not by the code.** Since `shape = 3/(k - 4s^2/3)`, a
 fatter-tailed window needs more nodes: the fixture's `k = 97` gives `shape = 0.031` and 111 nodes at
 465 ms, while a near-Gaussian sample gives `shape = 21` and 64 nodes at 104 ms. The TypeScript suite went
-from 747 ms to 2.83 s. **One available optimisation was measured and deliberately not taken**: 29.2% of
+from 747 ms to 2.83 s. **One available optimisation was measured at G0 and taken later as F88**: 29.2% of
 the quadrature's `Phi` arguments exceed 11, where `erf` is exactly 1 at fifty digits (`erfc(11) =
 1.5e-54`), and short-circuiting there cut the fixture's path from 814 ms to 342 ms — a factor of 2.4.
-It was left out because `moments.ts` is the reference the Solidity differential is derived from, and a
-feature commit is the wrong place to change how it computes. Recorded as F88 so the next person can take
-it in one line rather than re-measure it.
+It was left out of the G0 commit because `moments.ts` is the reference the Solidity differential is
+derived from, and a feature commit is the wrong place to change how it computes.
 
 **Probed, and the probe is the point.** The claim "the new file is at 100% on all four metrics" is worth
 nothing unless the file is instrumented at all — a file the coverage config silently excludes also
@@ -3118,6 +3117,17 @@ claimed 31 tests while the file held 32 — a count written by hand and never re
 number is now checked against the file. And the `rho^2 >= 1` branch needed a search rather than a
 construction: the first two fixtures written for it were refused by the cone instead, and the test would
 have passed while testing the wrong refusal.
+
+## Closure of F88 — `erf` saturates where the continued fraction is pure cost
+
+G0 measured that 29.2% of the NIG quadrature's `Phi` arguments exceed 11, where `erfc(11) = 1.5e-54`
+and `erf` is exactly 1 at the module's 50 digits. Short-circuiting there cut the fixture's path from
+814 ms to 342 ms — a factor of 2.4 — and was left out of the G0 commit because `moments.ts` is the
+Solidity differential's reference.
+
+**Taken.** `erf` returns ±1 at `|z| >= 11` (`ERF_SATURATION`). The moments fixture regenerates
+byte-identical: every affected argument is far past the WAD grid, so the quantised oracle does not
+move. The deep-tail `Phi(-7)` path still runs the continued fraction (`7/sqrt(2) ≈ 4.95`).
 
 ## F89 — G1's estimator reproduces Table 17, and the published column resolves the fourth digit of τ
 
@@ -3629,7 +3639,6 @@ spelling rather than the one the author had in mind.
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
-| F88 | `erf` computes a continued fraction for arguments above 11, where it is exactly 1 at working precision; measured at 29.2% of the NIG quadrature's calls and a factor of 2.4 on that path | nothing; recorded rather than taken, because `moments.ts` is the Solidity differential's reference and the change is not part of G0 |
 | F84 | the two services have no entry point, and the brief describes them as services without supplying one | the deployment story |
 | F85 | `ruff`'s `I` had a second half — import *ordering* — and no gate enforces it | nothing; recorded rather than closed, because closing it needs an import-sorting plugin and a tree-wide reformat |
 

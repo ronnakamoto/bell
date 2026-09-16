@@ -85,6 +85,13 @@ export const SQRT_TWO_OVER_PI = d(
  */
 export const SERIES_BREAKPOINT = d(4);
 
+/**
+ * Above this magnitude `erf` is exactly 1 at the module's 50 digits (`erfc(11) = 1.5e-54`), so the
+ * continued fraction is pure cost. Measured at 29.2% of the NIG quadrature's `Phi` arguments and a
+ * factor of 2.4 on that path (F88).
+ */
+export const ERF_SATURATION = d(11);
+
 const SERIES_MAX_TERMS = 200;
 const CONTINUED_FRACTION_MAX_TERMS = 200;
 const CONTINUED_FRACTION_EPSILON = d('1e-45');
@@ -168,14 +175,16 @@ export function truncatedFirstMoment(lam: Decimal, sigma: Decimal): Decimal {
 /**
  * The error function, to working precision.
  *
- * Odd in `z`, so only the magnitude is evaluated. Below the breakpoint the Maclaurin series
- * `erf(z) = (2/sqrt(pi)) * sum (-1)^n z^(2n+1) / (n! (2n+1))` is used; above it the complementary
- * function is taken from the continued fraction, because the series suffers catastrophic
- * cancellation in the tail while the fraction does not.
+ * Odd in `z`, so only the magnitude is evaluated. Below the series breakpoint the Maclaurin series
+ * `erf(z) = (2/sqrt(pi)) * sum (-1)^n z^(2n+1) / (n! (2n+1))` is used; between there and
+ * `ERF_SATURATION` the complementary function is taken from the continued fraction, because the
+ * series suffers catastrophic cancellation in the tail while the fraction does not; at and above
+ * `ERF_SATURATION` the result is exactly 1 (F88).
  */
 export function erf(z: Decimal): Decimal {
   if (z.isZero()) return d(0);
   if (z.isNegative()) return erf(z.neg()).neg();
+  if (z.gte(ERF_SATURATION)) return d(1);
   if (z.lte(SERIES_BREAKPOINT)) return erfSeries(z);
   return d(1).minus(erfcContinuedFraction(z));
 }
