@@ -113,9 +113,7 @@ function toNameListItem(name: NameRecord): NameListItem {
   };
 }
 
-function toPoolSnapshotView(
-  pool: NonNullable<SessionRecord['pool']>,
-): PoolSnapshotView {
+function toPoolSnapshotView(pool: NonNullable<SessionRecord['pool']>): PoolSnapshotView {
   return {
     longIn: formatInteger(pool.longIn),
     shortIn: formatInteger(pool.shortIn),
@@ -124,9 +122,7 @@ function toPoolSnapshotView(
   };
 }
 
-function toTradeSnapshotView(
-  trade: NonNullable<SessionRecord['lastTrade']>,
-): TradeSnapshotView {
+function toTradeSnapshotView(trade: NonNullable<SessionRecord['lastTrade']>): TradeSnapshotView {
   return {
     trader: trade.trader,
     boughtLong: trade.boughtLong,
@@ -176,8 +172,7 @@ export function toSessionDetail(
     salt: session.salt,
     names: names.map(toNameListItem),
     pool: session.pool === undefined ? undefined : toPoolSnapshotView(session.pool),
-    lastTrade:
-      session.lastTrade === undefined ? undefined : toTradeSnapshotView(session.lastTrade),
+    lastTrade: session.lastTrade === undefined ? undefined : toTradeSnapshotView(session.lastTrade),
     settlement:
       session.settlement === undefined ? undefined : toSettlementSnapshotView(session.settlement),
     resolution:
