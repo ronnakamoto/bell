@@ -21,7 +21,7 @@
  */
 
 import { type Branch } from './branch.js';
-import { addressKey, type AddressKey, type Word } from './log.js';
+import { type AddressKey, addressKey, type Word } from './log.js';
 
 /** The identity `SessionCreated` carries, which is everything a client needs to find the session. */
 export interface SessionIdentity {

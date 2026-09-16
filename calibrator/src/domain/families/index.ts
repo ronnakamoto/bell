@@ -86,16 +86,16 @@ export type { DistributionFamily } from './base.js';
 export {
   FamilyError,
   FamilyFit,
-  GapSample,
-  UnimplementedFamilyError,
   floorDiv,
+  GapSample,
   premiumFromTruncatedMean,
   truncatedMeanWad,
+  UnimplementedFamilyError,
 } from './base.js';
 export { EmpiricalTruncatedFamily } from './empirical.js';
 export {
-  GaussianFamily,
   dimensionless,
+  GaussianFamily,
   gaussianPremiumWad,
   relativeErrorWad,
   toWad,

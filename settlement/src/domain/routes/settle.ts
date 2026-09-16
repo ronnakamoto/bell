@@ -15,9 +15,8 @@
  * and this one is the reference the contract is checked against.
  */
 
-import { type Decimal } from 'decimal.js';
-
 import { WAD } from '@bell/calibrator/domain/constants.js';
+import { type Decimal } from 'decimal.js';
 
 import { type PrintSelected } from '../prints.js';
 import {

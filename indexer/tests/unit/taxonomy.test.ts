@@ -21,18 +21,17 @@
 
 import { readFileSync } from 'node:fs';
 
+import { hexOf } from '@bell/calibrator/domain/bytes.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { describe, expect, it } from 'vitest';
 
-import { hexOf } from '@bell/calibrator/domain/bytes.js';
-
 import { type RawLog } from '../../src/domain/log.js';
 import {
+  describeEvent,
+  type EmitterRole,
   EVENTS,
   IGNORED_TOPICS,
   SESSION_EVENTS,
-  describeEvent,
-  type EmitterRole,
 } from '../../src/domain/taxonomy.js';
 
 interface Fixture {

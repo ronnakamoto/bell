@@ -11,9 +11,8 @@
  * unquotable rather than as zero, because a number no name experiences is worse than an absent one.
  */
 
-import { type Decimal } from 'decimal.js';
-
 import { DomainError } from '@bell/calibrator/domain/models.js';
+import { type Decimal } from 'decimal.js';
 
 import { ROUTE_IDS, RouteId, type SettlementRoute } from './base.js';
 import { VoidAtHalfRoute } from './r1_void.js';

@@ -14,19 +14,19 @@
 import { DomainError } from '@bell/calibrator/domain/models.js';
 
 import {
+  type AddressKey,
   addressOfTopic,
   addressOfWord,
   boolOf,
   bytes32OfTopic,
   emitterKey,
   intOf,
+  type RawLog,
   topicAt,
   uint64Of,
   uintOf,
-  wordAt,
-  type AddressKey,
-  type RawLog,
   type Word,
+  wordAt,
 } from './log.js';
 import { type EventDescriptor } from './taxonomy.js';
 

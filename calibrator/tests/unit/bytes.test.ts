@@ -17,7 +17,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { NameId, bytesEqual, bytesFromHex, hexOf } from '../../src/domain/bytes.js';
+import { bytesEqual, bytesFromHex, hexOf, NameId } from '../../src/domain/bytes.js';
 
 /** The Python's `DIGEST`, and the byte a name id is built from in every test below. */
 const DIGEST = new Uint8Array(32).fill(0x11);

@@ -13,7 +13,6 @@
 import { readFileSync } from 'node:fs';
 
 import type { Decimal } from 'decimal.js';
-
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -21,12 +20,12 @@ import {
   SQRT_PI,
   SQRT_TWO,
   SQRT_TWO_OVER_PI,
-  TWO_OVER_SQRT_PI,
   standardNormalCdf,
   standardNormalPdf,
   truncatedAbsMoment,
   truncatedAbsMomentAtCap,
   truncatedFirstMoment,
+  TWO_OVER_SQRT_PI,
 } from '../../src/domain/moments.js';
 
 interface MomentPoint {

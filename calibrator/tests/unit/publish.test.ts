@@ -20,7 +20,7 @@ import { keccak_256 } from '@noble/hashes/sha3.js';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import { PublishError, PublishRequest, publish } from '../../src/application/publish.js';
+import { publish, PublishError, PublishRequest } from '../../src/application/publish.js';
 import { WAD } from '../../src/domain/constants.js';
 import { commitmentDigest, nameId } from '../../src/domain/digest.js';
 import { ParameterSet, SessionKind, Symbol, Wad } from '../../src/domain/models.js';

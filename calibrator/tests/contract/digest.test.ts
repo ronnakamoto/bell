@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { describe, expect, it } from 'vitest';
 
+import { bytesFromHex, hexOf } from '../../src/domain/bytes.js';
 import {
   commitmentDigest,
   commitmentPreimage,
@@ -24,8 +25,7 @@ import {
   inputsPreimage,
   nameId,
 } from '../../src/domain/digest.js';
-import { bytesFromHex, hexOf } from '../../src/domain/bytes.js';
-import { Symbol, type SessionKind } from '../../src/domain/models.js';
+import { type SessionKind, Symbol } from '../../src/domain/models.js';
 
 interface DigestCase {
   label: string;

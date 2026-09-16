@@ -50,10 +50,9 @@
  * global, which the domain may not have.
  */
 
-import { Decimal } from 'decimal.js';
-
 import { WAD } from '@bell/calibrator/domain/constants.js';
 import { DomainError } from '@bell/calibrator/domain/models.js';
+import { Decimal } from 'decimal.js';
 
 import { type ReferencePrint, type SelectionResult, selectPrint } from '../prints.js';
 

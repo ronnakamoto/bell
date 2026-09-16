@@ -24,13 +24,13 @@ import { DomainError } from '@bell/calibrator/domain/models.js';
 import { branchFromCode, settlesSession } from './branch.js';
 import {
   type Catalogue,
+  emptyCatalogue,
   type NameRecord,
   type PrintRecord,
   type SessionRecord,
-  emptyCatalogue,
 } from './catalogue.js';
 import { decodeEvent, type ProtocolEvent } from './decode.js';
-import { addressKey, emitterKey, topicAt, type AddressKey, type RawLog, type Word } from './log.js';
+import { type AddressKey, addressKey, emitterKey, type RawLog, topicAt, type Word } from './log.js';
 import { type IndexerConfig } from './ports.js';
 import { describeEvent, type EmitterRole } from './taxonomy.js';
 

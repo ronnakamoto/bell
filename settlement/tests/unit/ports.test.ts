@@ -29,8 +29,8 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { type ReferencePrint } from '../../src/domain/prints.js';
 import { type CommittedInputStore, type ReferencePrintSource } from '../../src/domain/ports.js';
+import { type ReferencePrint } from '../../src/domain/prints.js';
 
 /** The smallest object that satisfies `ReferencePrintSource`. */
 class APrintSource implements ReferencePrintSource {

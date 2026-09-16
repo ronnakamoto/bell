@@ -2918,18 +2918,17 @@ config being bent to match it, and the generalising property the `layers` contra
 layer being constrained by construction — is carried by the layer table in `ARCHITECTURE.md`, which a
 new layer has to be added to anyway.
 
-**One overstatement corrected.** `eslint.config.js` mapped `consistent-type-imports` to "`ruff`'s
-`I`", which is half of what `I` does: `I` also sorts import statements and nothing here sorts them —
-`prettier` does not, and there is no `import/order` rule. Ordering is therefore a convention with no
-gate, which is the one shape of rule this repository tries not to have; the comment now says so instead
-of claiming otherwise. The rest of the `ruff` selection maps as follows, and the entries with no home
-are stated rather than left to be discovered: `E`/`W`/`F` are `js.configs.recommended` plus
-`strictTypeChecked`; `UP` is `erasableSyntaxOnly` and the ES2023 target; `ANN` is
-`explicit-function-return-type`; `B`/`SIM` are `eqeqeq`, `prefer-const` and `no-var`; `T20` is
-`no-console` scoped to `src/`; `mypy`'s `disallow_any_explicit` is `no-explicit-any`. **No home, and
-each deliberate:** `N` (naming — and `SCREAMING_SNAKE_CASE` for immutables conflicts with
-`IERC20.decimals`), `A` (builtin shadowing — F78 records that `Symbol` is kept), and `C4`/`PTH`/`RUF`,
-which have no TypeScript analogue.
+**One overstatement corrected, then closed.** `eslint.config.js` mapped `consistent-type-imports` to
+"`ruff`'s `I`", which is half of what `I` does: `I` also sorts import statements. Ordering was therefore
+a convention with no gate — the one shape of rule this repository tries not to have. Closed by adding
+`eslint-plugin-simple-import-sort` and reforming the tree; both halves of `I` are now gates. The rest of
+the `ruff` selection maps as follows, and the entries with no home are stated rather than left to be
+discovered: `E`/`W`/`F` are `js.configs.recommended` plus `strictTypeChecked`; `UP` is
+`erasableSyntaxOnly` and the ES2023 target; `ANN` is `explicit-function-return-type`; `B`/`SIM` are
+`eqeqeq`, `prefer-const` and `no-var`; `T20` is `no-console` scoped to `src/`; `mypy`'s
+`disallow_any_explicit` is `no-explicit-any`. **No home, and each deliberate:** `N` (naming — and
+`SCREAMING_SNAKE_CASE` for immutables conflicts with `IERC20.decimals`), `A` (builtin shadowing — F78
+records that `Symbol` is kept), and `C4`/`PTH`/`RUF`, which have no TypeScript analogue.
 
 **Probed, because a gate that has never failed is untested.** Six dependency probes, each a two-line
 file created, run and deleted: `domain -> application`, `application -> adapters`, `domain -> a
@@ -2938,6 +2937,13 @@ and `calibrator -> the settlement service` in both spellings. Every one is caugh
 deletions left no residue in `dist/` — which is asserted rather than assumed, because the probe file
 itself is the defect F82 describes, and `check_layout`'s sixth rule is what proves the workspace is
 clean afterwards.
+
+## Closure of F85 — import ordering is a gate
+
+The B3 audit recorded that `consistent-type-imports` covered only half of `ruff`'s `I`: sorting was a
+convention with no gate. Closed by adding `eslint-plugin-simple-import-sort` (`imports` and `exports`),
+reforming the tree (33 files), and probing that an unsorted import fails `npm run lint` by name.
+`prettier` still does not sort; the gate does.
 
 ## F86 — C0 gave `check_layout` three scopes, and the rule it did *not* add is the finding
 
@@ -3640,5 +3646,4 @@ spelling rather than the one the author had in mind.
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
 | F84 | the two services have no entry point, and the brief describes them as services without supplying one | the deployment story |
-| F85 | `ruff`'s `I` had a second half — import *ordering* — and no gate enforces it | nothing; recorded rather than closed, because closing it needs an import-sorting plugin and a tree-wide reformat |
 

@@ -55,8 +55,8 @@ import { toWad } from '../../src/domain/families/gaussian.js';
 import {
   capRatioForPrice,
   dimensionlessPrice,
-  impliedVolatility,
   ImpliedError,
+  impliedVolatility,
   publishedVolatility,
   unitCapMoment,
   VolatilityReading,

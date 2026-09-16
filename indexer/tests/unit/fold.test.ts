@@ -9,9 +9,8 @@
 
 import { readFileSync } from 'node:fs';
 
-import { describe, expect, it } from 'vitest';
-
 import { DomainError } from '@bell/calibrator/domain/models.js';
+import { describe, expect, it } from 'vitest';
 
 import { emptyCatalogue, nameOf, sessionOf } from '../../src/domain/catalogue.js';
 import { decodeEvent } from '../../src/domain/decode.js';
