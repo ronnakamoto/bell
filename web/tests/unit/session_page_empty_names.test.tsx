@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/application/catalogue.js', () => ({
@@ -29,6 +29,7 @@ import SessionPage from '../../src/app/sessions/[address]/page.js';
 
 afterEach(() => {
   cleanup();
+  sessionStorage.clear();
 });
 
 describe('SessionPage without linked names', () => {
@@ -36,6 +37,11 @@ describe('SessionPage without linked names', () => {
     const page = await SessionPage({ params: Promise.resolve({ address: '0xabc' }) });
     render(page);
     expect(screen.getByTestId('quote-refuse')).toBeInTheDocument();
+    expect(screen.getByTestId('eligibility-required')).toBeInTheDocument();
+    expect(screen.queryByTestId('trade-disabled-refuse')).toBeNull();
+    fireEvent.click(screen.getByTestId('eligibility-not-us'));
+    fireEvent.click(screen.getByTestId('eligibility-tos-reset'));
+    fireEvent.click(screen.getByTestId('eligibility-accept'));
     expect(screen.getByTestId('trade-disabled-refuse')).toBeInTheDocument();
     expect(screen.getByTestId('claim-disabled-not-settled')).toBeInTheDocument();
     expect(screen.queryByTestId('claim-preview')).toBeNull();
