@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  formatOmittedIv,
-  formatPublishedIv,
-  type IvDisplay,
-} from '../../src/domain/iv.js';
+import { formatOmittedIv, formatPublishedIv, type IvDisplay } from '../../src/domain/iv.js';
 
 describe('formatPublishedIv', () => {
   it('returns a show display with formatted sigma text', () => {
@@ -21,7 +17,7 @@ describe('formatPublishedIv', () => {
     expect(display.ageSessions).toBe('3');
   });
 
-  it('formats whole and fractional WAD sigma values', () => {
+  it('formats whole and fractional WAD sigma values, including negatives', () => {
     const whole = formatPublishedIv({
       sigmaWad: 10n ** 18n,
       provenance: 'pool',
@@ -39,6 +35,22 @@ describe('formatPublishedIv', () => {
     expect(fractional.sigma).toBe('0.123456789');
     expect(fractional.provenance).toBe('trailing-realised');
     expect(fractional.ageSessions).toBe('13');
+
+    const negativeFractional = formatPublishedIv({
+      sigmaWad: -1_500_000_000_000_000_000n,
+      provenance: 'pool',
+      ageSessions: 1n,
+    });
+    if (negativeFractional.kind !== 'show') return;
+    expect(negativeFractional.sigma).toBe('-1.5');
+
+    const negativeWhole = formatPublishedIv({
+      sigmaWad: -(10n ** 18n),
+      provenance: 'pool',
+      ageSessions: 0n,
+    });
+    if (negativeWhole.kind !== 'show') return;
+    expect(negativeWhole.sigma).toBe('-1');
   });
 });
 
