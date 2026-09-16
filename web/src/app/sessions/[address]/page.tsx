@@ -7,6 +7,7 @@ import { INDEXER_CONFIG, LOGS_PATH, QUOTES_PATH } from '../../../adapters/corpus
 import { FileQuoteSource } from '../../../adapters/quote_source_file.js';
 import { loadSession } from '../../../application/catalogue.js';
 import { loadQuote } from '../../../application/quote.js';
+import { EligibilityGate } from '../../../components/EligibilityGate.js';
 import { QuotePanel } from '../../../components/QuotePanel.js';
 import { SessionIntents } from '../../../components/SessionIntents.js';
 import { SessionSettlementIntents } from '../../../components/SessionSettlementIntents.js';
@@ -126,8 +127,10 @@ export default async function SessionPage({
         </section>
       ) : null}
       <QuotePanel quote={quote} />
-      <SessionIntents quote={quote} />
-      <SessionSettlementIntents settled={session.settled} />
+      <EligibilityGate>
+        <SessionIntents quote={quote} />
+        <SessionSettlementIntents settled={session.settled} />
+      </EligibilityGate>
     </div>
   );
 }

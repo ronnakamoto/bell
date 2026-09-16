@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { CORPUS_SESSION_ADDRESS } from '../../src/adapters/corpus.js';
@@ -11,6 +11,7 @@ import SessionPage from '../../src/app/sessions/[address]/page.js';
 
 afterEach(() => {
   cleanup();
+  sessionStorage.clear();
 });
 
 describe('RootLayout', () => {
@@ -48,6 +49,12 @@ describe('SessionPage', () => {
     expect(screen.getByLabelText('Last trade')).toBeInTheDocument();
     expect(screen.getByLabelText('Settlement')).toBeInTheDocument();
     expect(screen.getByLabelText('Resolution')).toBeInTheDocument();
+    expect(screen.getByTestId('eligibility-required')).toBeInTheDocument();
+    expect(screen.queryByTestId('trade-preview')).toBeNull();
+    expect(screen.queryByTestId('claim-preview')).toBeNull();
+    fireEvent.click(screen.getByTestId('eligibility-not-us'));
+    fireEvent.click(screen.getByTestId('eligibility-tos-reset'));
+    fireEvent.click(screen.getByTestId('eligibility-accept'));
     expect(screen.getByTestId('trade-preview')).toBeEnabled();
     expect(screen.getByTestId('lp-preview')).toBeEnabled();
     expect(screen.getByTestId('claim-preview')).toBeEnabled();
