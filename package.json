@@ -8,7 +8,8 @@
   "workspaces": [
     "calibrator",
     "settlement",
-    "indexer"
+    "indexer",
+    "web"
   ],
   "engines": {
     "node": ">=22.13.0"

@@ -1,0 +1,10 @@
+{
+  "name": "@bell/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "BELL participant web — discovery and pricing (F1)",
+  "dependencies": {
+    "@bell/indexer": "0.1.0"
+  }
+}
