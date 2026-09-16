@@ -35,6 +35,16 @@ describe('TradeForm', () => {
     expect(screen.getByText('Buy short claims')).toBeInTheDocument();
   });
 
+  it('treats a non-short side as long', () => {
+    render(<TradeForm />);
+    fireEvent.change(screen.getByLabelText('Side'), { target: { value: 'short' } });
+    fireEvent.change(screen.getByLabelText('Side'), { target: { value: 'long' } });
+    fireEvent.change(screen.getByLabelText('Collateral in'), { target: { value: '50' } });
+    fireEvent.change(screen.getByTestId('trade-min-out'), { target: { value: '1' } });
+    fireEvent.click(screen.getByTestId('trade-preview'));
+    expect(screen.getByText('Buy long claims')).toBeInTheDocument();
+  });
+
   it('shows an error for non-digit amounts', () => {
     render(<TradeForm />);
     fireEvent.change(screen.getByLabelText('Collateral in'), { target: { value: '1.5' } });
@@ -66,6 +76,21 @@ describe('SessionIntents', () => {
       <SessionIntents
         quote={{
           verdict: 'Usable',
+          lambdaWad: 10n ** 18n,
+          premiumWad: 10n ** 17n,
+        }}
+      />,
+    );
+    expect(screen.queryByTestId('trade-disabled-refuse')).toBeNull();
+    expect(screen.getByTestId('trade-preview')).toBeEnabled();
+    expect(screen.getByTestId('lp-preview')).toBeEnabled();
+  });
+
+  it('renders trade and LP forms when the quote is Fallback', () => {
+    render(
+      <SessionIntents
+        quote={{
+          verdict: 'Fallback',
           lambdaWad: 10n ** 18n,
           premiumWad: 10n ** 17n,
         }}

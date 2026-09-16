@@ -3,11 +3,7 @@
 import { type FormEvent, type ReactNode, useState } from 'react';
 
 import { buildBuyLong, buildBuyShort } from '../domain/trade.js';
-import { parseDigitAmount } from './parseAmount.js';
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Could not build intent.';
-}
+import { describeCaughtError, parseDigitAmount } from './parseAmount.js';
 
 export function TradeForm(): ReactNode {
   const [side, setSide] = useState<'long' | 'short'>('long');
@@ -29,7 +25,7 @@ export function TradeForm(): ReactNode {
           : buildBuyShort({ collateralIn: collateral, minShortOut: min });
       setSteps(batch.steps.map((step) => step.label));
     } catch (caught) {
-      setError(errorMessage(caught));
+      setError(describeCaughtError(caught));
     }
   }
 

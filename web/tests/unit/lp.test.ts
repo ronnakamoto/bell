@@ -29,12 +29,7 @@ describe('buildMintThenSeed', () => {
     const b = buildMintThenSeed({ mintAmount: 100n, longIn: 60n, shortIn: 40n });
     expect(b.kind).toBe('mintThenSeed');
     expect(b.steps.map((s) => s.method)).toEqual(['mintPair', 'approve', 'approve', 'seedPool']);
-    expect(b.steps.map((s) => s.target)).toEqual([
-      'session',
-      'longClaim',
-      'shortClaim',
-      'session',
-    ]);
+    expect(b.steps.map((s) => s.target)).toEqual(['session', 'longClaim', 'shortClaim', 'session']);
     expect(b.steps[0]?.args).toEqual([100n]);
     expect(b.steps[1]?.args).toEqual([60n]);
     expect(b.steps[2]?.args).toEqual([40n]);

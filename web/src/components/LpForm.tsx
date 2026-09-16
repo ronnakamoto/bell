@@ -3,11 +3,7 @@
 import { type FormEvent, type ReactNode, useState } from 'react';
 
 import { buildMintThenSeed } from '../domain/lp.js';
-import { parseDigitAmount } from './parseAmount.js';
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Could not build intent.';
-}
+import { describeCaughtError, parseDigitAmount } from './parseAmount.js';
 
 export function LpForm(): ReactNode {
   const [mintAmount, setMintAmount] = useState('');
@@ -28,7 +24,7 @@ export function LpForm(): ReactNode {
       });
       setSteps(batch.steps.map((step) => step.label));
     } catch (caught) {
-      setError(errorMessage(caught));
+      setError(describeCaughtError(caught));
     }
   }
 

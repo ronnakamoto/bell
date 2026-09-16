@@ -36,4 +36,14 @@ describe('LpForm', () => {
     expect(screen.getByText(/integer|digits|empty/i)).toBeInTheDocument();
     expect(screen.queryByText('Seed liquidity pool')).toBeNull();
   });
+
+  it('shows the domain error when an amount is zero', () => {
+    render(<LpForm />);
+    fireEvent.change(screen.getByLabelText('Mint amount'), { target: { value: '0' } });
+    fireEvent.change(screen.getByLabelText('Long in'), { target: { value: '1' } });
+    fireEvent.change(screen.getByLabelText('Short in'), { target: { value: '1' } });
+    fireEvent.click(screen.getByTestId('lp-preview'));
+    expect(screen.getByText(/must be positive/i)).toBeInTheDocument();
+    expect(screen.queryByText('Seed liquidity pool')).toBeNull();
+  });
 });

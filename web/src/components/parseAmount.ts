@@ -5,3 +5,8 @@ export function parseDigitAmount(raw: string): bigint {
   }
   return BigInt(raw);
 }
+
+/** Message for a caught intent-preview failure. Non-Errors get a fixed fallback. */
+export function describeCaughtError(error: unknown): string {
+  return error instanceof Error ? error.message : 'Could not build intent.';
+}
