@@ -45,9 +45,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Decimal } from 'decimal.js';
-
 import { truncatedAbsMoment, truncatedFirstMoment } from '@bell/calibrator/domain/moments.js';
+import { Decimal } from 'decimal.js';
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const OUT = resolve(REPO_ROOT, 'spec/fixtures/moments.json');

@@ -10,9 +10,8 @@
 
 import { readFileSync } from 'node:fs';
 
-import { describe, expect, it } from 'vitest';
-
 import { DomainError } from '@bell/calibrator/domain/models.js';
+import { describe, expect, it } from 'vitest';
 
 import { BRANCHES, branchFromCode, settlesSession } from '../../src/domain/branch.js';
 import { type RawLog, uintOf, wordAt } from '../../src/domain/log.js';

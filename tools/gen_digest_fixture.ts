@@ -33,16 +33,15 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { keccak_256 } from '@noble/hashes/sha3.js';
-
+import { hexOf } from '@bell/calibrator/domain/bytes.js';
 import {
   commitmentDigest,
   commitmentPreimage,
   inputsHash,
   nameId,
 } from '@bell/calibrator/domain/digest.js';
-import { hexOf } from '@bell/calibrator/domain/bytes.js';
 import { SessionKind, Symbol, Wad } from '@bell/calibrator/domain/models.js';
+import { keccak_256 } from '@noble/hashes/sha3.js';
 
 const REPO_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const OUT = resolve(REPO_ROOT, 'spec/digest.json');

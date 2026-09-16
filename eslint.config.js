@@ -1,5 +1,6 @@
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier';
+import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
@@ -51,6 +52,9 @@ export default tseslint.config(
         ...globals.node,
       },
     },
+    plugins: {
+      'simple-import-sort': simpleImportSort,
+    },
     rules: {
       // Annotations on every signature, which is `ruff`'s `ANN` on the Python side. An inferred
       // return type on a domain function is a contract nobody wrote down.
@@ -63,15 +67,14 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'error',
       // The non-null assertion is how a numeric codebase loses a branch it needed to handle.
       '@typescript-eslint/no-non-null-assertion': 'error',
-      // Type-only imports, which is half of `ruff`'s `I`. **The other half is not enforced**, and the
-      // comment here used to claim it was: `I` also *sorts* import statements, and nothing in this
-      // configuration sorts them — `prettier` does not, and there is no `import/order` rule. Ordering
-      // is therefore a convention a reader sees and no gate checks, which is the one shape of rule
-      // this repository tries not to have (F85).
+      // Type-only imports — half of `ruff`'s `I`. The other half is `simple-import-sort` below (F85).
       '@typescript-eslint/consistent-type-imports': [
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
+      // Import *ordering* — the half of `ruff`'s `I` that used to be a convention with no gate (F85).
+      'simple-import-sort/imports': 'error',
+      'simple-import-sort/exports': 'error',
       // `ruff`'s `T20`: no print statements **in the services**. A service logs through its adapter
       // or not at all, because a stray `console.log` in a library is a side effect nobody declared.
       // Scoped to `src/` rather than global: a script under `tools/` exists to print, and forbidding

@@ -26,9 +26,9 @@ import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import {
+  calibrate,
   CalibrationError,
   CalibrationRequest,
-  calibrate,
   rowsDigest,
   windowFor,
 } from '../../src/application/calibrate.js';

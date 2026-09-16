@@ -29,24 +29,24 @@ import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
 import { WAD } from '../../src/domain/constants.js';
+import { gaussianPremiumWad, relativeErrorWad } from '../../src/domain/families/gaussian.js';
 import {
   type DistributionFamily,
   FAMILIES,
   FamilyError,
-  GapSample,
-  SEED_FAMILY,
-  UNIMPLEMENTED_FAMILIES,
-  UnimplementedFamilyError,
   familyFor,
   floorDiv,
+  GapSample,
   premiumFromTruncatedMean,
+  SEED_FAMILY,
   seedFamily,
   truncatedMeanWad,
+  UNIMPLEMENTED_FAMILIES,
+  UnimplementedFamilyError,
 } from '../../src/domain/families/index.js';
-import { gaussianPremiumWad, relativeErrorWad } from '../../src/domain/families/gaussian.js';
 import { empiricalQuantile } from '../../src/domain/leverage.js';
-import { truncatedAbsMoment } from '../../src/domain/moments.js';
 import { Wad } from '../../src/domain/models.js';
+import { truncatedAbsMoment } from '../../src/domain/moments.js';
 
 /** A decimal literal at WAD scale, exactly, the way the Python's `int(Decimal(v) * WAD)` does it. */
 const wad = (value: string): bigint => BigInt(new Decimal(value).times(WAD.toString()).toFixed(0));

@@ -26,26 +26,25 @@
  * got instead.
  */
 
-import { keccak_256 } from '@noble/hashes/sha3.js';
-import { describe, expect, it } from 'vitest';
-
 import { WAD } from '@bell/calibrator/domain/constants.js';
 import { commitmentDigest } from '@bell/calibrator/domain/digest.js';
 import { Wad } from '@bell/calibrator/domain/models.js';
 import { type Keccak } from '@bell/calibrator/domain/ports.js';
+import { keccak_256 } from '@noble/hashes/sha3.js';
+import { describe, expect, it } from 'vitest';
 
 import {
+  adjudicate,
   type AdjudicationResult,
   CommittedParameterSet,
+  digestMatches,
   type DigestMismatch,
   type InputsUnavailable,
   PREMIUM_TOLERANCE_WAD,
+  premiumToleranceFromPrecision,
   type PublisherSlashed,
   type PublisherUpheld,
   type RefitRunner,
-  adjudicate,
-  digestMatches,
-  premiumToleranceFromPrecision,
 } from '../../src/domain/adjudication.js';
 
 const referenceKeccak: Keccak = (data) => keccak_256(data);

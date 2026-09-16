@@ -29,32 +29,31 @@
  * acknowledged rather than hidden.
  */
 
+import { WAD } from '@bell/calibrator/domain/constants.js';
+import { Wad } from '@bell/calibrator/domain/models.js';
 import { Decimal } from 'decimal.js';
 import { describe, expect, it } from 'vitest';
 
-import { WAD } from '@bell/calibrator/domain/constants.js';
-import { Wad } from '@bell/calibrator/domain/models.js';
-
 import { ReferencePrint } from '../../src/domain/prints.js';
 import {
-  RouteId,
   ROUTE_IDS,
+  RouteId,
   type RouteInputFields,
   RouteInputs,
-  type SettlementRoute,
   SettlementAction,
   SettlementBranch,
+  type SettlementRoute,
 } from '../../src/domain/routes/base.js';
-import { payoffLongWad } from '../../src/domain/routes/settle.js';
 import {
-  EXCLUDED_ROUTE,
-  RECOMMENDED_ROUTE,
-  ROUTES,
-  type RouteCost,
   cheapestShippingRoute,
   costReport,
+  EXCLUDED_ROUTE,
+  RECOMMENDED_ROUTE,
+  type RouteCost,
   routeFor,
+  ROUTES,
 } from '../../src/domain/routes/index.js';
+import { payoffLongWad } from '../../src/domain/routes/settle.js';
 
 /** `2026-09-14T13:30:00Z`. */
 const EXPIRY = 1_789_392_600n;

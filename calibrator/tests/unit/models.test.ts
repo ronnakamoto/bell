@@ -39,7 +39,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { WAD } from '../../src/domain/constants.js';
-import { D } from '../../src/domain/moments.js';
 import {
   type Calibrated,
   type CalibrationResult,
@@ -50,6 +49,7 @@ import {
   Symbol,
   Wad,
 } from '../../src/domain/models.js';
+import { D } from '../../src/domain/moments.js';
 
 /** The field list `ParameterSet` takes, so a test can vary one field and leave the rest valid. */
 type ParameterFields = ConstructorParameters<typeof ParameterSet>[0];

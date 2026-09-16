@@ -14,17 +14,16 @@
  * rejected alternative that no longer exists cannot be re-measured.
  */
 
-import { Decimal } from 'decimal.js';
-
 import { WAD } from '@bell/calibrator/domain/constants.js';
+import { Decimal } from 'decimal.js';
 
 import {
   RouteId,
   type RouteInputs,
   RouteOutcome,
-  type SettlementRoute,
   SettlementAction,
   SettlementBranch,
+  type SettlementRoute,
 } from './base.js';
 import { settleOnPrint } from './settle.js';
 

@@ -11,9 +11,8 @@
 
 import { readFileSync } from 'node:fs';
 
-import { describe, expect, it } from 'vitest';
-
 import { DomainError } from '@bell/calibrator/domain/models.js';
+import { describe, expect, it } from 'vitest';
 
 import {
   addressKey,
@@ -24,11 +23,11 @@ import {
   bytes32OfTopic,
   emitterKey,
   intOf,
+  type RawLog,
   topicAt,
   uint64Of,
   uintOf,
   wordAt,
-  type RawLog,
 } from '../../src/domain/log.js';
 
 interface Fixture {

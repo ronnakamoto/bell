@@ -24,9 +24,9 @@ import {
   RouteId,
   type RouteInputs,
   RouteOutcome,
-  type SettlementRoute,
   SettlementAction,
   SettlementBranch,
+  type SettlementRoute,
 } from './base.js';
 import { settleOnPrint } from './settle.js';
 

@@ -31,16 +31,15 @@
  * one failure a settlement reference service cannot have.
  */
 
+import { Wad } from '@bell/calibrator/domain/models.js';
 import { describe, expect, it } from 'vitest';
 
-import { Wad } from '@bell/calibrator/domain/models.js';
-
 import {
+  bestPrint,
   type NoPrintQualifies,
   type PrintSelected,
   ReferencePrint,
   type SelectionResult,
-  bestPrint,
   selectPrint,
 } from '../../src/domain/prints.js';
 

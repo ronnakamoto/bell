@@ -31,22 +31,21 @@
  */
 
 import { Decimal } from 'decimal.js';
-
 import { describe, expect, it } from 'vitest';
 
 import {
   D,
+  erf,
   ERF_SATURATION,
   SQRT_PI,
   SQRT_TWO,
   SQRT_TWO_OVER_PI,
   SQRT_TWO_PI,
-  TWO_OVER_SQRT_PI,
-  erf,
   standardNormalCdf,
   standardNormalPdf,
   truncatedAbsMoment,
   truncatedFirstMoment,
+  TWO_OVER_SQRT_PI,
 } from '../../src/domain/moments.js';
 
 /**
