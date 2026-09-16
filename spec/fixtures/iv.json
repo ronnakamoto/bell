@@ -1,0 +1,42 @@
+{
+  "_note": "BELL-IV publish inputs for F1 slice 5. Integers > 2^53 as strings.",
+  "readings": [
+    {
+      "forSessionAddress": "0x3fc355a5bc036ea3f52849bba638d3e257a0e6cc",
+      "viewSession": "1",
+      "boundSessions": "12",
+      "pool": {
+        "sigmaWad": "200000000000000000",
+        "session": "1",
+        "provenance": "pool"
+      },
+      "fallback": null
+    },
+    {
+      "forSessionAddress": "0x00000000000000000000000000000000000000f1",
+      "viewSession": "20",
+      "boundSessions": "12",
+      "pool": {
+        "sigmaWad": "200000000000000000",
+        "session": "1",
+        "provenance": "pool"
+      },
+      "fallback": {
+        "sigmaWad": "150000000000000000",
+        "session": "20",
+        "provenance": "trailing-realised"
+      }
+    },
+    {
+      "forSessionAddress": "0x00000000000000000000000000000000000000f2",
+      "viewSession": "20",
+      "boundSessions": "12",
+      "pool": {
+        "sigmaWad": "200000000000000000",
+        "session": "1",
+        "provenance": "pool"
+      },
+      "fallback": null
+    }
+  ]
+}

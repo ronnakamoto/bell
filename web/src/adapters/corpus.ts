@@ -18,6 +18,9 @@ export const LOGS_PATH = path.resolve(adapterDir, '../../../spec/fixtures/logs.j
 /** Path to the committed quote fixture, resolved from the repo root. */
 export const QUOTES_PATH = path.resolve(adapterDir, '../../../spec/fixtures/quotes.json');
 
+/** Path to the committed BELL-IV fixture, resolved from the repo root. */
+export const IV_PATH = path.resolve(adapterDir, '../../../spec/fixtures/iv.json');
+
 /** The three singleton addresses the fold attributes against. */
 export const INDEXER_CONFIG: IndexerConfig = {
   factory: '0xc7183455a4C133Ae270771860664b6B7ec320bB1',

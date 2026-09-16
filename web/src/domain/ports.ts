@@ -6,6 +6,7 @@
  * reaches `node:fs` or a concrete adapter.
  */
 
+import { type IvProvenance } from './iv.js';
 import { type Quote } from './quote.js';
 
 /** One fixture row keyed by `(nameId, forSession)`. */
@@ -19,4 +20,26 @@ export interface QuoteFixtureRow {
 export interface QuoteSource {
   /** Every quote the source currently holds, in the order the source records them. */
   quotes(): Promise<readonly QuoteFixtureRow[]>;
+}
+
+/** One volatility reading before publish-time freshness selection. */
+export interface IvReadingFields {
+  readonly sigmaWad: bigint;
+  readonly session: bigint;
+  readonly provenance: IvProvenance;
+}
+
+/** Inputs for publishing BELL-IV for one session view. */
+export interface IvPublishInput {
+  readonly forSessionAddress: string;
+  readonly viewSession: bigint;
+  readonly boundSessions?: bigint;
+  readonly pool: IvReadingFields;
+  readonly fallback: IvReadingFields | null;
+}
+
+/** A source of BELL-IV publish inputs (fixture today, indexer later). */
+export interface IvSource {
+  /** Every publish input the source currently holds, in source order. */
+  readings(): Promise<readonly IvPublishInput[]>;
 }

@@ -37,6 +37,8 @@ describe('SessionPage without linked names', () => {
     const page = await SessionPage({ params: Promise.resolve({ address: '0xabc' }) });
     render(page);
     expect(screen.getByTestId('quote-refuse')).toBeInTheDocument();
+    expect(screen.getByTestId('bell-iv-omit')).toBeInTheDocument();
+    expect(screen.queryByTestId('bell-iv-show')).toBeNull();
     expect(screen.getByTestId('eligibility-required')).toBeInTheDocument();
     expect(screen.queryByTestId('trade-disabled-refuse')).toBeNull();
     fireEvent.click(screen.getByTestId('eligibility-not-us'));
