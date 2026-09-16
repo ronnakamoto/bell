@@ -48,6 +48,8 @@ describe('SessionPage', () => {
     expect(screen.getByLabelText('Last trade')).toBeInTheDocument();
     expect(screen.getByLabelText('Settlement')).toBeInTheDocument();
     expect(screen.getByLabelText('Resolution')).toBeInTheDocument();
+    expect(screen.getByTestId('trade-preview')).toBeEnabled();
+    expect(screen.getByTestId('lp-preview')).toBeEnabled();
   });
 
   it('calls notFound for an unknown address', async () => {

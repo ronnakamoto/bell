@@ -36,6 +36,7 @@ describe('SessionPage without linked names', () => {
     const page = await SessionPage({ params: Promise.resolve({ address: '0xabc' }) });
     render(page);
     expect(screen.getByTestId('quote-refuse')).toBeInTheDocument();
+    expect(screen.getByTestId('trade-disabled-refuse')).toBeInTheDocument();
     expect(screen.queryByLabelText('Linked names')).toBeNull();
   });
 });

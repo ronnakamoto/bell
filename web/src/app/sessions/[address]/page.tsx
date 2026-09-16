@@ -8,6 +8,7 @@ import { FileQuoteSource } from '../../../adapters/quote_source_file.js';
 import { loadSession } from '../../../application/catalogue.js';
 import { loadQuote } from '../../../application/quote.js';
 import { QuotePanel } from '../../../components/QuotePanel.js';
+import { SessionIntents } from '../../../components/SessionIntents.js';
 import { type Quote } from '../../../domain/quote.js';
 
 const logSource = new FileLogSource(LOGS_PATH);
@@ -124,6 +125,7 @@ export default async function SessionPage({
         </section>
       ) : null}
       <QuotePanel quote={quote} />
+      <SessionIntents quote={quote} />
     </div>
   );
 }
