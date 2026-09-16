@@ -4,6 +4,9 @@
 # --- agent working memory: notes and daily logs, not repository content ---
 .workbuddy-ai/
 
+# --- agent design scratch (brainstorming / superpowers specs); not repository content ---
+docs/superpowers/
+
 # --- Solidity / Foundry ---
 contracts/out/
 contracts/cache/
