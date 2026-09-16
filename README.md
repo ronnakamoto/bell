@@ -102,8 +102,9 @@ F50 records the one gap that is a matter of scope rather than defect: the brief'
 the protocol and its two services, and none of them is the surface a participant touches. The paper
 justifies no-liquidation by participants who are "largely retail" and cannot monitor a margin call
 over a 65-hour weekend (§4.2), which makes the interface part of the product rather than a
-convenience. What is missing is discovery — the factory cannot enumerate sessions — so the order is
-an indexer, then a web app, then the challenge tooling.
+convenience. Discovery has landed: the factory still cannot enumerate sessions, but the indexer
+folds the lifecycle's logs into a catalogue, verified against a corpus the contracts emitted.
+What remains of F50 is the web app, then the challenge tooling.
 
 ## Deploy
 

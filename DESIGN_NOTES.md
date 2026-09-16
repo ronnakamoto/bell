@@ -3393,9 +3393,9 @@ another, and nothing downstream compares the two — probe 4 is that check firin
 
 ## F92 — the F52 guard does not read the file the constants actually live in
 
-`tools/check_fixtures.ts` walks `spec/` for **`.json`** files — its own words: "every JSON fixture under
+`tools/check_fixtures.ts` walked `spec/` for **`.json`** files — its own words: "every JSON fixture under
 `spec/`". `spec/constants.yaml` is not one, so the guard that exists because three fixtures independently
-carried WAD-scale integers as bare JSON numbers does not cover the file §6 makes the single source for
+carried WAD-scale integers as bare JSON numbers did not cover the file §6 makes the single source for
 every domain constant.
 
 One instance is live today: `meta.wad: 1000000000000000000` is a bare YAML number above 2^53. It is
@@ -3404,10 +3404,16 @@ category the checker already has a name for, and it becomes lossy the moment som
 Nothing read it before F90, so the hazard was inert; the generator reads it now, and `assertWadScale`
 compares it against a value that is itself exact, so this specific instance fails loudly.
 
-**The general gap is open.** A large integer added to the YAML as a bare number would be rounded before
-`wad()` saw it, and `wad()`'s own refusal — "not exactly representable at WAD scale" — would not fire,
-because the rounded value *is* exactly representable at WAD scale. The value is lost one layer earlier
-than the layer that checks it, which is the shape every member of the F52 family has had.
+**Closed.** `check_fixtures` now walks `.json`, `.yaml` and `.yml` under `spec/`. YAML has no
+reviver-with-source, so the check reads each unquoted integer scalar's range in the concrete syntax
+tree and compares that source text against the number the parser produced — the same round-trip the
+JSON path already performed. Quoted scalars are skipped: quoting is the YAML form of the string
+encoding the rest of `spec/` already uses.
+
+The committed tree reports **5 files, 1 integer above 2^53, all exactly representable**, and the one
+is `meta.wad`. Probed: editing it to `1000000000000000001` fails with `wad written as
+1000000000000000001, reads as 1000000000000000000` and names the YAML file; restoring is
+byte-identical. That is the digit-edit F92 said would be lost before `wad()` saw it.
 
 ## F93 — `createSession` deploys a session it never registers, and nothing else does either
 
@@ -3618,7 +3624,6 @@ spelling rather than the one the author had in mind.
 | F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
 | F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
 | F88 | `erf` computes a continued fraction for arguments above 11, where it is exactly 1 at working precision; measured at 29.2% of the NIG quadrature's calls and a factor of 2.4 on that path | nothing; recorded rather than taken, because `moments.ts` is the Solidity differential's reference and the change is not part of G0 |
-| F92 | `tools/check_fixtures.ts` walks `spec/` for `.json` files only, so `spec/constants.yaml` — the single source for every domain constant — sits outside the guard that exists because three fixtures independently carried WAD-scale integers as bare numbers | nothing today; the one live instance (`meta.wad`) is exactly representable and is now checked by the generator's own scale assertion |
 | F93 | `createSession` deploys a session and never calls `registerSession`, and nothing in `src/` does, so a session is unsettleable until somebody sends a second transaction; the collateral is not at risk, the liveness is | the listing path and anything a participant touches (F50) |
 | F84 | the two services have no entry point, and the brief describes them as services without supplying one | the deployment story |
 | F85 | `ruff`'s `I` had a second half — import *ordering* — and no gate enforces it | nothing; recorded rather than closed, because closing it needs an import-sorting plugin and a tree-wide reformat |

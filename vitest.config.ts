@@ -3,8 +3,7 @@ import { defineConfig } from 'vitest/config';
 /**
  * The test runner, and the coverage measurement.
  *
- * `include` covers both workspaces, so one command runs everything — the same shape as the Python
- * side's `make test`.
+ * `include` covers all three workspaces, so one command runs everything.
  *
  * **Thresholds are deliberately not set here, and B0 did not change that.** They live in
  * `tools/check_coverage.ts`, beside the Python side's one rule and the contracts' two, for a reason

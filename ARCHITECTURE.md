@@ -153,6 +153,9 @@ domain function by calling it with literal arguments, it is in the wrong layer.
 | domain | `settlement/src/domain/` | itself, `calibrator/src/domain`, and `decimal.js` |
 | application | `settlement/src/application/` | domain |
 | adapters | `settlement/src/adapters/` | domain and application |
+| domain | `indexer/src/domain/` | itself, `calibrator/src/domain`, and `decimal.js` |
+| application | `indexer/src/application/` | domain |
+| adapters | `indexer/src/adapters/` | domain and application |
 
 **The port is complete and the Python it replaced is gone** (ruling R5; B1 deleted the tree). The
 TypeScript paths above are the only paths. Until Phase B a second implementation sat beside each of
@@ -205,30 +208,34 @@ make check-architecture   # `npm run architecture` (dependency-cruiser)
 make check-layout         # the structural rules that are not import edges
 ```
 
-The contracts live in `.dependency-cruiser.cjs`, and there are five:
+The contracts live in `.dependency-cruiser.cjs`, and there are seven:
 
 - *`calibrator-domain-is-hermetic`* — `calibrator/src/domain` may import itself and `decimal.js` and
   nothing else. An allow-list of one named package rather than a category, which is what R5.1 narrowed
   §7.4 to.
 - *`settlement-domain-takes-only-the-shared-core`* — the same, plus `calibrator/src/domain`.
+- *`indexer-domain-takes-only-the-shared-core`* — the same, plus `calibrator/src/domain`. The port is
+  the point: an indexer that reached `node:fs` from `domain/` would not be an indexer with a seam.
 - *`application-does-not-import-adapters`* — the high-level policy must not reach a low-level driver.
 - *`the-calibrator-never-imports-the-settlement-service`* — the cross-workspace direction.
+- *`nothing-imports-the-indexer`* — the indexer is a consumer at the edge; a shared module it needs
+  belongs in the calibrator. All three spellings, because this rule was written first and fired on
+  nothing (F96).
 - *`no-circular`* — a cycle is how two layers become one without anybody deciding to merge them.
 
 **The Python had a sixth contract and the ordering is covered without it.** `import-linter` declared a
 `layers` contract naming `[adapters, application, domain]` in each workspace. `dependency-cruiser` has
 no equivalent, and none is needed: every violation a `layers` contract can catch is `domain ->
-application`, `domain -> adapters` or `application -> adapters`, and the three rules above catch all
-three — the two `domain/` rules as allow-lists, which is strictly the stronger form. This section used
-to list *"the layer stack — the ordering itself, as a single rule"* among the contracts. No such rule
-exists in the file (F85).
+application`, `domain -> adapters` or `application -> adapters`, and the domain allow-lists plus
+`application-does-not-import-adapters` catch all three — the allow-lists being strictly the stronger
+form. This section used to list *"the layer stack — the ordering itself, as a single rule"* among the
+contracts. No such rule exists in the file (F85).
 
-**Two of the five name both spellings of their target**, because a `to.path` pattern matches what the
-graph resolved and a package-name specifier stays unresolved: `@bell/settlement/domain/x.js` is a bare
-specifier in the graph, so a rule written as `^settlement/src` sees a relative import and only a
-relative import — and a relative import is not how this repository crosses a package boundary. The
-allow-list rules are unaffected, because `pathNot` catches everything not on the list however it was
-written, which is why the two `domain/` rules were never blind (F85).
+**The cross-workspace rules name every spelling of their target**, because a `to.path` pattern matches
+what the graph resolved and a package-name specifier sometimes stays unresolved: `@bell/settlement`
+has no `exports` map, so it stays bare, while `@bell/calibrator` and `@bell/indexer` resolve into
+`dist/` (F96). The allow-list rules are unaffected, because `pathNot` catches everything not on the
+list however it was written, which is why the `domain/` rules were never blind (F85).
 
 `make check-layout` adds the structural rules that are not import edges, and there are seven: no
 `utils.ts`/`helpers.ts`/`common.ts`, no source file above 400 lines, tests mirror source, no `require`
@@ -257,10 +264,11 @@ parse Python, so that check was never ported and died with the tree it guarded. 
 states that in its header rather than leaving it as a silent omission.
 
 `make check-fixtures` is the newest gate and the one three defects argued for: it walks every `.json`
-under `spec/` and fails if any integer literal does not survive a round trip through a double. The rule
-is exact representability rather than a threshold, because a double holds some integers above 2^53
-exactly — a rule written as "above `MAX_SAFE_INTEGER`" would fail on values that are fine and pass
-silently over the ones that are not. See F52 and F54.
+and `.yaml` under `spec/` and fails if any unquoted integer literal does not survive a round trip
+through a double. The rule is exact representability rather than a threshold, because a double holds
+some integers above 2^53 exactly — a rule written as "above `MAX_SAFE_INTEGER`" would fail on values
+that are fine and pass silently over the ones that are not. Until F92 it walked `.json` only, so
+`spec/constants.yaml` — the single source — sat outside the guard. See F52, F54 and F92.
 
 `make check-coverage` asserts every coverage rule the brief states. For the contracts: 100% on every
 metric for `contracts/src/libraries/`, and at least 95% lines for `src/**`. For each TypeScript
@@ -304,6 +312,7 @@ Declared in the domain, implemented in `adapters/`. `calibrator/src/domain/ports
 | `ParameterPublisher` | the off-chain commitment | the trust shift this creates is deliberate and is policed by a bond and a deterministic re-run, not assumed away |
 | `ReferencePrintSource` | where reference prints come from | the feed will change; the domain must not. Unordered on purpose, because the selection is total and a source that reordered on a retry would look like a different input set |
 | `CommittedInputStore` | where a committed fit's raw inputs are retrieved from | the adjudication re-runs a fit, and a store that could only be asked by session could return a different input set from the one committed |
+| `LogSource` | where raw event logs come from | an indexer reads logs, and the way that goes wrong is a domain module that reaches an RPC client, a socket or `node:fs` directly. `LogSource` is the seam; the fold is a pure function of the stream it yields |
 
 The settlement service's route evaluation and adjudication are the two places the two workspaces
 meet, and both go through the shared core rather than through a new port: the routes are priced by the
