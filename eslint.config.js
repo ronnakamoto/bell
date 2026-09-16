@@ -107,7 +107,7 @@ export default tseslint.config(
   {
     // The services: no console output. A library that prints is a library with an undeclared side
     // effect, and the adapters are where output belongs.
-    files: ['calibrator/src/**/*.ts', 'settlement/src/**/*.ts'],
+    files: ['calibrator/src/**/*.ts', 'settlement/src/**/*.ts', 'indexer/src/**/*.ts'],
     rules: {
       'no-console': 'error',
     },
