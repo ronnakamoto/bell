@@ -2,8 +2,8 @@
  * Ports. Declarations only — no implementations.
  *
  * `QuoteSource` is the seam between the honest-quote use case and however quotes are loaded
- * (a JSON fixture today, an RPC `eth_call` later). The application asks the port; it never
- * reaches `node:fs` or a concrete adapter.
+ * (a JSON fixture or an RPC `eth_call`). The application asks the port; it never reaches
+ * `node:fs` or a concrete adapter.
  */
 
 import { type IvProvenance } from './iv.js';
@@ -20,6 +20,8 @@ export interface QuoteFixtureRow {
 export interface QuoteSource {
   /** Every quote the source currently holds, in the order the source records them. */
   quotes(): Promise<readonly QuoteFixtureRow[]>;
+  /** The quote for `(nameId, forSession)`, or `Refuse` when the key is absent. */
+  quote(nameId: string, forSession: bigint): Promise<Quote>;
 }
 
 /** One volatility reading before publish-time freshness selection. */
