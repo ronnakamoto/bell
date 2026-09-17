@@ -1,9 +1,9 @@
 /**
  * Challenge-verify composition root.
  *
- * Wires the file-backed case adapter, the noble keccak adapter, and `verifyChallenge`. Nothing in
- * `application/` or `domain/` learns that a CLI invoked them — this file is the first importer that
- * is allowed to see both layers at once.
+ * Wires the file-backed case adapter, the committed-input store, the noble keccak adapter, and
+ * `verifyChallenge`. Nothing in `application/` or `domain/` learns that a CLI invoked them — this
+ * file is the first importer that is allowed to see both layers at once.
  */
 
 import { resolve } from 'node:path';
@@ -13,13 +13,18 @@ import {
   ChallengeCaseMalformed,
   ChallengeCaseUnavailable,
   loadChallengeCase,
-  refitFromCase,
 } from '../adapters/challenge_case_file.js';
+import {
+  CommittedInputStoreMalformed,
+  CommittedInputStoreUnavailable,
+  loadCommittedInputStore,
+} from '../adapters/committed_input_store_file.js';
 import { nobleKeccak } from '../adapters/keccak_noble.js';
+import { refitFromStore } from '../adapters/refit_from_store.js';
 import { formatChallengeReport, verifyChallenge } from '../application/verify_challenge.js';
 import { CommittedParameterSet } from '../domain/adjudication.js';
 
-const USAGE = 'usage: verify --case <label> [--fixture <path>]';
+const USAGE = 'usage: verify --case <label> [--fixture <path>] [--store <path>]';
 
 /** A sink the CLI writes a line to. `process.stdout` satisfies it. */
 export interface TextWriter {
@@ -48,15 +53,21 @@ class UsageError extends Error {
 interface ParsedArgs {
   readonly caseLabel: string;
   readonly fixturePath: string;
+  readonly storePath: string;
 }
 
 function defaultFixturePath(): string {
   return fileURLToPath(new URL('../../../spec/fixtures/challenge.json', import.meta.url));
 }
 
+function defaultStorePath(): string {
+  return fileURLToPath(new URL('../../../spec/fixtures/committed_inputs.json', import.meta.url));
+}
+
 function parseArgv(argv: readonly string[]): ParsedArgs {
   let caseLabel: string | undefined;
   let fixturePath: string | undefined;
+  let storePath: string | undefined;
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === undefined) {
@@ -77,6 +88,9 @@ function parseArgv(argv: readonly string[]): ParsedArgs {
       case '--fixture':
         fixturePath = value();
         break;
+      case '--store':
+        storePath = value();
+        break;
       default:
         throw new UsageError(`unknown argument: ${argument}\n${USAGE}`);
     }
@@ -87,13 +101,14 @@ function parseArgv(argv: readonly string[]): ParsedArgs {
   return {
     caseLabel,
     fixturePath: fixturePath === undefined ? defaultFixturePath() : resolve(fixturePath),
+    storePath: storePath === undefined ? defaultStorePath() : resolve(storePath),
   };
 }
 
 /**
  * Run one labelled challenge case and return the process exit code.
  *
- * 0 — the commitment was upheld. 1 — it was not. 2 — the invocation or the fixture is unusable.
+ * 0 — the commitment was upheld. 1 — it was not. 2 — the invocation, fixture, or store is unusable.
  */
 export async function main(
   argv: readonly string[],
@@ -102,6 +117,7 @@ export async function main(
   try {
     const parsed = parseArgv(argv);
     const loaded = await loadChallengeCase(parsed.fixturePath, parsed.caseLabel);
+    const store = await loadCommittedInputStore(parsed.storePath, nobleKeccak);
     const result = await verifyChallenge({
       commitment: new CommittedParameterSet({
         nameId: loaded.nameId,
@@ -111,7 +127,7 @@ export async function main(
         inputsHash: loaded.inputsHash,
       }),
       expectedDigest: loaded.expectedDigest,
-      refit: refitFromCase(loaded),
+      refit: refitFromStore(store, nobleKeccak),
       keccak: nobleKeccak,
     });
     io.stdout.write(`${formatChallengeReport(result)}\n`);
@@ -120,7 +136,9 @@ export async function main(
     if (
       error instanceof UsageError ||
       error instanceof ChallengeCaseUnavailable ||
-      error instanceof ChallengeCaseMalformed
+      error instanceof ChallengeCaseMalformed ||
+      error instanceof CommittedInputStoreUnavailable ||
+      error instanceof CommittedInputStoreMalformed
     ) {
       io.stderr.write(`${error.message}\n`);
       return 2;

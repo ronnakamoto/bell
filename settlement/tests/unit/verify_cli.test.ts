@@ -1,8 +1,8 @@
 /**
  * The challenge-verify composition root.
  *
- * Exercises `main` with argv rather than spawning node, so usage, fixture, and outcome codes are
- * assertions rather than a smoke script's only record.
+ * Exercises `main` with argv rather than spawning node, so usage, fixture, store, and outcome codes
+ * are assertions rather than a smoke script's only record.
  */
 
 import { fileURLToPath } from 'node:url';
@@ -13,6 +13,9 @@ import { main, type TextWriter } from '../../src/cli/verify.js';
 
 const FIXTURE_PATH = fileURLToPath(
   new URL('../../../spec/fixtures/challenge.json', import.meta.url),
+);
+const STORE_PATH = fileURLToPath(
+  new URL('../../../spec/fixtures/committed_inputs.json', import.meta.url),
 );
 
 function capture(): { text: () => string; writer: TextWriter } {
@@ -39,8 +42,8 @@ async function run(argv: readonly string[]): Promise<{
 }
 
 describe('main', () => {
-  it('exits 0 when the overnight commitment is upheld', async () => {
-    const result = await run(['--case', 'upheld-overnight']);
+  it('exits 0 when the store re-fit upholds the commitment', async () => {
+    const result = await run(['--case', 'upheld-store']);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('kind=upheld');
     expect(result.stderr).toBe('');
@@ -53,8 +56,26 @@ describe('main', () => {
     expect(result.stderr).toBe('');
   });
 
+  it('exits 1 when inputs are unavailable', async () => {
+    const result = await run(['--case', 'inputs-unavailable']);
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain('kind=inputs-unavailable');
+  });
+
+  it('exits 1 when the refit premium is slashed', async () => {
+    const result = await run(['--case', 'slashed-premium']);
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain('kind=slashed');
+  });
+
   it('accepts an explicit --fixture path', async () => {
-    const result = await run(['--case', 'upheld-overnight', '--fixture', FIXTURE_PATH]);
+    const result = await run(['--case', 'upheld-store', '--fixture', FIXTURE_PATH]);
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('kind=upheld');
+  });
+
+  it('accepts an explicit --store path', async () => {
+    const result = await run(['--case', 'upheld-store', '--store', STORE_PATH]);
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('kind=upheld');
   });
@@ -79,27 +100,21 @@ describe('main', () => {
   });
 
   it('exits 2 when --fixture has no value', async () => {
-    const result = await run(['--case', 'upheld-overnight', '--fixture']);
+    const result = await run(['--case', 'upheld-store', '--fixture']);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain('--fixture needs a value');
   });
 
+  it('exits 2 when --store has no value', async () => {
+    const result = await run(['--case', 'upheld-store', '--store']);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain('--store needs a value');
+  });
+
   it('exits 2 on an unknown argument', async () => {
-    const result = await run(['--case', 'upheld-overnight', '--nope']);
+    const result = await run(['--case', 'upheld-store', '--nope']);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain('unknown argument: --nope');
-  });
-
-  it('exits 1 when inputs are unavailable', async () => {
-    const result = await run(['--case', 'inputs-unavailable']);
-    expect(result.code).toBe(1);
-    expect(result.stdout).toContain('kind=inputs-unavailable');
-  });
-
-  it('exits 1 when the refit premium is slashed', async () => {
-    const result = await run(['--case', 'slashed-premium']);
-    expect(result.code).toBe(1);
-    expect(result.stdout).toContain('kind=slashed');
   });
 
   it('exits 2 when the labelled case is not in the fixture', async () => {
@@ -109,13 +124,25 @@ describe('main', () => {
   });
 
   it('exits 2 when the fixture file is missing', async () => {
-    const result = await run([
-      '--case',
-      'upheld-overnight',
-      '--fixture',
-      '/no/such/challenge.json',
-    ]);
+    const result = await run(['--case', 'upheld-store', '--fixture', '/no/such/challenge.json']);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain('no challenge case fixture at');
+  });
+
+  it('exits 2 when the store file is missing', async () => {
+    const result = await run([
+      '--case',
+      'upheld-store',
+      '--store',
+      '/no/such/committed_inputs.json',
+    ]);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain('no committed-input store at');
+  });
+
+  it('exits 2 when the store file is present but not a store', async () => {
+    const result = await run(['--case', 'upheld-store', '--store', FIXTURE_PATH]);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain('expected an object with a windows object');
   });
 });

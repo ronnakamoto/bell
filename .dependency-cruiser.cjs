@@ -120,6 +120,24 @@ module.exports = {
       },
     },
     {
+      name: 'settlement-application-does-not-import-calibrator-application',
+      comment:
+        'Settlement application wraps adjudicate and must not reach calibrate. The re-fit is an ' +
+        'adapter concern: `refitFromStore` imports `@bell/calibrator/application`, and the CLI ' +
+        'wires it. THREE SPELLINGS, for the reason F96 records: the specifier resolves into ' +
+        '`dist/` once the calibrator exports `application/`, so a bare-specifier pattern alone ' +
+        'would miss the edge the graph actually contains.',
+      severity: 'error',
+      from: { path: '^settlement/src/application' },
+      to: {
+        path: [
+          '^@bell/calibrator/application',
+          '^calibrator/src/application',
+          '^calibrator/dist/application',
+        ],
+      },
+    },
+    {
       name: 'the-calibrator-never-imports-the-settlement-service',
       comment:
         'The services share a domain core, and the direction is one-way. The settlement service ' +

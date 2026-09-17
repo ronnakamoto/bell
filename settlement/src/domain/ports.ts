@@ -21,6 +21,8 @@
  * name for one type and make the dependency look like it passed through this file.
  */
 
+import { type SessionKind } from '@bell/calibrator/domain/models.js';
+
 import { type ReferencePrint } from './prints.js';
 
 /**
@@ -49,6 +51,38 @@ export interface ReferencePrintSource {
 }
 
 /**
+ * One bar of the window a committed fit consumed.
+ *
+ * Closes and opens are raw WAD integers rather than `Wad`, because this is a retrieval DTO: the
+ * adapter that re-runs the fit constructs domain bars, and the store itself must not depend on the
+ * calibrator's value objects beyond the session taxonomy it already shares.
+ */
+export interface CommittedBar {
+  /** The session's trading date, as `YYYY-MM-DD`. */
+  readonly tradingDate: string;
+  /** The session close, at WAD scale. */
+  readonly closeWad: bigint;
+  /** The next session's open, at WAD scale. */
+  readonly nextOpenWad: bigint;
+}
+
+/**
+ * The request meta and bars a committed fit consumed, keyed later by `inputsHash`.
+ *
+ * Enough to rebuild a `CalibrationRequest` and a `DailyBar[]` at the settlement edge. The store
+ * does not run the fit: it only returns what was committed.
+ */
+export interface CommittedWindow {
+  readonly symbol: string;
+  /** Calibrator `SessionKind`: `'E' | 'W' | 'H' | 'C'`. */
+  readonly session: SessionKind;
+  readonly windowSessions: number;
+  readonly sourceIds: readonly string[];
+  readonly familyName: string;
+  readonly bars: readonly CommittedBar[];
+}
+
+/**
  * Retrieves the raw inputs a committed fit consumed, so that the fit can be re-run.
  *
  * The digest is the key, not the session: the commitment names an `inputsHash`, and a store that
@@ -61,6 +95,17 @@ export interface CommittedInputStore {
    * `undefined` rather than an exception, because an unavailable input is an ordinary outcome that
    * adjudication reports as `InputsUnavailable`. Making it an exception would force every caller to
    * catch one to say the same thing.
+   *
+   * File adapters may derive this from `window` via the calibrator's `rowsDigest` rather than
+   * storing a second digest field that can drift from the bars.
    */
   rowsDigest(inputsHash: Uint8Array): Promise<Uint8Array | undefined>;
+
+  /**
+   * The window the committed fit consumed, or `undefined` if it is unavailable.
+   *
+   * Same `undefined` contract as `rowsDigest`: a missing window is the ordinary `InputsUnavailable`
+   * outcome, not a transport failure.
+   */
+  window(inputsHash: Uint8Array): Promise<CommittedWindow | undefined>;
 }

@@ -153,7 +153,7 @@ domain function by calling it with literal arguments, it is in the wrong layer.
 | adapters | `calibrator/src/adapters/` | domain and application |
 | domain | `settlement/src/domain/` | itself, `calibrator/src/domain`, and `decimal.js` |
 | application | `settlement/src/application/` | domain |
-| adapters | `settlement/src/adapters/` | domain and application |
+| adapters | `settlement/src/adapters/` | domain and application; calibrator application for the challenge re-fit |
 | domain | `indexer/src/domain/` | itself, `calibrator/src/domain`, and `decimal.js` |
 | application | `indexer/src/application/` | domain |
 | adapters | `indexer/src/adapters/` | domain and application |
@@ -179,26 +179,32 @@ than a judgement call.
 both layers by relative path (`../../src/application/publish.js`) rather than through a package
 `exports` map. Settlement now has a composition root: `settlement/src/cli/verify.ts` is the only
 production importer of settlement `adapters` and `application` together, and `make challenge-verify`
-executes it. The calibrator still has no composition root and no entrypoint — it declares neither
-`main` nor `bin`, and nothing in the repository executes that service. The table above remains a rule
+executes it. The CLI loads a labelled case and a file-backed `CommittedInputStore`, then
+`refitFromStore` re-runs `calibrate` on `store.window` — not a stub λ/premium map on the case. The
+calibrator still has no composition root and no entrypoint — it declares neither `main` nor `bin`,
+and nothing in the repository executes that service as a process. The table above remains a rule
 about *permitted* imports rather than a description of a fully running system. It was written as
 "nothing imports `adapters` except the composition root"; settlement now has that root, and
 `application-does-not-import-adapters` still means a root cannot invert the stack.
 
-**The one cross-workspace edge** is `settlement/domain -> calibrator/domain`, and it exists because
-the settlement service's adjudication re-runs a fit from the calibrator's committed inputs, and its
-route outcomes are priced by the calibrator's moment primitives. The direction is enforced
-mechanically, so the reverse import fails `make check`.
+**The cross-workspace direction** is settlement reading the calibrator, never the reverse. Domain
+still meets domain — `settlement/domain -> calibrator/domain` — because adjudication re-runs a fit
+from the calibrator's committed inputs and route outcomes are priced by the calibrator's moment
+primitives. The re-fit itself is a second edge: `settlement/adapters -> calibrator/application`
+(`calibrate` on a stored window), wired at the challenge-verify root. Settlement `application/`
+does not import calibrator application; that is a stated constraint, not an accident of the
+adapter existing. The reverse import fails `make check`.
 
-**That edge resolves through `dist/`, not `src/`.** `@bell/calibrator/domain/*.js` is mapped by the
+**Those edges resolve through `dist/`, not `src/`.** `@bell/calibrator/domain/*.js` is mapped by the
 calibrator's `exports` field onto `./dist/domain/*.js`, so `tsc` and node both read the *compiled*
 tree — which is why `ts-build` is a prerequisite of `ts-test` and `ts-check` rather than a
 convenience, and why the alternative of a `paths` mapping onto `src/` was rejected: it would check one
-thing and execute another. The calibrator exposes `./domain/*.js` and nothing else, so its
-`application/` and `adapters/` layers are unreachable from outside the package even by a deep import.
-Settlement exports `./domain/*.js`, `./application/*.js`, and `./adapters/*.js` onto `dist/`, so those
-layers are reachable as a package after `ts-build`. The verify CLI composition root still imports them
-relatively inside the package.
+thing and execute another. The calibrator exposes `./domain/*.js`, `./domain/families/*.js` (a second
+segment the `domain/*.js` glob cannot match), and `./application/*.js` onto `dist/`. Its `adapters/`
+layer stays unreachable from outside the package. `application/` is reachable so a settlement
+adapter can re-run `calibrate`. Settlement exports `./domain/*.js`, `./application/*.js`, and
+`./adapters/*.js` onto `dist/`, so those layers are reachable as a package after `ts-build`. The
+verify CLI composition root still imports settlement layers relatively inside the package.
 
 `dist/` is a build product and gitignored, and **`tsc -b` does not prune the output of a source file
 that has been deleted**, so `dist/` can hold a module `src/` no longer contains — reachable through
@@ -217,7 +223,7 @@ make check-architecture   # `npm run architecture` (dependency-cruiser)
 make check-layout         # the structural rules that are not import edges
 ```
 
-The contracts live in `.dependency-cruiser.cjs`, and there are nine:
+The contracts live in `.dependency-cruiser.cjs`, and there are ten:
 
 - *`calibrator-domain-is-hermetic`* — `calibrator/src/domain` may import itself and `decimal.js` and
   nothing else. An allow-list of one named package rather than a category, which is what R5.1 narrowed
@@ -229,6 +235,8 @@ The contracts live in `.dependency-cruiser.cjs`, and there are nine:
   `calibrator/src/domain`, and `decimal.js`. The participant surface reads the catalogue and the
   committed quotes; settlement domain is not on the list.
 - *`application-does-not-import-adapters`* — the high-level policy must not reach a low-level driver.
+- *`settlement-application-does-not-import-calibrator-application`* — the re-fit is an adapter;
+  settlement application wraps `adjudicate` and must not call `calibrate`.
 - *`the-calibrator-never-imports-the-settlement-service`* — the cross-workspace direction.
 - *`nothing-imports-the-web`* — the web is a consumer at the edge; a shared module it needs belongs
   in the calibrator or the indexer.
@@ -325,12 +333,14 @@ Declared in the domain, implemented in `adapters/`. `calibrator/src/domain/ports
 | `AnnouncementCalendar` | scheduled announcement dates | *scheduled*, not reported: conditioning on a scheduled release is the entire basis of the event-session calibration |
 | `ParameterPublisher` | the off-chain commitment | the trust shift this creates is deliberate and is policed by a bond and a deterministic re-run, not assumed away |
 | `ReferencePrintSource` | where reference prints come from | the feed will change; the domain must not. Unordered on purpose, because the selection is total and a source that reordered on a retry would look like a different input set |
-| `CommittedInputStore` | where a committed fit's raw inputs are retrieved from | the adjudication re-runs a fit, and a store that could only be asked by session could return a different input set from the one committed |
+| `CommittedInputStore` | where a committed fit's raw inputs are retrieved from (`window` by `inputsHash`; `rowsDigest` derived from that window) | the adjudication re-runs a fit, and a store that could only be asked by session could return a different input set from the one committed |
 | `LogSource` | where raw event logs come from | an indexer reads logs, and the way that goes wrong is a domain module that reaches an RPC client, a socket or `node:fs` directly. `LogSource` is the seam; the fold is a pure function of the stream it yields |
 
-The settlement service's route evaluation and adjudication are the two places the two workspaces
-meet, and both go through the shared core rather than through a new port: the routes are priced by the
-calibrator's `moments`, and the adjudication's digest is the calibrator's `digest`.
+The settlement service's route evaluation and adjudication still meet the calibrator through the
+shared core: the routes are priced by the calibrator's `moments`, and the adjudication's digest is
+the calibrator's `digest`. The challenge-verify re-fit is the exception that is not the shared
+core: `refitFromStore` calls `calibrate` in an adapter, from a `CommittedInputStore.window`, and
+settlement application never sees that import.
 
 The web composes the same seams at the page edge. `resolveSources` is opt-in RPC: `BELL_RPC_URL`
 unset replays the committed log and quote fixtures; set, it is `RpcLogSource` and `RpcQuoteSource`
