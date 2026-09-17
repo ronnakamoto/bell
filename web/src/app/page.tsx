@@ -1,14 +1,12 @@
-import { FileLogSource } from '@bell/indexer/adapters/log_source_file.js';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
-import { INDEXER_CONFIG, LOGS_PATH } from '../adapters/corpus.js';
+import { resolveSources } from '../adapters/corpus.js';
 import { loadCatalogue } from '../application/catalogue.js';
 
-const logSource = new FileLogSource(LOGS_PATH);
-
 export default async function HomePage(): Promise<ReactNode> {
-  const catalogue = await loadCatalogue(logSource, INDEXER_CONFIG);
+  const { logSource, indexerConfig } = resolveSources();
+  const catalogue = await loadCatalogue(logSource, indexerConfig);
 
   return (
     <div>

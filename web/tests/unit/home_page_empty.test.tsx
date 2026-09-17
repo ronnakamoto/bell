@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/application/catalogue.js', () => ({
   loadCatalogue: vi.fn(() => Promise.resolve({ sessions: [], names: [] })),
@@ -10,8 +10,13 @@ vi.mock('../../src/application/catalogue.js', () => ({
 
 import HomePage from '../../src/app/page.js';
 
+beforeEach(() => {
+  vi.stubEnv('BELL_RPC_URL', '');
+});
+
 afterEach(() => {
   cleanup();
+  vi.unstubAllEnvs();
 });
 
 describe('HomePage with an empty catalogue', () => {

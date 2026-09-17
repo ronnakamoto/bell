@@ -1,11 +1,8 @@
-import { FileLogSource } from '@bell/indexer/adapters/log_source_file.js';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-import { INDEXER_CONFIG, IV_PATH, LOGS_PATH, QUOTES_PATH } from '../../../adapters/corpus.js';
-import { FileIvSource } from '../../../adapters/iv_source_file.js';
-import { FileQuoteSource } from '../../../adapters/quote_source_file.js';
+import { resolveSources } from '../../../adapters/corpus.js';
 import { loadSession } from '../../../application/catalogue.js';
 import { loadPublishedIv } from '../../../application/iv.js';
 import { loadQuote } from '../../../application/quote.js';
@@ -16,17 +13,14 @@ import { SessionIntents } from '../../../components/SessionIntents.js';
 import { SessionSettlementIntents } from '../../../components/SessionSettlementIntents.js';
 import { type Quote } from '../../../domain/quote.js';
 
-const logSource = new FileLogSource(LOGS_PATH);
-const quoteSource = new FileQuoteSource(QUOTES_PATH);
-const ivSource = new FileIvSource(IV_PATH);
-
 export default async function SessionPage({
   params,
 }: {
   params: Promise<{ address: string }>;
 }): Promise<ReactNode> {
+  const { logSource, quoteSource, ivSource, indexerConfig } = resolveSources();
   const { address } = await params;
-  const session = await loadSession(logSource, INDEXER_CONFIG, address);
+  const session = await loadSession(logSource, indexerConfig, address);
   if (session === undefined) notFound();
 
   const linkedName = session.names[0];
