@@ -139,4 +139,10 @@ describe('main', () => {
     expect(result.code).toBe(2);
     expect(result.stderr).toContain('no committed-input store at');
   });
+
+  it('exits 2 when the store file is present but not a store', async () => {
+    const result = await run(['--case', 'upheld-store', '--store', FIXTURE_PATH]);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain('expected an object with a windows object');
+  });
 });

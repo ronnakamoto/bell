@@ -202,6 +202,33 @@ describe('parseCommittedInputsDocument', () => {
     ).toThrow(/sourceIds must be a non-empty array of strings/);
   });
 
+  it('refuses a sourceId that is not a string', () => {
+    expect(() =>
+      parseCommittedInputsDocument(
+        '/s.json',
+        documentOf({ [SAMPLE_HASH]: aWindow({ sourceIds: [1] }) }),
+      ),
+    ).toThrow(/sourceIds must be a non-empty array of strings/);
+  });
+
+  it('refuses bars that are not an array', () => {
+    expect(() =>
+      parseCommittedInputsDocument(
+        '/s.json',
+        documentOf({ [SAMPLE_HASH]: aWindow({ bars: { tradingDate: '2020-01-06' } }) }),
+      ),
+    ).toThrow(/bars must be an array/);
+  });
+
+  it('refuses a symbol that is not a string', () => {
+    expect(() =>
+      parseCommittedInputsDocument(
+        '/s.json',
+        documentOf({ [SAMPLE_HASH]: aWindow({ symbol: 1 }) }),
+      ),
+    ).toThrow(/symbol must be a string/);
+  });
+
   it('refuses a bar that is not an object', () => {
     expect(() =>
       parseCommittedInputsDocument(
