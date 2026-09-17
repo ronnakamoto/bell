@@ -57,9 +57,12 @@ export interface ResolvedSources {
  *
  * No network happens here. RPC adapters hold a client and wait to be asked; a missing address is
  * a configuration error and is refused before a socket could open. `env` is an argument so a test
- * can stub it without mutating `process.env`.
+ * can stub it without mutating `process.env`. Next types `NODE_ENV` as required on `ProcessEnv`; a
+ * stub of four BELL_* keys is a `Record`, not a process environment.
  */
-export function resolveSources(env: NodeJS.ProcessEnv = process.env): ResolvedSources {
+export function resolveSources(
+  env: Record<string, string | undefined> = process.env,
+): ResolvedSources {
   const rpcUrl = envValue(env, 'BELL_RPC_URL');
   if (rpcUrl === undefined) {
     return {
@@ -88,7 +91,7 @@ export function resolveSources(env: NodeJS.ProcessEnv = process.env): ResolvedSo
 }
 
 /** A trimmed env value, or `undefined` when the var is unset or blank. */
-function envValue(env: NodeJS.ProcessEnv, name: string): string | undefined {
+function envValue(env: Record<string, string | undefined>, name: string): string | undefined {
   const value = env[name];
   if (value === undefined) return undefined;
   const trimmed = value.trim();
@@ -96,7 +99,7 @@ function envValue(env: NodeJS.ProcessEnv, name: string): string | undefined {
 }
 
 /** A required companion of `BELL_RPC_URL`; names the missing var when absent. */
-function requiredEnv(env: NodeJS.ProcessEnv, name: string): string {
+function requiredEnv(env: Record<string, string | undefined>, name: string): string {
   const value = envValue(env, name);
   if (value === undefined) {
     throw new Error(`${name} is required when BELL_RPC_URL is set`);
