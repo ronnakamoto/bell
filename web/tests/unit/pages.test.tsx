@@ -2,16 +2,21 @@
 import '@testing-library/jest-dom/vitest';
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CORPUS_SESSION_ADDRESS } from '../../src/adapters/corpus.js';
 import RootLayout from '../../src/app/layout.js';
 import HomePage from '../../src/app/page.js';
 import SessionPage from '../../src/app/sessions/[address]/page.js';
 
+beforeEach(() => {
+  vi.stubEnv('BELL_RPC_URL', '');
+});
+
 afterEach(() => {
   cleanup();
   sessionStorage.clear();
+  vi.unstubAllEnvs();
 });
 
 describe('RootLayout', () => {

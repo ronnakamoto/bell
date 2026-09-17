@@ -121,11 +121,12 @@ the call **refuses** — Table 19's "the pool refuses to price rather than prici
 returns a reading rather than a boolean, so a caller cannot render a refusal as a number. A reading
 carries its provenance as a named union, because `trailing-realised` is a different claim from `pool`.
 
-**Nothing calls the surface yet, in either direction.** `impliedVolatility` has no reader of a live
-pool price and `publishedVolatility` has no publisher: both are the web app's job (F1, Phase F), which
-the brief also requires to render the freshness stamp or omit the number. Until then the module is
-reachable only from its own suite — the same position `AnnouncementCalendar` is in, and recorded for
-the same reason.
+The web app is the publisher, through a fixture. `loadPublishedIv` looks up a session in an
+`IvSource`, runs the row through `publishedVolatility`, and the session page renders the freshness
+stamp or omits σ̂ — never invents a number. `impliedVolatility` still has no reader of a live pool
+price: `resolveSources` may opt logs and quotes into RPC, and IV stays file-backed in both modes. A
+live inversion from the pool is unbuilt — the same position `AnnouncementCalendar` is in, and
+recorded for the same reason.
 
 ## The service layering
 
@@ -327,9 +328,15 @@ The settlement service's route evaluation and adjudication are the two places th
 meet, and both go through the shared core rather than through a new port: the routes are priced by the
 calibrator's `moments`, and the adjudication's digest is the calibrator's `digest`.
 
-BELL-IV, when it exists, is not a new port. It is a pure function of `(λ, pL)` plus a freshness
-stamp on the pool price. The fallback when the stamp is stale is the same trailing-realised
-estimator the premium publisher already names.
+The web composes the same seams at the page edge. `resolveSources` is opt-in RPC: `BELL_RPC_URL`
+unset replays the committed log and quote fixtures; set, it is `RpcLogSource` and `RpcQuoteSource`
+against the factory, registry and premium addresses. Construction is not a call — a missing companion
+address is refused before a socket could open — so `make check` stays hermetic. IV is not on that
+switch.
+
+BELL-IV is not a new port. It is a pure function of `(λ, pL)` plus a freshness stamp on the pool
+price. The fallback when the stamp is stale is the same trailing-realised estimator the premium
+publisher already names. The web's `IvSource` feeds that function; it does not invert a live pool.
 
 ## The cross-language contract
 

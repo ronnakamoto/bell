@@ -2,7 +2,7 @@
 import '@testing-library/jest-dom/vitest';
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../src/application/catalogue.js', () => ({
   loadSession: vi.fn(() =>
@@ -27,9 +27,14 @@ vi.mock('../../src/application/catalogue.js', () => ({
 
 import SessionPage from '../../src/app/sessions/[address]/page.js';
 
+beforeEach(() => {
+  vi.stubEnv('BELL_RPC_URL', '');
+});
+
 afterEach(() => {
   cleanup();
   sessionStorage.clear();
+  vi.unstubAllEnvs();
 });
 
 describe('SessionPage without linked names', () => {

@@ -92,6 +92,55 @@ describe('FileQuoteSource', () => {
     }
   });
 
+  it('quote finds a Usable row by (nameId, forSession)', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bell-quotes-'));
+    try {
+      const path = join(dir, 'quotes.json');
+      await writeFile(
+        path,
+        JSON.stringify({
+          quotes: [
+            {
+              nameId: 'n',
+              forSession: '1',
+              verdict: 'Usable',
+              lambdaWad: '10',
+              premiumWad: '20',
+            },
+          ],
+        }),
+      );
+      const source = new FileQuoteSource(path);
+      await expect(source.quote('n', 1n)).resolves.toEqual({
+        verdict: 'Usable',
+        lambdaWad: 10n,
+        premiumWad: 20n,
+      });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('quote returns Refuse without wads when the key is absent', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bell-quotes-'));
+    try {
+      const path = join(dir, 'quotes.json');
+      await writeFile(
+        path,
+        JSON.stringify({
+          quotes: [{ nameId: 'n', forSession: '1', verdict: 'Refuse' }],
+        }),
+      );
+      const source = new FileQuoteSource(path);
+      const quote = await source.quote('n', 99n);
+      expect(quote).toEqual({ verdict: 'Refuse' });
+      expect(quote).not.toHaveProperty('premiumWad');
+      expect(quote).not.toHaveProperty('lambdaWad');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('throws QuoteSourceUnavailable when the file is missing', async () => {
     const source = new FileQuoteSource('/no/such/quotes.json');
     await expect(source.quotes()).rejects.toThrow(QuoteSourceUnavailable);
@@ -125,6 +174,39 @@ describe('FileQuoteSource', () => {
       expect(() => parseQuoteDocument('/q.json', '{}')).toThrow(QuoteSourceMalformed);
     } finally {
       JSON.parse = original;
+    }
+  });
+});
+
+describe('loadQuote through FileQuoteSource.quote', () => {
+  it('decodes Fallback and explicit Refuse rows by key', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bell-quotes-'));
+    try {
+      const path = join(dir, 'quotes.json');
+      await writeFile(
+        path,
+        JSON.stringify({
+          quotes: [
+            {
+              nameId: 'b',
+              forSession: '2',
+              verdict: 'Fallback',
+              lambdaWad: '30',
+              premiumWad: '40',
+            },
+            { nameId: 'c', forSession: '3', verdict: 'Refuse' },
+          ],
+        }),
+      );
+      const source = new FileQuoteSource(path);
+      await expect(source.quote('b', 2n)).resolves.toEqual({
+        verdict: 'Fallback',
+        lambdaWad: 30n,
+        premiumWad: 40n,
+      });
+      await expect(source.quote('c', 3n)).resolves.toEqual({ verdict: 'Refuse' });
+    } finally {
+      await rm(dir, { recursive: true, force: true });
     }
   });
 });

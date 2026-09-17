@@ -11,6 +11,7 @@
 
 import { readFile } from 'node:fs/promises';
 
+import { type QuoteFixtureRow, type QuoteSource } from '../domain/ports.js';
 import { type Quote } from '../domain/quote.js';
 
 /** The file could not be read at all. Retryable, in the sense that the file may appear. */
@@ -30,11 +31,7 @@ export class QuoteSourceMalformed extends Error {
 }
 
 /** One fixture row keyed by `(nameId, forSession)`. */
-export interface QuoteEntry {
-  readonly nameId: string;
-  readonly forSession: bigint;
-  readonly quote: Quote;
-}
+export type QuoteEntry = QuoteFixtureRow;
 
 /**
  * Reads one JSON file of fixture quotes.
@@ -42,7 +39,7 @@ export interface QuoteEntry {
  * The path rather than an in-memory map is the configuration, because the committed fixture is one
  * oracle rather than one-file-per-name.
  */
-export class FileQuoteSource {
+export class FileQuoteSource implements QuoteSource {
   readonly path: string;
 
   constructor(path: string) {
@@ -53,6 +50,15 @@ export class FileQuoteSource {
   async quotes(): Promise<readonly QuoteEntry[]> {
     const text = await readQuoteFile(this.path);
     return parseQuoteDocument(this.path, text);
+  }
+
+  /** The quote for `(nameId, forSession)`, or `Refuse` when the key is absent. */
+  async quote(nameId: string, forSession: bigint): Promise<Quote> {
+    const entries = await this.quotes();
+    const match = entries.find(
+      (entry) => entry.nameId === nameId && entry.forSession === forSession,
+    );
+    return match?.quote ?? { verdict: 'Refuse' };
   }
 }
 
