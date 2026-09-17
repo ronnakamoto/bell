@@ -27,7 +27,7 @@ TOOLS := tools
 .PHONY: help build test test-contracts test-fork check \
         check-format check-lint check-types check-architecture check-layout check-generated \
         check-coverage check-fixtures deploy deploy-fork diagnostics gas coverage clean \
-        ts-install ts-build ts-test ts-check challenge-verify
+        ts-install ts-build ts-test ts-check challenge-verify gen-challenge-store
 
 help: ## List every target
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -43,6 +43,7 @@ build: ## Generate spec-derived artifacts, then compile everything
 	@echo "== generating the fixtures the domain produces =="
 	node $(TOOLS)/gen_moments_fixture.ts
 	node $(TOOLS)/gen_digest_fixture.ts
+	node $(TOOLS)/gen_challenge_store_fixture.ts
 	@echo "== compiling contracts =="
 	cd $(CONTRACTS) && forge build
 
@@ -139,8 +140,8 @@ check-layout: ts-build ## The §6 layout rules, mechanically
 # Until B1 this ran both renderings of `spec/constants.yaml` in `--check` mode, and the pair asserted
 # that two independent implementations agreed -- the differential that accepted the port. The Python
 # generator is deleted, so there is one rendering and the check is what it always was underneath: the
-# committed artifacts are what the generator renders. The two fixture generators are the same shape of
-# check, and both read the *compiled* calibrator, because a bare `node` will not resolve `models.ts`'s
+# committed artifacts are what the generator renders. The fixture generators are the same shape of
+# check, and they read the *compiled* calibrator, because a bare `node` will not resolve `models.ts`'s
 # relative `'./constants.js'` to `constants.ts` -- hence `ts-build` rather than an assumption that
 # `npm run build` already ran.
 #
@@ -155,6 +156,7 @@ check-generated: ts-build ## Fail if any generated file is stale
 	node $(TOOLS)/gen_constants.ts --check
 	node $(TOOLS)/gen_moments_fixture.ts --check
 	node $(TOOLS)/gen_digest_fixture.ts --check
+	node $(TOOLS)/gen_challenge_store_fixture.ts --check
 	cd $(CONTRACTS) && forge test --match-path "test/indexer/*"
 
 check-fixtures: ## Fail if any spec/ fixture carries an integer a JavaScript reader would round
@@ -202,6 +204,9 @@ ts-check: ts-build ## Format and lint the TypeScript tree
 
 challenge-verify: ts-build ## Verify a challenge fixture case (CASE=upheld-overnight)
 	node $(SETTLEMENT)/dist/cli/verify.js --case $(or $(CASE),upheld-overnight)
+
+gen-challenge-store: ts-build ## Generate committed-input store and challenge fixtures from calibrate
+	node $(TOOLS)/gen_challenge_store_fixture.ts
 
 # ---------------------------------------------------------------------------- housekeeping
 

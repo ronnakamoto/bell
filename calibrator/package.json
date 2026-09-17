@@ -9,6 +9,10 @@
       "types": "./dist/domain/*.d.ts",
       "default": "./dist/domain/*.js"
     },
+    "./domain/families/*.js": {
+      "types": "./dist/domain/families/*.d.ts",
+      "default": "./dist/domain/families/*.js"
+    },
     "./application/*.js": {
       "types": "./dist/application/*.d.ts",
       "default": "./dist/application/*.js"

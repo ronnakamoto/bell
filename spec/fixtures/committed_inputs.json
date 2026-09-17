@@ -1,0 +1,519 @@
+{
+  "_generated": "GENERATED FILE - DO NOT EDIT BY HAND.",
+  "_source": "application/calibrate over 100 constant-gap bars (gap 0.01, empirical seed family)",
+  "_spec": "F2 slice 2: windows keyed by inputsHash; bars honestly round-trip through calibrate",
+  "_note": "Windows keyed by inputsHash. File adapters derive rowsDigest from the bars rather than storing a second digest that can drift. closeWad / nextOpenWad are WAD-scale strings.",
+  "windows": {
+    "0x33738d126531a0bb1907cdae71fff72e53f7944f3f8aef08f5c4cb09062d39db": {
+      "symbol": "NVDA",
+      "session": "E",
+      "windowSessions": 100,
+      "sourceIds": [
+        "test-fixture"
+      ],
+      "familyName": "empirical",
+      "bars": [
+        {
+          "tradingDate": "2020-01-06",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-07",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-08",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-09",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-10",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-11",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-12",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-13",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-14",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-15",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-16",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-17",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-18",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-19",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-20",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-21",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-22",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-23",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-24",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-25",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-26",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-27",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-28",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-29",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-30",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-01-31",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-01",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-02",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-03",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-04",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-05",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-06",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-07",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-08",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-09",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-10",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-11",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-12",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-13",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-14",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-15",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-16",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-17",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-18",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-19",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-20",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-21",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-22",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-23",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-24",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-25",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-26",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-27",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-28",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-02-29",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-01",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-02",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-03",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-04",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-05",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-06",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-07",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-08",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-09",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-10",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-11",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-12",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-13",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-14",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-15",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-16",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-17",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-18",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-19",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-20",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-21",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-22",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-23",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-24",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-25",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-26",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-27",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-28",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-29",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-30",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-03-31",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-01",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-02",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-03",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-04",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-05",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-06",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-07",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-08",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-09",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-10",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-11",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-12",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-13",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        },
+        {
+          "tradingDate": "2020-04-14",
+          "closeWad": "100000000000000000000",
+          "nextOpenWad": "101000000000000000000"
+        }
+      ]
+    }
+  }
+}

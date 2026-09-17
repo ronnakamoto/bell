@@ -1,54 +1,45 @@
 {
-  "_note": "F2 challenge-verify cases. Digests from digest.json overnight where noted.",
+  "_generated": "GENERATED FILE - DO NOT EDIT BY HAND.",
+  "_source": "application/calibrate; commitmentDigest over the honest (or poisoned) fields",
+  "_spec": "F2 slice 2: challenge cases without stub refit; store re-fit is the happy path",
+  "_note": "No stub refit field. Re-fit is store.window → calibrate. slashed-premium poisons commitment premiumWad by PREMIUM_TOLERANCE_WAD + 1 and recomputes expectedDigest so adjudicate reaches the premium check rather than digest-mismatch.",
   "cases": [
     {
-      "label": "upheld-overnight",
+      "label": "upheld-store",
       "nameId": "0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb",
       "forSession": "12345",
-      "lambdaWad": "15000000000000000000",
-      "premiumWad": "174000000000000000",
-      "inputsHash": "0xba1940ba1e74225e3f3b13b7579e0920e64c04e6ff859f9649d95dec39ab0903",
-      "expectedDigest": "0x429155bab47a9b07adc772d9618086c40250666a95248c97024d64782ff7b939",
-      "refit": {
-        "lambdaWad": "15000000000000000000",
-        "premiumWad": "174000000000000000"
-      }
+      "lambdaWad": "100000000000000000000",
+      "premiumWad": "1000000000000000000",
+      "inputsHash": "0x33738d126531a0bb1907cdae71fff72e53f7944f3f8aef08f5c4cb09062d39db",
+      "expectedDigest": "0xe0050eab106e3de25dce869508a8b6f65147fcb25bb64875c9aa96e6e15e4cdb"
     },
     {
       "label": "digest-mismatch",
       "nameId": "0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb",
       "forSession": "12345",
-      "lambdaWad": "15000000000000000000",
-      "premiumWad": "174000000000000000",
-      "inputsHash": "0xba1940ba1e74225e3f3b13b7579e0920e64c04e6ff859f9649d95dec39ab0903",
-      "expectedDigest": "0x0000000000000000000000000000000000000000000000000000000000000001",
-      "refit": {
-        "lambdaWad": "15000000000000000000",
-        "premiumWad": "174000000000000000"
-      }
+      "lambdaWad": "100000000000000000000",
+      "premiumWad": "1000000000000000000",
+      "inputsHash": "0x33738d126531a0bb1907cdae71fff72e53f7944f3f8aef08f5c4cb09062d39db",
+      "expectedDigest": "0x0000000000000000000000000000000000000000000000000000000000000001"
     },
     {
       "label": "inputs-unavailable",
       "nameId": "0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb",
       "forSession": "12345",
-      "lambdaWad": "15000000000000000000",
-      "premiumWad": "174000000000000000",
-      "inputsHash": "0xba1940ba1e74225e3f3b13b7579e0920e64c04e6ff859f9649d95dec39ab0903",
-      "expectedDigest": "0x429155bab47a9b07adc772d9618086c40250666a95248c97024d64782ff7b939",
-      "refit": null
+      "lambdaWad": "100000000000000000000",
+      "premiumWad": "1000000000000000000",
+      "inputsHash": "0x7326cf01a7302a61492499297901f13360b335c87bb7e8d1b64d0ba955738ef3",
+      "expectedDigest": "0x79133e2c75ae93ebea8087c0bb7ffb9f64ea4f251b02d4bab587645b8399f1cf"
     },
     {
       "label": "slashed-premium",
       "nameId": "0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb",
       "forSession": "12345",
-      "lambdaWad": "15000000000000000000",
-      "premiumWad": "174000000000000000",
-      "inputsHash": "0xba1940ba1e74225e3f3b13b7579e0920e64c04e6ff859f9649d95dec39ab0903",
-      "expectedDigest": "0x429155bab47a9b07adc772d9618086c40250666a95248c97024d64782ff7b939",
-      "refit": {
-        "lambdaWad": "15000000000000000000",
-        "premiumWad": "274000000000000000"
-      }
+      "lambdaWad": "100000000000000000000",
+      "premiumWad": "1000050000000000001",
+      "inputsHash": "0x33738d126531a0bb1907cdae71fff72e53f7944f3f8aef08f5c4cb09062d39db",
+      "expectedDigest": "0x0f80d7af8731e91912844ad79c2ded4244e22a86253314cb0ac37eaa87510722"
     }
-  ]
+  ],
+  "caseCount": 4
 }
