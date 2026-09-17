@@ -3,6 +3,7 @@
  *
  * Everything that can go wrong with a fixture lives here: JSON shape, hex width, and bigint strings.
  * Missing files are unavailable; a present file that cannot yield the requested case is malformed.
+ * Stub `refit` objects are refused — re-fit comes from the committed-input store, not the case file.
  */
 
 import { mkdtempSync, writeFileSync } from 'node:fs';
@@ -18,29 +19,24 @@ import {
   ChallengeCaseUnavailable,
   loadChallengeCase,
   parseChallengeDocument,
-  refitFromCase,
 } from '../../src/adapters/challenge_case_file.js';
 
 const FIXTURE_PATH = fileURLToPath(
   new URL('../../../spec/fixtures/challenge.json', import.meta.url),
 );
 
-const OVERNIGHT_NAME_ID = 'e108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb';
-const OVERNIGHT_INPUTS = 'ba1940ba1e74225e3f3b13b7579e0920e64c04e6ff859f9649d95dec39ab0903';
-const OVERNIGHT_DIGEST = '429155bab47a9b07adc772d9618086c40250666a95248c97024d64782ff7b939';
+const STORE_NAME_ID = 'e108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb';
+const STORE_INPUTS = '33738d126531a0bb1907cdae71fff72e53f7944f3f8aef08f5c4cb09062d39db';
+const STORE_DIGEST = 'e0050eab106e3de25dce869508a8b6f65147fcb25bb64875c9aa96e6e15e4cdb';
 
 const VALID_CASE = {
   label: 'sample',
-  nameId: `0x${OVERNIGHT_NAME_ID}`,
+  nameId: `0x${STORE_NAME_ID}`,
   forSession: '12345',
-  lambdaWad: '15000000000000000000',
-  premiumWad: '174000000000000000',
-  inputsHash: `0x${OVERNIGHT_INPUTS}`,
-  expectedDigest: `0x${OVERNIGHT_DIGEST}`,
-  refit: {
-    lambdaWad: '15000000000000000000',
-    premiumWad: '174000000000000000',
-  },
+  lambdaWad: '100000000000000000000',
+  premiumWad: '1000000000000000000',
+  inputsHash: `0x${STORE_INPUTS}`,
+  expectedDigest: `0x${STORE_DIGEST}`,
 };
 
 function documentOf(cases: unknown): string {
@@ -55,27 +51,24 @@ function writeTemp(body: string): string {
 }
 
 describe('parseChallengeDocument', () => {
-  it('parses the committed overnight fixture cases', () => {
+  it('parses challenge cases without a stub refit', () => {
     const cases = parseChallengeDocument(
       FIXTURE_PATH,
       JSON.stringify({
         _note: 'ignored',
-        cases: [VALID_CASE, { ...VALID_CASE, label: 'inputs-unavailable', refit: null }],
+        cases: [VALID_CASE, { ...VALID_CASE, label: 'inputs-unavailable' }],
       }),
     );
     expect(cases).toHaveLength(2);
-    expect(hexOf(cases[0]?.nameId ?? new Uint8Array())).toBe(OVERNIGHT_NAME_ID);
+    expect(hexOf(cases[0]?.nameId ?? new Uint8Array())).toBe(STORE_NAME_ID);
     expect(cases[0]?.nameId).toHaveLength(32);
     expect(cases[0]?.inputsHash).toHaveLength(32);
     expect(cases[0]?.expectedDigest).toHaveLength(32);
     expect(cases[0]?.forSession).toBe(12345n);
-    expect(cases[0]?.lambdaWad).toBe(15_000_000_000_000_000_000n);
-    expect(cases[0]?.premiumWad).toBe(174_000_000_000_000_000n);
-    expect(cases[0]?.refit).toEqual({
-      lambdaWad: 15_000_000_000_000_000_000n,
-      premiumWad: 174_000_000_000_000_000n,
-    });
-    expect(cases[1]?.refit).toBeNull();
+    expect(cases[0]?.lambdaWad).toBe(100_000_000_000_000_000_000n);
+    expect(cases[0]?.premiumWad).toBe(1_000_000_000_000_000_000n);
+    expect(cases[0]).not.toHaveProperty('refit');
+    expect(cases[1]?.label).toBe('inputs-unavailable');
   });
 
   it('refuses invalid JSON', () => {
@@ -136,7 +129,7 @@ describe('parseChallengeDocument', () => {
 
   it('refuses hex that is not 0x-prefixed', () => {
     expect(() =>
-      parseChallengeDocument('/c.json', documentOf([{ ...VALID_CASE, nameId: OVERNIGHT_NAME_ID }])),
+      parseChallengeDocument('/c.json', documentOf([{ ...VALID_CASE, nameId: STORE_NAME_ID }])),
     ).toThrow(ChallengeCaseMalformed);
   });
 
@@ -154,14 +147,19 @@ describe('parseChallengeDocument', () => {
     ).toThrow(ChallengeCaseMalformed);
   });
 
-  it('refuses a malformed refit', () => {
+  it('refuses a case that still has a stub refit field', () => {
     expect(() =>
-      parseChallengeDocument('/c.json', documentOf([{ ...VALID_CASE, refit: 'x' }])),
-    ).toThrow(ChallengeCaseMalformed);
+      parseChallengeDocument('/c.json', documentOf([{ ...VALID_CASE, refit: null }])),
+    ).toThrow(/refit is not a challenge-case field/);
     expect(() =>
       parseChallengeDocument(
         '/c.json',
-        documentOf([{ ...VALID_CASE, refit: { lambdaWad: 1, premiumWad: '1' } }]),
+        documentOf([
+          {
+            ...VALID_CASE,
+            refit: { lambdaWad: '1', premiumWad: '1' },
+          },
+        ]),
       ),
     ).toThrow(ChallengeCaseMalformed);
   });
@@ -169,10 +167,12 @@ describe('parseChallengeDocument', () => {
 
 describe('loadChallengeCase', () => {
   it('loads a labelled case from the committed fixture', async () => {
-    const loaded = await loadChallengeCase(FIXTURE_PATH, 'upheld-overnight');
-    expect(loaded.label).toBe('upheld-overnight');
-    expect(hexOf(loaded.expectedDigest)).toBe(OVERNIGHT_DIGEST);
-    expect(loaded.refit?.premiumWad).toBe(174_000_000_000_000_000n);
+    const loaded = await loadChallengeCase(FIXTURE_PATH, 'upheld-store');
+    expect(loaded.label).toBe('upheld-store');
+    expect(hexOf(loaded.expectedDigest)).toBe(STORE_DIGEST);
+    expect(loaded.lambdaWad).toBe(100_000_000_000_000_000_000n);
+    expect(loaded.premiumWad).toBe(1_000_000_000_000_000_000n);
+    expect(loaded).not.toHaveProperty('refit');
   });
 
   it('a missing label is malformed rather than unavailable', async () => {
@@ -186,18 +186,14 @@ describe('loadChallengeCase', () => {
 
   it('a missing file is unavailable rather than malformed', async () => {
     const path = join(mkdtempSync(join(tmpdir(), 'bell-challenge-')), 'absent.json');
-    await expect(loadChallengeCase(path, 'upheld-overnight')).rejects.toThrow(
-      ChallengeCaseUnavailable,
-    );
-    await expect(loadChallengeCase(path, 'upheld-overnight')).rejects.toThrow(/no challenge case/);
+    await expect(loadChallengeCase(path, 'upheld-store')).rejects.toThrow(ChallengeCaseUnavailable);
+    await expect(loadChallengeCase(path, 'upheld-store')).rejects.toThrow(/no challenge case/);
   });
 
   it('an unreadable path is unavailable rather than malformed', async () => {
     const path = mkdtempSync(join(tmpdir(), 'bell-challenge-'));
-    await expect(loadChallengeCase(path, 'upheld-overnight')).rejects.toThrow(
-      ChallengeCaseUnavailable,
-    );
-    await expect(loadChallengeCase(path, 'upheld-overnight')).rejects.toThrow(/could not read/);
+    await expect(loadChallengeCase(path, 'upheld-store')).rejects.toThrow(ChallengeCaseUnavailable);
+    await expect(loadChallengeCase(path, 'upheld-store')).rejects.toThrow(/could not read/);
   });
 
   it('loads a case written to a temp file', async () => {
@@ -205,22 +201,5 @@ describe('loadChallengeCase', () => {
     const loaded = await loadChallengeCase(path, 'sample');
     expect(loaded.label).toBe('sample');
     expect(loaded.forSession).toBe(12345n);
-  });
-});
-
-describe('refitFromCase', () => {
-  it('a null refit always resolves undefined', async () => {
-    const loaded = await loadChallengeCase(FIXTURE_PATH, 'inputs-unavailable');
-    const runner = refitFromCase(loaded);
-    expect(await runner(loaded.inputsHash)).toBeUndefined();
-  });
-
-  it('a present refit returns the fixture parameters', async () => {
-    const loaded = await loadChallengeCase(FIXTURE_PATH, 'slashed-premium');
-    const runner = refitFromCase(loaded);
-    expect(await runner(loaded.inputsHash)).toEqual({
-      lambdaWad: 15_000_000_000_000_000_000n,
-      premiumWad: 274_000_000_000_000_000n,
-    });
   });
 });

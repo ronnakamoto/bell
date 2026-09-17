@@ -8,14 +8,14 @@
  *
  * Every failure is a typed adapter error rather than a bare `Error`, so a caller can tell a missing
  * file from a malformed one — one is retryable and the other is terminal.
+ *
+ * Stub `refit` objects are refused. Re-fit is `store.window` → `calibrate`, wired at the CLI.
  */
 
 import { readFile } from 'node:fs/promises';
 
 import { bytesFromHex } from '@bell/calibrator/domain/bytes.js';
 import { DIGEST_BYTES } from '@bell/calibrator/domain/models.js';
-
-import { type RefitRunner, type RefittedParameters } from '../domain/adjudication.js';
 
 /** The file could not be read at all. Retryable, in the sense that the file may appear. */
 export class ChallengeCaseUnavailable extends Error {
@@ -33,12 +33,6 @@ export class ChallengeCaseMalformed extends Error {
   }
 }
 
-/** The parameters a fixture-backed re-run returns, or `null` when inputs are unavailable. */
-export interface ChallengeRefit {
-  readonly lambdaWad: bigint;
-  readonly premiumWad: bigint;
-}
-
 /** One labelled challenge case, with hex decoded and integers as `bigint`. */
 export interface ChallengeCase {
   readonly label: string;
@@ -48,7 +42,6 @@ export interface ChallengeCase {
   readonly premiumWad: bigint;
   readonly inputsHash: Uint8Array;
   readonly expectedDigest: Uint8Array;
-  readonly refit: ChallengeRefit | null;
 }
 
 /**
@@ -93,25 +86,6 @@ export async function loadChallengeCase(path: string, label: string): Promise<Ch
   return found;
 }
 
-/**
- * A `RefitRunner` from a fixture case.
- *
- * `null` is the inputs-unavailable outcome: the runner always resolves `undefined`. A present
- * object is a stub re-run that returns those parameters regardless of `inputsHash` — this slice has
- * no committed-input store, and the fixture *is* the re-run.
- */
-export function refitFromCase(loaded: ChallengeCase): RefitRunner {
-  const { refit } = loaded;
-  if (refit === null) {
-    return (): Promise<undefined> => Promise.resolve(undefined);
-  }
-  const parameters: RefittedParameters = {
-    lambdaWad: refit.lambdaWad,
-    premiumWad: refit.premiumWad,
-  };
-  return (): Promise<RefittedParameters> => Promise.resolve(parameters);
-}
-
 /** Read the file, distinguishing "not there" from "there and unreadable". */
 async function readChallengeFile(path: string): Promise<string> {
   try {
@@ -130,6 +104,9 @@ function parseChallengeCase(path: string, index: number, entry: unknown): Challe
     throw new ChallengeCaseMalformed(`${path}: ${where}: expected an object`);
   }
   const row = entry as Record<string, unknown>;
+  if ('refit' in row) {
+    throw new ChallengeCaseMalformed(`${path}: ${where}: refit is not a challenge-case field`);
+  }
   return {
     label: requireString(path, where, row, 'label'),
     nameId: parseBytes32Field(path, where, row, 'nameId'),
@@ -138,19 +115,6 @@ function parseChallengeCase(path: string, index: number, entry: unknown): Challe
     premiumWad: parseBigIntField(path, where, row, 'premiumWad'),
     inputsHash: parseBytes32Field(path, where, row, 'inputsHash'),
     expectedDigest: parseBytes32Field(path, where, row, 'expectedDigest'),
-    refit: parseRefit(path, `${where}.refit`, row['refit']),
-  };
-}
-
-function parseRefit(path: string, where: string, value: unknown): ChallengeRefit | null {
-  if (value === null) return null;
-  if (value === undefined || typeof value !== 'object' || Array.isArray(value)) {
-    throw new ChallengeCaseMalformed(`${path}: ${where}: expected an object or null`);
-  }
-  const row = value as Record<string, unknown>;
-  return {
-    lambdaWad: parseBigIntField(path, where, row, 'lambdaWad'),
-    premiumWad: parseBigIntField(path, where, row, 'premiumWad'),
   };
 }
 

@@ -202,8 +202,8 @@ ts-check: ts-build ## Format and lint the TypeScript tree
 	npm run format:check
 	npm run lint
 
-challenge-verify: ts-build ## Verify a challenge fixture case (CASE=upheld-overnight)
-	node $(SETTLEMENT)/dist/cli/verify.js --case $(or $(CASE),upheld-overnight)
+challenge-verify: ts-build ## Verify a challenge fixture case (CASE=upheld-store)
+	node $(SETTLEMENT)/dist/cli/verify.js --case $(or $(CASE),upheld-store)
 
 gen-challenge-store: ts-build ## Generate committed-input store and challenge fixtures from calibrate
 	node $(TOOLS)/gen_challenge_store_fixture.ts
