@@ -89,6 +89,7 @@ describe('parseChallengeDocument', () => {
     );
     expect(() => parseChallengeDocument('/c.json', '[]')).toThrow(ChallengeCaseMalformed);
     expect(() => parseChallengeDocument('/c.json', 'null')).toThrow(ChallengeCaseMalformed);
+    expect(() => parseChallengeDocument('/c.json', '1')).toThrow(ChallengeCaseMalformed);
   });
 
   it('refuses a case that is not an object', () => {
@@ -98,6 +99,15 @@ describe('parseChallengeDocument', () => {
     expect(() => parseChallengeDocument('/c.json', documentOf([1]))).toThrow(
       ChallengeCaseMalformed,
     );
+    expect(() => parseChallengeDocument('/c.json', documentOf([[]]))).toThrow(
+      ChallengeCaseMalformed,
+    );
+  });
+
+  it('refuses a label that is not a string', () => {
+    expect(() =>
+      parseChallengeDocument('/c.json', documentOf([{ ...VALID_CASE, label: 1 }])),
+    ).toThrow(/label must be a string/);
   });
 
   it('refuses bigint fields that are not strings', () => {

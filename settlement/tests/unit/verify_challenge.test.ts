@@ -12,10 +12,7 @@ import { type Keccak } from '@bell/calibrator/domain/ports.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { describe, expect, it } from 'vitest';
 
-import {
-  formatChallengeReport,
-  verifyChallenge,
-} from '../../src/application/verify_challenge.js';
+import { formatChallengeReport, verifyChallenge } from '../../src/application/verify_challenge.js';
 import {
   type AdjudicationResult,
   CommittedParameterSet,
@@ -214,8 +211,6 @@ describe('formatChallengeReport', () => {
       kinds.add(result.kind);
       expect(formatChallengeReport(result)).toContain(`kind=${result.kind}`);
     }
-    expect(kinds).toEqual(
-      new Set(['upheld', 'digest-mismatch', 'inputs-unavailable', 'slashed']),
-    );
+    expect(kinds).toEqual(new Set(['upheld', 'digest-mismatch', 'inputs-unavailable', 'slashed']));
   });
 });

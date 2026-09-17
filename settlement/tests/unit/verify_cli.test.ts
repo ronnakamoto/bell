@@ -66,6 +66,42 @@ describe('main', () => {
     expect(result.stdout).toBe('');
   });
 
+  it('exits 2 when --case is present but empty', async () => {
+    const result = await run(['--case', '']);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain('--case is required');
+  });
+
+  it('exits 2 when --case has no value', async () => {
+    const result = await run(['--case']);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain('--case needs a value');
+  });
+
+  it('exits 2 when --fixture has no value', async () => {
+    const result = await run(['--case', 'upheld-overnight', '--fixture']);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain('--fixture needs a value');
+  });
+
+  it('exits 2 on an unknown argument', async () => {
+    const result = await run(['--case', 'upheld-overnight', '--nope']);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain('unknown argument: --nope');
+  });
+
+  it('exits 1 when inputs are unavailable', async () => {
+    const result = await run(['--case', 'inputs-unavailable']);
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain('kind=inputs-unavailable');
+  });
+
+  it('exits 1 when the refit premium is slashed', async () => {
+    const result = await run(['--case', 'slashed-premium']);
+    expect(result.code).toBe(1);
+    expect(result.stdout).toContain('kind=slashed');
+  });
+
   it('exits 2 when the labelled case is not in the fixture', async () => {
     const result = await run(['--case', 'no-such-case']);
     expect(result.code).toBe(2);

@@ -175,13 +175,15 @@ rule was always "no dependency that can reach the world", and a pure arithmetic 
 an allow-list of one named package rather than a category, so a second package is a finding rather
 than a judgement call.
 
-**Nothing imports `adapters` or `application` except the test suite**, which reaches them by relative
-path (`../../src/application/publish.js`) rather than through the package's `exports` map. There is no
-composition root and no entrypoint: neither package declares `main` or `bin`, and nothing in the
-repository executes either service. The table above is therefore a rule about *permitted* imports
-rather than a description of a running system. It was written as "nothing imports `adapters` except
-the composition root", which named a root that was never written; the enforced direction is unchanged,
-so the first composition root to be added cannot invert the stack.
+**Nothing in `application/` imports `adapters/`**, which is the enforced direction. Tests still reach
+both layers by relative path (`../../src/application/publish.js`) rather than through a package
+`exports` map. Settlement now has a composition root: `settlement/src/cli/verify.ts` is the only
+production importer of settlement `adapters` and `application` together, and `make challenge-verify`
+executes it. The calibrator still has no composition root and no entrypoint — it declares neither
+`main` nor `bin`, and nothing in the repository executes that service. The table above remains a rule
+about *permitted* imports rather than a description of a fully running system. It was written as
+"nothing imports `adapters` except the composition root"; settlement now has that root, and
+`application-does-not-import-adapters` still means a root cannot invert the stack.
 
 **The one cross-workspace edge** is `settlement/domain -> calibrator/domain`, and it exists because
 the settlement service's adjudication re-runs a fit from the calibrator's committed inputs, and its
@@ -193,8 +195,10 @@ calibrator's `exports` field onto `./dist/domain/*.js`, so `tsc` and node both r
 tree — which is why `ts-build` is a prerequisite of `ts-test` and `ts-check` rather than a
 convenience, and why the alternative of a `paths` mapping onto `src/` was rejected: it would check one
 thing and execute another. The calibrator exposes `./domain/*.js` and nothing else, so its
-`application/` and `adapters/` layers are unreachable from outside the package even by a deep import;
-the settlement declares no `exports` field at all, because nothing depends on it.
+`application/` and `adapters/` layers are unreachable from outside the package even by a deep import.
+Settlement exports `./domain/*.js`, `./application/*.js`, and `./adapters/*.js` onto `dist/`, so those
+layers are reachable as a package after `ts-build`. The verify CLI composition root still imports them
+relatively inside the package.
 
 `dist/` is a build product and gitignored, and **`tsc -b` does not prune the output of a source file
 that has been deleted**, so `dist/` can hold a module `src/` no longer contains — reachable through
@@ -242,9 +246,9 @@ form. This section used to list *"the layer stack — the ordering itself, as a 
 contracts. No such rule exists in the file (F85).
 
 **The cross-workspace rules name every spelling of their target**, because a `to.path` pattern matches
-what the graph resolved and a package-name specifier sometimes stays unresolved: `@bell/settlement`
-has no `exports` map, so it stays bare, while `@bell/calibrator` and `@bell/indexer` resolve into
-`dist/` (F96). The allow-list rules are unaffected, because `pathNot` catches everything not on the
+what the graph resolved and a package-name specifier sometimes stays unresolved: `@bell/calibrator`
+and `@bell/indexer` resolve into `dist/` (F96), and settlement now does the same for the three layers
+it exports. The allow-list rules are unaffected, because `pathNot` catches everything not on the
 list however it was written, which is why the `domain/` rules were never blind (F85).
 
 `make check-layout` adds the structural rules that are not import edges, and there are seven: no
