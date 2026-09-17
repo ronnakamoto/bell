@@ -1,0 +1,54 @@
+{
+  "_note": "F2 challenge-verify cases. Digests from digest.json overnight where noted.",
+  "cases": [
+    {
+      "label": "upheld-overnight",
+      "nameId": "0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb",
+      "forSession": "12345",
+      "lambdaWad": "15000000000000000000",
+      "premiumWad": "174000000000000000",
+      "inputsHash": "0xba1940ba1e74225e3f3b13b7579e0920e64c04e6ff859f9649d95dec39ab0903",
+      "expectedDigest": "0x429155bab47a9b07adc772d9618086c40250666a95248c97024d64782ff7b939",
+      "refit": {
+        "lambdaWad": "15000000000000000000",
+        "premiumWad": "174000000000000000"
+      }
+    },
+    {
+      "label": "digest-mismatch",
+      "nameId": "0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb",
+      "forSession": "12345",
+      "lambdaWad": "15000000000000000000",
+      "premiumWad": "174000000000000000",
+      "inputsHash": "0xba1940ba1e74225e3f3b13b7579e0920e64c04e6ff859f9649d95dec39ab0903",
+      "expectedDigest": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "refit": {
+        "lambdaWad": "15000000000000000000",
+        "premiumWad": "174000000000000000"
+      }
+    },
+    {
+      "label": "inputs-unavailable",
+      "nameId": "0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb",
+      "forSession": "12345",
+      "lambdaWad": "15000000000000000000",
+      "premiumWad": "174000000000000000",
+      "inputsHash": "0xba1940ba1e74225e3f3b13b7579e0920e64c04e6ff859f9649d95dec39ab0903",
+      "expectedDigest": "0x429155bab47a9b07adc772d9618086c40250666a95248c97024d64782ff7b939",
+      "refit": null
+    },
+    {
+      "label": "slashed-premium",
+      "nameId": "0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb",
+      "forSession": "12345",
+      "lambdaWad": "15000000000000000000",
+      "premiumWad": "174000000000000000",
+      "inputsHash": "0xba1940ba1e74225e3f3b13b7579e0920e64c04e6ff859f9649d95dec39ab0903",
+      "expectedDigest": "0x429155bab47a9b07adc772d9618086c40250666a95248c97024d64782ff7b939",
+      "refit": {
+        "lambdaWad": "15000000000000000000",
+        "premiumWad": "274000000000000000"
+      }
+    }
+  ]
+}

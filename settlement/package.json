@@ -4,7 +4,22 @@
   "private": true,
   "type": "module",
   "description": "BELL settlement-route evaluation and challenge adjudication",
+  "exports": {
+    "./domain/*.js": {
+      "types": "./dist/domain/*.d.ts",
+      "default": "./dist/domain/*.js"
+    },
+    "./application/*.js": {
+      "types": "./dist/application/*.d.ts",
+      "default": "./dist/application/*.js"
+    },
+    "./adapters/*.js": {
+      "types": "./dist/adapters/*.d.ts",
+      "default": "./dist/adapters/*.js"
+    }
+  },
   "dependencies": {
-    "@bell/calibrator": "0.1.0"
+    "@bell/calibrator": "0.1.0",
+    "@noble/hashes": "^2.4.0"
   }
 }

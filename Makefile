@@ -27,7 +27,7 @@ TOOLS := tools
 .PHONY: help build test test-contracts test-fork check \
         check-format check-lint check-types check-architecture check-layout check-generated \
         check-coverage check-fixtures deploy deploy-fork diagnostics gas coverage clean \
-        ts-install ts-build ts-test ts-check
+        ts-install ts-build ts-test ts-check challenge-verify
 
 help: ## List every target
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -199,6 +199,9 @@ ts-test: ts-build ## The TypeScript suites
 ts-check: ts-build ## Format and lint the TypeScript tree
 	npm run format:check
 	npm run lint
+
+challenge-verify: ts-build ## Verify a challenge fixture case (CASE=upheld-overnight)
+	node $(SETTLEMENT)/dist/cli/verify.js --case $(or $(CASE),upheld-overnight)
 
 # ---------------------------------------------------------------------------- housekeeping
 
