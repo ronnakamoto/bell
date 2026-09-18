@@ -86,6 +86,17 @@ export async function loadChallengeCase(path: string, label: string): Promise<Ch
   return found;
 }
 
+/**
+ * List every case label in a fixture file, in document order.
+ *
+ * A missing path is `ChallengeCaseUnavailable`; a present file that is not a challenge-case
+ * document is `ChallengeCaseMalformed`.
+ */
+export async function listChallengeCaseLabels(path: string): Promise<readonly string[]> {
+  const text = await readChallengeFile(path);
+  return parseChallengeDocument(path, text).map((entry) => entry.label);
+}
+
 /** Read the file, distinguishing "not there" from "there and unreadable". */
 async function readChallengeFile(path: string): Promise<string> {
   try {

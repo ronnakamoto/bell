@@ -2,10 +2,11 @@
  * Ports. Declarations only — no implementations.
  *
  * `QuoteSource` is the seam between the honest-quote use case and however quotes are loaded
- * (a JSON fixture or an RPC `eth_call`). The application asks the port; it never reaches
- * `node:fs` or a concrete adapter.
+ * (a JSON fixture or an RPC `eth_call`). `ChallengeSource` is the same seam for a labelled
+ * challenge report: the application asks the port and never reaches a file or settlement adapter.
  */
 
+import { type ChallengeReportView } from './challenge.js';
 import { type IvProvenance } from './iv.js';
 import { type Quote } from './quote.js';
 
@@ -44,4 +45,12 @@ export interface IvPublishInput {
 export interface IvSource {
   /** Every publish input the source currently holds, in source order. */
   readings(): Promise<readonly IvPublishInput[]>;
+}
+
+/** A source of labelled challenge reports (fixture store today, live store later). */
+export interface ChallengeSource {
+  /** Every case label the source currently holds, in the order the source records them. */
+  labels(): Promise<readonly string[]>;
+  /** The adjudication report for `label`. */
+  verify(label: string): Promise<ChallengeReportView>;
 }

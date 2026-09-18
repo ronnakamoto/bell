@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ChallengeCaseMalformed,
   ChallengeCaseUnavailable,
+  listChallengeCaseLabels,
   loadChallengeCase,
   parseChallengeDocument,
 } from '../../src/adapters/challenge_case_file.js';
@@ -201,5 +202,32 @@ describe('loadChallengeCase', () => {
     const loaded = await loadChallengeCase(path, 'sample');
     expect(loaded.label).toBe('sample');
     expect(loaded.forSession).toBe(12345n);
+  });
+});
+
+describe('listChallengeCaseLabels', () => {
+  it('lists the committed fixture labels in document order', async () => {
+    await expect(listChallengeCaseLabels(FIXTURE_PATH)).resolves.toEqual([
+      'upheld-store',
+      'digest-mismatch',
+      'inputs-unavailable',
+      'slashed-premium',
+    ]);
+  });
+
+  it('lists labels from a temp file in document order', async () => {
+    const path = writeTemp(documentOf([VALID_CASE, { ...VALID_CASE, label: 'other' }]));
+    await expect(listChallengeCaseLabels(path)).resolves.toEqual(['sample', 'other']);
+  });
+
+  it('a missing file is unavailable rather than malformed', async () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'bell-challenge-')), 'absent.json');
+    await expect(listChallengeCaseLabels(path)).rejects.toThrow(ChallengeCaseUnavailable);
+    await expect(listChallengeCaseLabels(path)).rejects.toThrow(/no challenge case/);
+  });
+
+  it('a present file that is not a challenge document is malformed', async () => {
+    const path = writeTemp('{}');
+    await expect(listChallengeCaseLabels(path)).rejects.toThrow(ChallengeCaseMalformed);
   });
 });
