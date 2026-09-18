@@ -3,8 +3,16 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { FileChallengeSource } from '../../../adapters/challenge_verify.js';
-import { listChallengeLabels, verifyChallengeCase } from '../../../application/challenge.js';
+import {
+  listChallengeLabels,
+  loadChallengeIdentity,
+  verifyChallengeCase,
+} from '../../../application/challenge.js';
+import { ChallengeForm } from '../../../components/ChallengeForm.js';
 import { ChallengeReport } from '../../../components/ChallengeReport.js';
+import { EligibilityGate } from '../../../components/EligibilityGate.js';
+import { type ChallengeReportView } from '../../../domain/challenge.js';
+import { type ChallengeSource } from '../../../domain/ports.js';
 
 export default async function ChallengeCasePage({
   params,
@@ -17,6 +25,7 @@ export default async function ChallengeCasePage({
   if (!labels.includes(label)) notFound();
 
   const report = await verifyChallengeCase(source, label);
+  const intent = await challengeIntent(source, label, report);
 
   return (
     <div>
@@ -24,8 +33,52 @@ export default async function ChallengeCasePage({
         <Link href="/challenge">← Challenge</Link>
       </p>
       <h2>{label}</h2>
-      <p>Pre-bond verification. Same store re-fit as the CLI; no bond, no on-chain challenge.</p>
+      <p>
+        Same store re-fit as the CLI. Challenge intent preview is available when the report is
+        slashed; no wallet, no broadcast.
+      </p>
       <ChallengeReport report={report} />
+      {intent}
     </div>
   );
+}
+
+async function challengeIntent(
+  source: ChallengeSource,
+  label: string,
+  report: ChallengeReportView,
+): Promise<ReactNode> {
+  if (report.kind !== 'slashed') {
+    return disabledChallengeIntent(report.kind);
+  }
+
+  const identity = await loadChallengeIdentity(source, label);
+  return (
+    <EligibilityGate>
+      <ChallengeForm nameId={identity.nameId} forSession={identity.forSession.toString()} />
+    </EligibilityGate>
+  );
+}
+
+function disabledChallengeIntent(kind: Exclude<ChallengeReportView['kind'], 'slashed'>): ReactNode {
+  switch (kind) {
+    case 'upheld':
+      return (
+        <p data-testid="challenge-intent-disabled-upheld">
+          Challenge intent is disabled because the report is upheld.
+        </p>
+      );
+    case 'inputs-unavailable':
+      return (
+        <p data-testid="challenge-intent-disabled-inputs-unavailable">
+          Challenge intent is disabled because committed inputs are unavailable.
+        </p>
+      );
+    case 'digest-mismatch':
+      return (
+        <p data-testid="challenge-intent-disabled-digest-mismatch">
+          Challenge intent is disabled because the commitment digest does not match.
+        </p>
+      );
+  }
 }

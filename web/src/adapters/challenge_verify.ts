@@ -27,7 +27,7 @@ import {
 } from '@bell/settlement/domain/adjudication.js';
 
 import { type ChallengeReportView } from '../domain/challenge.js';
-import { type ChallengeSource } from '../domain/ports.js';
+import { type ChallengeCaseIdentity, type ChallengeSource } from '../domain/ports.js';
 
 const adapterDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -75,6 +75,14 @@ export class FileChallengeSource implements ChallengeSource {
       keccak: nobleKeccak,
     });
     return toChallengeReportView(result);
+  }
+
+  async identity(label: string): Promise<ChallengeCaseIdentity> {
+    const loaded = await loadChallengeCase(this.casePath, label);
+    return {
+      nameId: `0x${hexOf(loaded.nameId)}`,
+      forSession: loaded.forSession,
+    };
   }
 }
 

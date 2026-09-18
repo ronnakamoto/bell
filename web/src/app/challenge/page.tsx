@@ -14,7 +14,8 @@ export default async function ChallengeListPage(): Promise<ReactNode> {
       </p>
       <h2>Challenge</h2>
       <p>
-        Pre-bond verification of fixture cases. Same store re-fit as the CLI; no on-chain challenge.
+        Pre-bond verification of fixture cases. Same store re-fit as the CLI. Challenge intent
+        preview is available when a report is slashed; no wallet, no broadcast.
       </p>
       {labels.length === 0 ? (
         <p>No challenge cases.</p>
