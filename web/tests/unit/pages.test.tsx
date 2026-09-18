@@ -102,6 +102,8 @@ describe('ChallengeListPage', () => {
     render(page);
     expect(screen.getByRole('heading', { level: 2, name: 'Challenge' })).toBeInTheDocument();
     expect(screen.getByText(/pre-bond/i)).toBeInTheDocument();
+    expect(screen.getByText(/intent preview/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no on-chain challenge/i)).toBeNull();
     for (const label of FIXTURE_LABELS) {
       expect(screen.getByRole('link', { name: label })).toHaveAttribute(
         'href',

@@ -359,8 +359,11 @@ switch.
 The challenge view is another composition at that edge. `/challenge` lists fixture labels and
 `/challenge/[label]` renders the report. `FileChallengeSource` wires settlement's file adapters,
 `verifyChallenge`, and `refitFromStore` — the same store re-fit as `make challenge-verify` — and
-maps the result onto `ChallengeReportView`. Web domain holds that view model only. No wallet, no
-on-chain `challenge`, no live store.
+maps the result onto `ChallengeReportView`. When the report is `slashed`, the page wraps
+`ChallengeForm` in `EligibilityGate`; the form previews `buildChallenge` (`collateral.approve` then
+`premium.challenge`) from the case identity. Other kinds explain why the intent is disabled. Web
+domain holds the view model and the intent builder; it still does not import settlement. No wallet,
+no broadcast, no `resolve`, no live store.
 
 BELL-IV is not a new port. It is a pure function of `(λ, pL)` plus a freshness stamp on the pool
 price. The fallback when the stamp is stale is the same trailing-realised estimator the premium
