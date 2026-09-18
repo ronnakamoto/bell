@@ -8,7 +8,7 @@ const repoRoot = path.join(webRoot, '..');
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: repoRoot,
-  transpilePackages: ['@bell/indexer', '@bell/calibrator'],
+  transpilePackages: ['@bell/indexer', '@bell/calibrator', '@bell/settlement'],
   webpack: (config) => {
     config.resolve ??= {};
     config.resolve.extensionAlias = {

@@ -24,6 +24,12 @@ export default async function HomePage(): Promise<ReactNode> {
           ))}
         </ul>
       )}
+      <h2>Challenge</h2>
+      <p>
+        <Link href="/challenge">Challenge</Link>
+        {' — '}
+        pre-bond verification of fixture cases
+      </p>
     </div>
   );
 }

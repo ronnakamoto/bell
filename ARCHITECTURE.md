@@ -157,10 +157,10 @@ domain function by calling it with literal arguments, it is in the wrong layer.
 | domain | `indexer/src/domain/` | itself, `calibrator/src/domain`, and `decimal.js` |
 | application | `indexer/src/application/` | domain |
 | adapters | `indexer/src/adapters/` | domain and application |
-| domain | `web/src/domain/` | itself, `indexer/src/domain`, `calibrator/src/domain`, and `decimal.js` |
+| domain | `web/src/domain/` | itself, `indexer/src/domain`, `calibrator/src/domain`, and `decimal.js` — not settlement |
 | application | `web/src/application/` | domain |
-| adapters | `web/src/adapters/` | domain and application |
-| pages | `web/src/app/` | application and adapters (Next.js routes) |
+| adapters | `web/src/adapters/` | domain and application; settlement application and adapters for the challenge view |
+| pages | `web/src/app/` | application and adapters (Next.js routes); settlement application and adapters for the challenge view |
 
 **The port is complete and the Python it replaced is gone** (ruling R5; B1 deleted the tree). The
 TypeScript paths above are the only paths. Until Phase B a second implementation sat beside each of
@@ -177,15 +177,17 @@ than a judgement call.
 
 **Nothing in `application/` imports `adapters/`**, which is the enforced direction. Tests still reach
 both layers by relative path (`../../src/application/publish.js`) rather than through a package
-`exports` map. Settlement now has a composition root: `settlement/src/cli/verify.ts` is the only
-production importer of settlement `adapters` and `application` together, and `make challenge-verify`
-executes it. The CLI loads a labelled case and a file-backed `CommittedInputStore`, then
-`refitFromStore` re-runs `calibrate` on `store.window` — not a stub λ/premium map on the case. The
-calibrator still has no composition root and no entrypoint — it declares neither `main` nor `bin`,
-and nothing in the repository executes that service as a process. The table above remains a rule
-about *permitted* imports rather than a description of a fully running system. It was written as
-"nothing imports `adapters` except the composition root"; settlement now has that root, and
-`application-does-not-import-adapters` still means a root cannot invert the stack.
+`exports` map. Settlement now has two challenge composition roots. `settlement/src/cli/verify.ts` is
+the CLI (`make challenge-verify`); `web/src/adapters/challenge_verify.ts` is the web view, and pages
+may import the same settlement `application` and `adapters` layers. Web domain still does not. The
+CLI loads a labelled case and a file-backed `CommittedInputStore`, then `refitFromStore` re-runs
+`calibrate` on `store.window` — not a stub λ/premium map on the case. The web adapter runs that same
+path and maps the result onto a serialisable report view. The calibrator still has no composition
+root and no entrypoint — it declares neither `main` nor `bin`, and nothing in the repository executes
+that service as a process. The table above remains a rule about *permitted* imports rather than a
+description of a fully running system. It was written as "nothing imports `adapters` except the
+composition root"; settlement now has those roots, and `application-does-not-import-adapters` still
+means a root cannot invert the stack.
 
 **The cross-workspace direction** is settlement reading the calibrator, never the reverse. Domain
 still meets domain — `settlement/domain -> calibrator/domain` — because adjudication re-runs a fit
@@ -195,6 +197,10 @@ primitives. The re-fit itself is a second edge: `settlement/adapters -> calibrat
 does not import calibrator application; that is a stated constraint, not an accident of the
 adapter existing. The reverse import fails `make check`.
 
+The web is a further consumer: page and adapter may import settlement `application` and `adapters`
+for the challenge view. Web domain still does not import settlement, and
+`web-domain-takes-only-the-shared-core` is unchanged.
+
 **Those edges resolve through `dist/`, not `src/`.** `@bell/calibrator/domain/*.js` is mapped by the
 calibrator's `exports` field onto `./dist/domain/*.js`, so `tsc` and node both read the *compiled*
 tree — which is why `ts-build` is a prerequisite of `ts-test` and `ts-check` rather than a
@@ -203,8 +209,9 @@ thing and execute another. The calibrator exposes `./domain/*.js`, `./domain/fam
 segment the `domain/*.js` glob cannot match), and `./application/*.js` onto `dist/`. Its `adapters/`
 layer stays unreachable from outside the package. `application/` is reachable so a settlement
 adapter can re-run `calibrate`. Settlement exports `./domain/*.js`, `./application/*.js`, and
-`./adapters/*.js` onto `dist/`, so those layers are reachable as a package after `ts-build`. The
-verify CLI composition root still imports settlement layers relatively inside the package.
+`./adapters/*.js` onto `dist/`, so those layers are reachable as a package after `ts-build`. The web
+challenge adapter imports them as `@bell/settlement/{application,adapters}`. The verify CLI
+composition root still imports settlement layers relatively inside the package.
 
 `dist/` is a build product and gitignored, and **`tsc -b` does not prune the output of a source file
 that has been deleted**, so `dist/` can hold a module `src/` no longer contains — reachable through
@@ -233,7 +240,8 @@ The contracts live in `.dependency-cruiser.cjs`, and there are ten:
   the point: an indexer that reached `node:fs` from `domain/` would not be an indexer with a seam.
 - *`web-domain-takes-only-the-shared-core`* — `web/src/domain` may import itself, `indexer/src/domain`,
   `calibrator/src/domain`, and `decimal.js`. The participant surface reads the catalogue and the
-  committed quotes; settlement domain is not on the list.
+  committed quotes; settlement domain is not on the list. The challenge view's settlement composition
+  lives at the page and adapter, not in domain.
 - *`application-does-not-import-adapters`* — the high-level policy must not reach a low-level driver.
 - *`settlement-application-does-not-import-calibrator-application`* — the re-fit is an adapter;
   settlement application wraps `adjudicate` and must not call `calibrate`.
@@ -347,6 +355,12 @@ unset replays the committed log and quote fixtures; set, it is `RpcLogSource` an
 against the factory, registry and premium addresses. Construction is not a call — a missing companion
 address is refused before a socket could open — so `make check` stays hermetic. IV is not on that
 switch.
+
+The challenge view is another composition at that edge. `/challenge` lists fixture labels and
+`/challenge/[label]` renders the report. `FileChallengeSource` wires settlement's file adapters,
+`verifyChallenge`, and `refitFromStore` — the same store re-fit as `make challenge-verify` — and
+maps the result onto `ChallengeReportView`. Web domain holds that view model only. No wallet, no
+on-chain `challenge`, no live store.
 
 BELL-IV is not a new port. It is a pure function of `(λ, pL)` plus a freshness stamp on the pool
 price. The fallback when the stamp is stale is the same trailing-realised estimator the premium

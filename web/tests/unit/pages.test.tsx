@@ -5,6 +5,8 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CORPUS_SESSION_ADDRESS } from '../../src/adapters/corpus.js';
+import ChallengeCasePage from '../../src/app/challenge/[label]/page.js';
+import ChallengeListPage from '../../src/app/challenge/page.js';
 import RootLayout from '../../src/app/layout.js';
 import HomePage from '../../src/app/page.js';
 import SessionPage from '../../src/app/sessions/[address]/page.js';
@@ -34,6 +36,12 @@ describe('HomePage', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Sessions' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: CORPUS_SESSION_ADDRESS })).toBeInTheDocument();
     expect(screen.getByText(/expiry 1800063000/)).toBeInTheDocument();
+  });
+
+  it('links to the challenge list', async () => {
+    const page = await HomePage();
+    render(page);
+    expect(screen.getByRole('link', { name: 'Challenge' })).toHaveAttribute('href', '/challenge');
   });
 });
 
@@ -75,6 +83,66 @@ describe('SessionPage', () => {
     await expect(
       SessionPage({
         params: Promise.resolve({ address: '0x0000000000000000000000000000000000000001' }),
+      }),
+    ).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404');
+  });
+});
+
+const FIXTURE_LABELS = [
+  'upheld-store',
+  'digest-mismatch',
+  'inputs-unavailable',
+  'slashed-premium',
+] as const;
+
+describe('ChallengeListPage', () => {
+  it('lists fixture labels with a link each and a pre-bond note', async () => {
+    const page = await ChallengeListPage();
+    render(page);
+    expect(screen.getByRole('heading', { level: 2, name: 'Challenge' })).toBeInTheDocument();
+    expect(screen.getByText(/pre-bond/i)).toBeInTheDocument();
+    for (const label of FIXTURE_LABELS) {
+      expect(screen.getByRole('link', { name: label })).toHaveAttribute(
+        'href',
+        `/challenge/${label}`,
+      );
+    }
+  });
+});
+
+describe('ChallengeCasePage', () => {
+  it('renders an upheld report from a real store re-fit', async () => {
+    const page = await ChallengeCasePage({
+      params: Promise.resolve({ label: 'upheld-store' }),
+    });
+    render(page);
+    expect(screen.getByRole('heading', { level: 2, name: 'upheld-store' })).toBeInTheDocument();
+    expect(screen.getByTestId('challenge-kind')).toHaveTextContent('kind=upheld');
+    expect(screen.getByTestId('challenge-premium-delta')).toHaveTextContent('0');
+    expect(screen.getByText(/pre-bond/i)).toBeInTheDocument();
+  });
+
+  it('renders the three negative fixture kinds', async () => {
+    const expected = [
+      ['digest-mismatch', 'kind=digest-mismatch'],
+      ['inputs-unavailable', 'kind=inputs-unavailable'],
+      ['slashed-premium', 'kind=slashed'],
+    ] as const;
+    for (const [label, kind] of expected) {
+      const page = await ChallengeCasePage({
+        params: Promise.resolve({ label }),
+      });
+      render(page);
+      expect(screen.getByRole('heading', { level: 2, name: label })).toBeInTheDocument();
+      expect(screen.getByTestId('challenge-kind')).toHaveTextContent(kind);
+      cleanup();
+    }
+  });
+
+  it('calls notFound for an unknown label', async () => {
+    await expect(
+      ChallengeCasePage({
+        params: Promise.resolve({ label: 'no-such-case' }),
       }),
     ).rejects.toThrow('NEXT_HTTP_ERROR_FALLBACK;404');
   });
