@@ -9,9 +9,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { FileChallengeSource } from '../../src/adapters/challenge_verify.js';
-import { listChallengeLabels, verifyChallengeCase } from '../../src/application/challenge.js';
+import {
+  listChallengeLabels,
+  loadChallengeIdentity,
+  verifyChallengeCase,
+} from '../../src/application/challenge.js';
 import { type ChallengeReportView } from '../../src/domain/challenge.js';
-import { type ChallengeSource } from '../../src/domain/ports.js';
+import { type ChallengeCaseIdentity, type ChallengeSource } from '../../src/domain/ports.js';
 
 const fixtureSource = new FileChallengeSource();
 
@@ -27,10 +31,16 @@ const HEX_64 = /^0x[0-9a-f]{64}$/;
 class MemoryChallengeSource implements ChallengeSource {
   readonly heldLabels: readonly string[];
   readonly reports: ReadonlyMap<string, ChallengeReportView>;
+  readonly identities: ReadonlyMap<string, ChallengeCaseIdentity>;
 
-  constructor(heldLabels: readonly string[], reports: ReadonlyMap<string, ChallengeReportView>) {
+  constructor(
+    heldLabels: readonly string[],
+    reports: ReadonlyMap<string, ChallengeReportView>,
+    identities: ReadonlyMap<string, ChallengeCaseIdentity> = new Map(),
+  ) {
     this.heldLabels = heldLabels;
     this.reports = reports;
+    this.identities = identities;
   }
 
   labels(): Promise<readonly string[]> {
@@ -43,6 +53,14 @@ class MemoryChallengeSource implements ChallengeSource {
       return Promise.reject(new Error(`no case labelled ${label}`));
     }
     return Promise.resolve(report);
+  }
+
+  identity(label: string): Promise<ChallengeCaseIdentity> {
+    const found = this.identities.get(label);
+    if (found === undefined) {
+      return Promise.reject(new Error(`no identity for ${label}`));
+    }
+    return Promise.resolve(found);
   }
 }
 
@@ -65,6 +83,21 @@ describe('verifyChallengeCase', () => {
       new Map([['upheld-store', slashed]]),
     );
     await expect(verifyChallengeCase(source, 'upheld-store')).resolves.toEqual(slashed);
+  });
+});
+
+describe('loadChallengeIdentity', () => {
+  it('returns the source identity rather than inventing the fixture', async () => {
+    const injected: ChallengeCaseIdentity = {
+      nameId: `0x${'ab'.repeat(32)}`,
+      forSession: 7n,
+    };
+    const source = new MemoryChallengeSource(
+      ['slashed-premium'],
+      new Map(),
+      new Map([['slashed-premium', injected]]),
+    );
+    await expect(loadChallengeIdentity(source, 'slashed-premium')).resolves.toEqual(injected);
   });
 });
 
@@ -104,5 +137,14 @@ describe('FileChallengeSource', () => {
     if (report.kind !== 'slashed') return;
     expect(report.reason.length).toBeGreaterThan(0);
     expect(report.digest).toMatch(HEX_64);
+  });
+
+  it('returns 0x nameId and forSession from the fixture case', async () => {
+    const identity = await loadChallengeIdentity(fixtureSource, 'slashed-premium');
+    expect(identity.nameId).toMatch(HEX_64);
+    expect(identity.nameId).toBe(
+      '0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb',
+    );
+    expect(identity.forSession).toBe(12345n);
   });
 });

@@ -10,6 +10,7 @@ import ChallengeListPage from '../../src/app/challenge/page.js';
 import RootLayout from '../../src/app/layout.js';
 import HomePage from '../../src/app/page.js';
 import SessionPage from '../../src/app/sessions/[address]/page.js';
+import { ELIGIBILITY_STORAGE_KEY } from '../../src/components/eligibilityStorage.js';
 
 beforeEach(() => {
   vi.stubEnv('BELL_RPC_URL', '');
@@ -119,7 +120,10 @@ describe('ChallengeCasePage', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'upheld-store' })).toBeInTheDocument();
     expect(screen.getByTestId('challenge-kind')).toHaveTextContent('kind=upheld');
     expect(screen.getByTestId('challenge-premium-delta')).toHaveTextContent('0');
-    expect(screen.getByText(/pre-bond/i)).toBeInTheDocument();
+    expect(screen.getByText(/no wallet/i)).toBeInTheDocument();
+    expect(screen.getByTestId('challenge-intent-disabled-upheld')).toBeInTheDocument();
+    expect(screen.queryByTestId('challenge-preview')).toBeNull();
+    expect(screen.queryByTestId('eligibility-required')).toBeNull();
   });
 
   it('renders the three negative fixture kinds', async () => {
@@ -137,6 +141,53 @@ describe('ChallengeCasePage', () => {
       expect(screen.getByTestId('challenge-kind')).toHaveTextContent(kind);
       cleanup();
     }
+  });
+
+  it('shows a disabled notice for digest-mismatch and inputs-unavailable', async () => {
+    const expected = [
+      ['digest-mismatch', 'challenge-intent-disabled-digest-mismatch'],
+      ['inputs-unavailable', 'challenge-intent-disabled-inputs-unavailable'],
+    ] as const;
+    for (const [label, testId] of expected) {
+      const page = await ChallengeCasePage({
+        params: Promise.resolve({ label }),
+      });
+      render(page);
+      expect(screen.getByTestId(testId)).toBeInTheDocument();
+      expect(screen.queryByTestId('challenge-preview')).toBeNull();
+      expect(screen.queryByTestId('eligibility-required')).toBeNull();
+      cleanup();
+    }
+  });
+
+  it('gates the slashed preview behind eligibility and then shows the form', async () => {
+    const page = await ChallengeCasePage({
+      params: Promise.resolve({ label: 'slashed-premium' }),
+    });
+    render(page);
+    expect(screen.getByTestId('challenge-kind')).toHaveTextContent('kind=slashed');
+    expect(screen.getByTestId('eligibility-required')).toBeInTheDocument();
+    expect(screen.queryByTestId('challenge-preview')).toBeNull();
+    fireEvent.click(screen.getByTestId('eligibility-not-us'));
+    fireEvent.click(screen.getByTestId('eligibility-tos-reset'));
+    fireEvent.click(screen.getByTestId('eligibility-accept'));
+    expect(screen.getByTestId('challenge-preview')).toBeEnabled();
+    fireEvent.click(screen.getByTestId('challenge-preview'));
+    expect(screen.getByText('Approve premium registry to spend collateral')).toBeInTheDocument();
+    expect(screen.getByText('Challenge committed premium')).toBeInTheDocument();
+  });
+
+  it('shows the slashed preview when sessionStorage already holds a valid attestation', async () => {
+    sessionStorage.setItem(
+      ELIGIBILITY_STORAGE_KEY,
+      '{"notUsPerson":true,"tosResetAcknowledged":true}',
+    );
+    const page = await ChallengeCasePage({
+      params: Promise.resolve({ label: 'slashed-premium' }),
+    });
+    render(page);
+    expect(screen.getByTestId('challenge-preview')).toBeEnabled();
+    expect(screen.queryByTestId('eligibility-required')).toBeNull();
   });
 
   it('calls notFound for an unknown label', async () => {

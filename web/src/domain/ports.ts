@@ -47,10 +47,18 @@ export interface IvSource {
   readings(): Promise<readonly IvPublishInput[]>;
 }
 
+/** Case identity for an on-chain challenge: `nameId` is `0x` + 64 hex. */
+export interface ChallengeCaseIdentity {
+  readonly nameId: string;
+  readonly forSession: bigint;
+}
+
 /** A source of labelled challenge reports (fixture store today, live store later). */
 export interface ChallengeSource {
   /** Every case label the source currently holds, in the order the source records them. */
   labels(): Promise<readonly string[]>;
   /** The adjudication report for `label`. */
   verify(label: string): Promise<ChallengeReportView>;
+  /** The `(nameId, forSession)` of the case labelled `label`. */
+  identity(label: string): Promise<ChallengeCaseIdentity>;
 }
