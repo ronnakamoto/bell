@@ -47,7 +47,10 @@ describe('resolveCommittedInputStore', () => {
       keccak: nobleKeccak,
       filePath: STORE_PATH,
       env: { BELL_INPUT_STORE_URL: 'https://store.example/inputs' },
-      fetch: async () => new Response('missing', { status: 404 }),
+      fetch: async () => {
+        await Promise.resolve();
+        return new Response('missing', { status: 404 });
+      },
     });
     expect(store).toBeInstanceOf(HttpCommittedInputStore);
     await expect(store.window(bytesFromHex(upheldInputsHashHex()))).resolves.toBeUndefined();
@@ -60,6 +63,7 @@ describe('resolveCommittedInputStore', () => {
       forceFile: true,
       env: { BELL_INPUT_STORE_URL: 'https://store.example/inputs' },
       fetch: async () => {
+        await Promise.resolve();
         throw new Error('must not fetch');
       },
     });

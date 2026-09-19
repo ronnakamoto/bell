@@ -172,7 +172,8 @@ describe('FileChallengeSource', () => {
 
     const source = new FileChallengeSource({
       env: { BELL_INPUT_STORE_URL: 'https://store.example/inputs' },
-      fetch: async (url: string) => {
+      fetch: async (url: string): Promise<Response> => {
+        await Promise.resolve();
         expect(url).toBe(`https://store.example/inputs/${upheld.inputsHash}`);
         return new Response(JSON.stringify(window), { status: 200 });
       },
@@ -184,7 +185,10 @@ describe('FileChallengeSource', () => {
   it('HTTP 404 for the window is inputs-unavailable', async () => {
     const source = new FileChallengeSource({
       env: { BELL_INPUT_STORE_URL: 'https://store.example/inputs' },
-      fetch: async () => new Response('missing', { status: 404 }),
+      fetch: async (): Promise<Response> => {
+        await Promise.resolve();
+        return new Response('missing', { status: 404 });
+      },
     });
     const report = await verifyChallengeCase(source, 'upheld-store');
     expect(report.kind).toBe('inputs-unavailable');

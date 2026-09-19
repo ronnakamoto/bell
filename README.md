@@ -81,9 +81,10 @@ block on chain 4663 but supplies no RPC endpoint, so `make test-fork` skips with
 (F6). Everything else in the brief is executable and executed.
 
 `DESIGN_NOTES.md` carries the findings. Most are defects the build found in itself rather than
-objections to the brief. What remains open without a ruling or an input is the web app (F1), the
-fork suite (F6), the Eq (20) volatility pin (F11), the `commit` gas cap (F42), and the two service
-entry points the brief names without supplying (F84).
+objections to the brief. What remains open without a ruling or an input is the web wallet broadcast,
+the fork suite (F6), the Eq (20) volatility pin (F11), the `commit` gas cap (F42), and Phase D/E/G3.
+F84's calibrator composition root is `make calibrate-publish` (calibrate → store window → commit
+intent preview); settlement's challenge-verify root landed with F2.
 
 F50 records the one gap that is a matter of scope rather than defect: the brief's three artifacts are
 the protocol and its two services, and none of them is the surface a participant touches. The paper

@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
+import { type FetchLike } from '../../src/adapters/committed_input_store_http.js';
 import { main, type TextWriter } from '../../src/cli/verify.js';
 
 const FIXTURE_PATH = fileURLToPath(
@@ -33,7 +34,7 @@ function capture(): { text: () => string; writer: TextWriter } {
 
 async function run(
   argv: readonly string[],
-  options: { env?: Record<string, string | undefined>; fetch?: typeof fetch } = {},
+  options: { env?: Record<string, string | undefined>; fetch?: FetchLike } = {},
 ): Promise<{
   code: number;
   stdout: string;
@@ -165,7 +166,8 @@ describe('main', () => {
     const result = await run(['--case', 'upheld-store'], {
       env: { BELL_INPUT_STORE_URL: 'https://store.example/inputs' },
       fetch: async (url) => {
-        expect(String(url)).toBe(`https://store.example/inputs/${upheld.inputsHash}`);
+        await Promise.resolve();
+        expect(url).toBe(`https://store.example/inputs/${upheld.inputsHash}`);
         return new Response(JSON.stringify(window), { status: 200 });
       },
     });
@@ -177,6 +179,7 @@ describe('main', () => {
     const result = await run(['--case', 'upheld-store', '--store', STORE_PATH], {
       env: { BELL_INPUT_STORE_URL: 'https://store.example/inputs' },
       fetch: async () => {
+        await Promise.resolve();
         throw new Error('must not fetch');
       },
     });
