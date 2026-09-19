@@ -180,7 +180,8 @@ both layers by relative path (`../../src/application/publish.js`) rather than th
 `exports` map. Settlement now has two challenge composition roots. `settlement/src/cli/verify.ts` is
 the CLI (`make challenge-verify`); `web/src/adapters/challenge_verify.ts` is the web view, and pages
 may import the same settlement `application` and `adapters` layers. Web domain still does not. The
-CLI loads a labelled case and a file-backed `CommittedInputStore`, then `refitFromStore` re-runs
+CLI loads a labelled case and a resolved `CommittedInputStore` (file by default, HTTP when
+`BELL_INPUT_STORE_URL` is set), then `refitFromStore` re-runs
 `calibrate` on `store.window` — not a stub λ/premium map on the case. The web adapter runs that same
 path and maps the result onto a serialisable report view. The calibrator still has no composition
 root and no entrypoint — it declares neither `main` nor `bin`, and nothing in the repository executes
@@ -363,7 +364,10 @@ maps the result onto `ChallengeReportView`. When the report is `slashed`, the pa
 `ChallengeForm` in `EligibilityGate`; the form previews `buildChallenge` (`collateral.approve` then
 `premium.challenge`) from the case identity. Other kinds explain why the intent is disabled. Web
 domain holds the view model and the intent builder; it still does not import settlement. No wallet,
-no broadcast, no `resolve`, no live store.
+no broadcast, no `resolve`. The committed-input store is file-backed by default;
+`BELL_INPUT_STORE_URL` opts the CLI and web into `HttpCommittedInputStore`
+(`GET {base}/{inputsHash}` → one window JSON). Explicit CLI `--store` forces the file. Construction
+does not fetch; a missing URL keeps `make check` hermetic. Challenge **cases** stay file-backed.
 
 BELL-IV is not a new port. It is a pure function of `(λ, pL)` plus a freshness stamp on the pool
 price. The fallback when the stamp is stale is the same trailing-realised estimator the premium

@@ -5,6 +5,7 @@
  * are assertions rather than a smoke script's only record.
  */
 
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -30,14 +31,17 @@ function capture(): { text: () => string; writer: TextWriter } {
   };
 }
 
-async function run(argv: readonly string[]): Promise<{
+async function run(
+  argv: readonly string[],
+  options: { env?: Record<string, string | undefined>; fetch?: typeof fetch } = {},
+): Promise<{
   code: number;
   stdout: string;
   stderr: string;
 }> {
   const stdout = capture();
   const stderr = capture();
-  const code = await main(argv, { stdout: stdout.writer, stderr: stderr.writer });
+  const code = await main(argv, { stdout: stdout.writer, stderr: stderr.writer }, options);
   return { code, stdout: stdout.text(), stderr: stderr.text() };
 }
 
@@ -144,5 +148,39 @@ describe('main', () => {
     const result = await run(['--case', 'upheld-store', '--store', FIXTURE_PATH]);
     expect(result.code).toBe(2);
     expect(result.stderr).toContain('expected an object with a windows object');
+  });
+
+  it('re-fits from HTTP when BELL_INPUT_STORE_URL is set', async () => {
+    const storeDocument = JSON.parse(readFileSync(STORE_PATH, 'utf8')) as {
+      windows: Record<string, unknown>;
+    };
+    const challengeDocument = JSON.parse(readFileSync(FIXTURE_PATH, 'utf8')) as {
+      cases: readonly { label: string; inputsHash: string }[];
+    };
+    const upheld = challengeDocument.cases.find((entry) => entry.label === 'upheld-store');
+    if (upheld === undefined) throw new Error('missing upheld-store');
+    const window = storeDocument.windows[upheld.inputsHash];
+    if (window === undefined) throw new Error('missing window');
+
+    const result = await run(['--case', 'upheld-store'], {
+      env: { BELL_INPUT_STORE_URL: 'https://store.example/inputs' },
+      fetch: async (url) => {
+        expect(String(url)).toBe(`https://store.example/inputs/${upheld.inputsHash}`);
+        return new Response(JSON.stringify(window), { status: 200 });
+      },
+    });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('kind=upheld');
+  });
+
+  it('explicit --store forces the file even when the URL is set', async () => {
+    const result = await run(['--case', 'upheld-store', '--store', STORE_PATH], {
+      env: { BELL_INPUT_STORE_URL: 'https://store.example/inputs' },
+      fetch: async () => {
+        throw new Error('must not fetch');
+      },
+    });
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('kind=upheld');
   });
 });

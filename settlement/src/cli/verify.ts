@@ -17,10 +17,11 @@ import {
 import {
   CommittedInputStoreMalformed,
   CommittedInputStoreUnavailable,
-  loadCommittedInputStore,
 } from '../adapters/committed_input_store_file.js';
+import { type FetchLike } from '../adapters/committed_input_store_http.js';
 import { nobleKeccak } from '../adapters/keccak_noble.js';
 import { refitFromStore } from '../adapters/refit_from_store.js';
+import { resolveCommittedInputStore } from '../adapters/resolve_input_store.js';
 import { formatChallengeReport, verifyChallenge } from '../application/verify_challenge.js';
 import { CommittedParameterSet } from '../domain/adjudication.js';
 
@@ -54,6 +55,8 @@ interface ParsedArgs {
   readonly caseLabel: string;
   readonly fixturePath: string;
   readonly storePath: string;
+  /** True when `--store` was passed — forces the file store even if BELL_INPUT_STORE_URL is set. */
+  readonly storePathExplicit: boolean;
 }
 
 function defaultFixturePath(): string {
@@ -68,6 +71,7 @@ function parseArgv(argv: readonly string[]): ParsedArgs {
   let caseLabel: string | undefined;
   let fixturePath: string | undefined;
   let storePath: string | undefined;
+  let storePathExplicit = false;
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
     if (argument === undefined) {
@@ -90,6 +94,7 @@ function parseArgv(argv: readonly string[]): ParsedArgs {
         break;
       case '--store':
         storePath = value();
+        storePathExplicit = true;
         break;
       default:
         throw new UsageError(`unknown argument: ${argument}\n${USAGE}`);
@@ -102,7 +107,14 @@ function parseArgv(argv: readonly string[]): ParsedArgs {
     caseLabel,
     fixturePath: fixturePath === undefined ? defaultFixturePath() : resolve(fixturePath),
     storePath: storePath === undefined ? defaultStorePath() : resolve(storePath),
+    storePathExplicit,
   };
+}
+
+/** Optional env / fetch for tests; production uses `process.env` and global fetch. */
+export interface ChallengeVerifyOptions {
+  readonly env?: Record<string, string | undefined>;
+  readonly fetch?: FetchLike;
 }
 
 /**
@@ -113,11 +125,18 @@ function parseArgv(argv: readonly string[]): ParsedArgs {
 export async function main(
   argv: readonly string[],
   io: ChallengeVerifyIo = PROCESS_IO,
+  options: ChallengeVerifyOptions = {},
 ): Promise<number> {
   try {
     const parsed = parseArgv(argv);
     const loaded = await loadChallengeCase(parsed.fixturePath, parsed.caseLabel);
-    const store = await loadCommittedInputStore(parsed.storePath, nobleKeccak);
+    const store = await resolveCommittedInputStore({
+      keccak: nobleKeccak,
+      filePath: parsed.storePath,
+      forceFile: parsed.storePathExplicit,
+      env: options.env ?? process.env,
+      ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+    });
     const result = await verifyChallenge({
       commitment: new CommittedParameterSet({
         nameId: loaded.nameId,
