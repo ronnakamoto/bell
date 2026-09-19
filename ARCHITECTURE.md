@@ -183,12 +183,14 @@ may import the same settlement `application` and `adapters` layers. Web domain s
 CLI loads a labelled case and a resolved `CommittedInputStore` (file by default, HTTP when
 `BELL_INPUT_STORE_URL` is set), then `refitFromStore` re-runs
 `calibrate` on `store.window` — not a stub λ/premium map on the case. The web adapter runs that same
-path and maps the result onto a serialisable report view. The calibrator still has no composition
-root and no entrypoint — it declares neither `main` nor `bin`, and nothing in the repository executes
-that service as a process. The table above remains a rule about *permitted* imports rather than a
-description of a fully running system. It was written as "nothing imports `adapters` except the
-composition root"; settlement now has those roots, and `application-does-not-import-adapters` still
-means a root cannot invert the stack.
+path and maps the result onto a serialisable report view. The calibrator has a publish composition
+root at `calibrator/src/cli/publish.ts` (`make calibrate-publish`): synthetic or CSV bars →
+`calibrate` → `publish` → merge the window into a committed-input store file → print a
+`PremiumRegistry.commit` intent preview (no wallet). It still declares neither `main` nor `bin`; the
+Makefile invokes the compiled CLI the same way `challenge-verify` does. The table above remains a
+rule about *permitted* imports rather than a description of a fully running system. It was written as
+"nothing imports `adapters` except the composition root"; both services now have roots, and
+`application-does-not-import-adapters` still means a root cannot invert the stack.
 
 **The cross-workspace direction** is settlement reading the calibrator, never the reverse. Domain
 still meets domain — `settlement/domain -> calibrator/domain` — because adjudication re-runs a fit

@@ -27,7 +27,7 @@ TOOLS := tools
 .PHONY: help build test test-contracts test-fork check \
         check-format check-lint check-types check-architecture check-layout check-generated \
         check-coverage check-fixtures deploy deploy-fork diagnostics gas coverage clean \
-        ts-install ts-build ts-test ts-check challenge-verify gen-challenge-store
+        ts-install ts-build ts-test ts-check challenge-verify calibrate-publish gen-challenge-store
 
 help: ## List every target
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -204,6 +204,9 @@ ts-check: ts-build ## Format and lint the TypeScript tree
 
 challenge-verify: ts-build ## Verify a challenge fixture case (CASE=upheld-store)
 	node $(SETTLEMENT)/dist/cli/verify.js --case $(or $(CASE),upheld-store)
+
+calibrate-publish: ts-build ## Calibrate, write window, preview commit intent
+	node $(CALIBRATOR)/dist/cli/publish.js
 
 gen-challenge-store: ts-build ## Generate committed-input store and challenge fixtures from calibrate
 	node $(TOOLS)/gen_challenge_store_fixture.ts

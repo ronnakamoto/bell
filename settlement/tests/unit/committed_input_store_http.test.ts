@@ -46,8 +46,11 @@ function upheldWindowJson(): string {
   return JSON.stringify(window);
 }
 
-function mockFetch(handler: (url: string) => Promise<Response>): FetchLike {
-  return async (input) => handler(input);
+function mockFetch(handler: (url: string) => Response | Promise<Response>): FetchLike {
+  return async (input) => {
+    await Promise.resolve();
+    return handler(input);
+  };
 }
 
 function jsonResponse(status: number, body: string): Response {
@@ -64,7 +67,7 @@ describe('HttpCommittedInputStore', () => {
     const store = new HttpCommittedInputStore({
       baseUrl: 'https://store.example/inputs/',
       keccak: nobleKeccak,
-      fetch: mockFetch(async (url) => {
+      fetch: mockFetch((url) => {
         expect(url).toBe(`https://store.example/inputs/${hashHex}`);
         return jsonResponse(200, body);
       }),
@@ -78,7 +81,7 @@ describe('HttpCommittedInputStore', () => {
     const store = new HttpCommittedInputStore({
       baseUrl: 'https://store.example/inputs',
       keccak: nobleKeccak,
-      fetch: mockFetch(async () => jsonResponse(404, 'missing')),
+      fetch: mockFetch(() => jsonResponse(404, 'missing')),
     });
     await expect(store.window(bytesFromHex(upheldInputsHashHex()))).resolves.toBeUndefined();
   });
@@ -87,7 +90,7 @@ describe('HttpCommittedInputStore', () => {
     const store = new HttpCommittedInputStore({
       baseUrl: 'https://store.example/inputs',
       keccak: nobleKeccak,
-      fetch: mockFetch(async () => jsonResponse(503, 'busy')),
+      fetch: mockFetch(() => jsonResponse(503, 'busy')),
     });
     await expect(store.window(bytesFromHex(upheldInputsHashHex()))).rejects.toBeInstanceOf(
       CommittedInputStoreUnavailable,
@@ -98,7 +101,7 @@ describe('HttpCommittedInputStore', () => {
     const store = new HttpCommittedInputStore({
       baseUrl: 'https://store.example/inputs',
       keccak: nobleKeccak,
-      fetch: mockFetch(async () => {
+      fetch: mockFetch(() => {
         throw new Error('ECONNREFUSED');
       }),
     });
@@ -111,7 +114,7 @@ describe('HttpCommittedInputStore', () => {
     const store = new HttpCommittedInputStore({
       baseUrl: 'https://store.example/inputs',
       keccak: nobleKeccak,
-      fetch: mockFetch(async () => jsonResponse(200, '{"not":"a-window"}')),
+      fetch: mockFetch(() => jsonResponse(200, '{"not":"a-window"}')),
     });
     await expect(store.window(bytesFromHex(upheldInputsHashHex()))).rejects.toBeInstanceOf(
       CommittedInputStoreMalformed,
@@ -123,7 +126,7 @@ describe('HttpCommittedInputStore', () => {
     const store = new HttpCommittedInputStore({
       baseUrl: 'https://store.example/inputs',
       keccak: nobleKeccak,
-      fetch: mockFetch(async () => jsonResponse(200, upheldWindowJson())),
+      fetch: mockFetch(() => jsonResponse(200, upheldWindowJson())),
     });
     const digest = await store.rowsDigest(bytesFromHex(hashHex));
     expect(digest).toBeInstanceOf(Uint8Array);
@@ -136,7 +139,7 @@ describe('HttpCommittedInputStore', () => {
         new HttpCommittedInputStore({
           baseUrl: '   ',
           keccak: nobleKeccak,
-          fetch: mockFetch(async () => jsonResponse(404, '')),
+          fetch: mockFetch(() => jsonResponse(404, '')),
         }),
     ).toThrow(CommittedInputStoreMalformed);
   });
