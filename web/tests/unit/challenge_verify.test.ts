@@ -6,6 +6,9 @@
  * fixture kinds below.
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 import { FileChallengeSource } from '../../src/adapters/challenge_verify.js';
@@ -27,6 +30,13 @@ const FIXTURE_LABELS = [
 ] as const;
 
 const HEX_64 = /^0x[0-9a-f]{64}$/;
+
+const STORE_PATH = fileURLToPath(
+  new URL('../../../spec/fixtures/committed_inputs.json', import.meta.url),
+);
+const CHALLENGE_PATH = fileURLToPath(
+  new URL('../../../spec/fixtures/challenge.json', import.meta.url),
+);
 
 class MemoryChallengeSource implements ChallengeSource {
   readonly heldLabels: readonly string[];
@@ -146,5 +156,37 @@ describe('FileChallengeSource', () => {
       '0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb',
     );
     expect(identity.forSession).toBe(12345n);
+  });
+
+  it('re-fits from HTTP when BELL_INPUT_STORE_URL is set', async () => {
+    const storeDocument = JSON.parse(readFileSync(STORE_PATH, 'utf8')) as {
+      windows: Record<string, unknown>;
+    };
+    const challengeDocument = JSON.parse(readFileSync(CHALLENGE_PATH, 'utf8')) as {
+      cases: readonly { label: string; inputsHash: string }[];
+    };
+    const upheld = challengeDocument.cases.find((entry) => entry.label === 'upheld-store');
+    if (upheld === undefined) throw new Error('missing upheld-store');
+    const window = storeDocument.windows[upheld.inputsHash];
+    if (window === undefined) throw new Error('missing window');
+
+    const source = new FileChallengeSource({
+      env: { BELL_INPUT_STORE_URL: 'https://store.example/inputs' },
+      fetch: async (url: string) => {
+        expect(url).toBe(`https://store.example/inputs/${upheld.inputsHash}`);
+        return new Response(JSON.stringify(window), { status: 200 });
+      },
+    });
+    const report = await verifyChallengeCase(source, 'upheld-store');
+    expect(report.kind).toBe('upheld');
+  });
+
+  it('HTTP 404 for the window is inputs-unavailable', async () => {
+    const source = new FileChallengeSource({
+      env: { BELL_INPUT_STORE_URL: 'https://store.example/inputs' },
+      fetch: async () => new Response('missing', { status: 404 }),
+    });
+    const report = await verifyChallengeCase(source, 'upheld-store');
+    expect(report.kind).toBe('inputs-unavailable');
   });
 });

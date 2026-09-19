@@ -70,9 +70,45 @@ export function parseCommittedInputsDocument(path: string, text: string): Commit
   }
   const parsed = new Map<string, CommittedWindow>();
   for (const [key, value] of Object.entries(windows)) {
-    parsed.set(parseWindowKey(path, key), parseWindow(path, key, value));
+    parsed.set(parseWindowKey(path, key), parseCommittedWindow(path, `windows[${key}]`, value));
   }
   return parsed;
+}
+
+/**
+ * Parse a single committed window (the HTTP body shape), not a full `windows` map document.
+ *
+ * Exported so the HTTP adapter and the file adapter share one refusal set.
+ */
+export function parseCommittedWindowDocument(path: string, text: string): CommittedWindow {
+  let document: unknown;
+  try {
+    document = JSON.parse(text) as unknown;
+  } catch (error) {
+    throw new CommittedInputStoreMalformed(`${path}: ${describeError(error)}`);
+  }
+  return parseCommittedWindow(path, 'window', document);
+}
+
+/** Parse one window object; refuse anything that is not a committed window. */
+export function parseCommittedWindow(path: string, where: string, value: unknown): CommittedWindow {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new CommittedInputStoreMalformed(`${path}: ${where}: expected an object`);
+  }
+  const row = value as Record<string, unknown>;
+  const sourceIds = parseSourceIds(path, where, row);
+  const barsValue = row['bars'];
+  if (!Array.isArray(barsValue)) {
+    throw new CommittedInputStoreMalformed(`${path}: ${where}: bars must be an array`);
+  }
+  return {
+    symbol: requireString(path, where, row, 'symbol'),
+    session: parseSession(path, where, row),
+    windowSessions: parseWindowSessions(path, where, row),
+    sourceIds,
+    familyName: requireString(path, where, row, 'familyName'),
+    bars: barsValue.map((entry, index) => parseBar(path, `${where}.bars[${String(index)}]`, entry)),
+  };
 }
 
 /**
@@ -136,27 +172,6 @@ function parseWindowKey(path: string, key: string): string {
     throw new CommittedInputStoreMalformed(`${path}: window key must be 32 bytes`);
   }
   return `0x${hexOf(bytes)}`;
-}
-
-function parseWindow(path: string, key: string, value: unknown): CommittedWindow {
-  const where = `windows[${key}]`;
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    throw new CommittedInputStoreMalformed(`${path}: ${where}: expected an object`);
-  }
-  const row = value as Record<string, unknown>;
-  const sourceIds = parseSourceIds(path, where, row);
-  const barsValue = row['bars'];
-  if (!Array.isArray(barsValue)) {
-    throw new CommittedInputStoreMalformed(`${path}: ${where}: bars must be an array`);
-  }
-  return {
-    symbol: requireString(path, where, row, 'symbol'),
-    session: parseSession(path, where, row),
-    windowSessions: parseWindowSessions(path, where, row),
-    sourceIds,
-    familyName: requireString(path, where, row, 'familyName'),
-    bars: barsValue.map((entry, index) => parseBar(path, `${where}.bars[${String(index)}]`, entry)),
-  };
 }
 
 function parseSession(path: string, where: string, row: Record<string, unknown>): SessionKind {

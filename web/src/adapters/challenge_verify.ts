@@ -1,12 +1,12 @@
 /**
- * A challenge source backed by the settlement file adapters and store re-fit.
+ * A challenge source backed by the settlement adapters and store re-fit.
  *
  * The composition root the web slice uses for `/challenge`. Everything that can go wrong with
  * the fixtures lives in settlement's adapters; this file wires them, runs `verifyChallenge`, and
  * maps the adjudication result onto the serialisable view the domain owns.
  *
  * Re-fit is `store.window` → `calibrate`, the same path as `make challenge-verify`. Outcomes are
- * never stubbed here.
+ * never stubbed here. The store is file-backed by default; `BELL_INPUT_STORE_URL` selects HTTP.
  */
 
 import path from 'node:path';
@@ -17,9 +17,10 @@ import {
   listChallengeCaseLabels,
   loadChallengeCase,
 } from '@bell/settlement/adapters/challenge_case_file.js';
-import { loadCommittedInputStore } from '@bell/settlement/adapters/committed_input_store_file.js';
+import { type FetchLike } from '@bell/settlement/adapters/committed_input_store_http.js';
 import { nobleKeccak } from '@bell/settlement/adapters/keccak_noble.js';
 import { refitFromStore } from '@bell/settlement/adapters/refit_from_store.js';
+import { resolveCommittedInputStore } from '@bell/settlement/adapters/resolve_input_store.js';
 import { verifyChallenge } from '@bell/settlement/application/verify_challenge.js';
 import {
   type AdjudicationResult,
@@ -40,8 +41,17 @@ export const COMMITTED_INPUTS_PATH = path.resolve(
   '../../../spec/fixtures/committed_inputs.json',
 );
 
+export interface FileChallengeSourceOptions {
+  readonly casePath?: string;
+  readonly storePath?: string;
+  readonly env?: Record<string, string | undefined>;
+  readonly fetch?: FetchLike;
+  /** When true, always use the file store (ignores BELL_INPUT_STORE_URL). */
+  readonly forceFile?: boolean;
+}
+
 /**
- * Reads the challenge-case fixture and re-fits from the committed-input store.
+ * Reads the challenge-case fixture and re-fits from the resolved committed-input store.
  *
  * Paths rather than an in-memory map are the configuration, because the committed fixtures are
  * one document each rather than one-file-per-label.
@@ -49,10 +59,27 @@ export const COMMITTED_INPUTS_PATH = path.resolve(
 export class FileChallengeSource implements ChallengeSource {
   readonly casePath: string;
   readonly storePath: string;
+  readonly #env: Record<string, string | undefined>;
+  readonly #fetch: FetchLike | undefined;
+  readonly #forceFile: boolean;
 
-  constructor(casePath: string = CHALLENGE_PATH, storePath: string = COMMITTED_INPUTS_PATH) {
-    this.casePath = casePath;
-    this.storePath = storePath;
+  constructor(
+    casePathOrOptions: string | FileChallengeSourceOptions = CHALLENGE_PATH,
+    storePath: string = COMMITTED_INPUTS_PATH,
+  ) {
+    if (typeof casePathOrOptions === 'string') {
+      this.casePath = casePathOrOptions;
+      this.storePath = storePath;
+      this.#env = process.env;
+      this.#fetch = undefined;
+      this.#forceFile = false;
+    } else {
+      this.casePath = casePathOrOptions.casePath ?? CHALLENGE_PATH;
+      this.storePath = casePathOrOptions.storePath ?? COMMITTED_INPUTS_PATH;
+      this.#env = casePathOrOptions.env ?? process.env;
+      this.#fetch = casePathOrOptions.fetch;
+      this.#forceFile = casePathOrOptions.forceFile === true;
+    }
   }
 
   labels(): Promise<readonly string[]> {
@@ -61,7 +88,13 @@ export class FileChallengeSource implements ChallengeSource {
 
   async verify(label: string): Promise<ChallengeReportView> {
     const loaded = await loadChallengeCase(this.casePath, label);
-    const store = await loadCommittedInputStore(this.storePath, nobleKeccak);
+    const store = await resolveCommittedInputStore({
+      keccak: nobleKeccak,
+      filePath: this.storePath,
+      forceFile: this.#forceFile,
+      env: this.#env,
+      ...(this.#fetch === undefined ? {} : { fetch: this.#fetch }),
+    });
     const result = await verifyChallenge({
       commitment: new CommittedParameterSet({
         nameId: loaded.nameId,
