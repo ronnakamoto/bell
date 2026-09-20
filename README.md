@@ -51,9 +51,9 @@ target; there are no tribal commands.
 
 | Suite | Tests |
 |---|---|
-| Solidity — unit, fuzz, invariant, differential, gas, adversarial | 354 |
-| TypeScript — calibrator, settlement, indexer | 486 |
-| **Total** | **840** |
+| Solidity — unit, fuzz, invariant, differential, gas, adversarial | 365 |
+| TypeScript — calibrator, settlement, indexer | 796 |
+| **Total** | **1161** |
 
 **The stack is Solidity for the contracts and TypeScript for everything around them** (ruling R5).
 The Python port is complete and deleted. Phases A–C, G0 (NIG fallback), G1 (event-session
@@ -66,7 +66,7 @@ asserted by `make check-coverage` rather than eyeballed:
 | Scope | Rule | Measured |
 |---|---|---|
 | `contracts/src/libraries/` | 100% on lines, statements, branches, functions | **100%** (5 libraries) |
-| `contracts/src/**` | ≥ 95% lines | **99.47%** |
+| `contracts/src/**` | ≥ 95% lines | **99.48%** |
 | `calibrator/src` | ≥ 95% lines and branches | **97.96% / 95.56%** |
 | `settlement/src` | ≥ 95% lines and branches | **97.76% / 95.04%** |
 | `indexer/src` | ≥ 95% lines and branches | **99.15% / 96.72%** |
@@ -84,8 +84,8 @@ block on chain 4663 but supplies no RPC endpoint, so `make test-fork` skips with
 
 `DESIGN_NOTES.md` carries the findings. Most are defects the build found in itself rather than
 objections to the brief. What remains open without an input is the web wallet broadcast, the fork
-suite (F6), and G3 (a maker for the LP cold start); the Eq (20) volatility pin (F11) and the
-`commit` gas cap (F42) are ruled (Phase 48).
+suite (F6), and G3 (a maker for the LP cold start); the Eq (20) volatility pin (F11), the
+`commit` gas cap (F42), and the trading-fee wiring (F97) are ruled (Phases 48–49).
 F84's calibrator composition root is `make calibrate-publish` (calibrate → store window → commit
 intent preview); settlement's challenge-verify root landed with F2.
 

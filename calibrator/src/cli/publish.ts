@@ -206,9 +206,10 @@ function syntheticBars(windowSessions: number): DailyBar[] {
 async function loadBars(
   barsPath: string | undefined,
   symbol: Symbol,
+  windowSessions: number,
 ): Promise<readonly DailyBar[]> {
   if (barsPath === undefined) {
-    return syntheticBars(DEFAULT_WINDOW);
+    return syntheticBars(windowSessions);
   }
   const info = await stat(barsPath).catch((error: unknown) => {
     throw new GapSourceUnavailable(`could not read ${barsPath}: ${describeError(error)}`);
@@ -254,7 +255,7 @@ export async function main(
   try {
     const parsed = parseArgv(argv);
     const symbol = new Symbol(parsed.symbol);
-    const bars = await loadBars(parsed.barsPath, symbol);
+    const bars = await loadBars(parsed.barsPath, symbol, parsed.windowSessions);
     const request = new CalibrationRequest({
       symbol,
       session: parsed.session,

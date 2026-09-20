@@ -428,8 +428,8 @@ reproduced from data is true, and none is made.** The canonical table is carried
 `canonical_parameters` in `spec/constants.yaml` with `source: paper §7.8 Table 13`, and is used only
 to test the pure functions against the paper's published Gaussian column.
 
-F6, F11 and F42 remain open and are listed at the foot of this file. F3, F9 and F10 are closed
-under D1 (paper governs) at their original entries.
+F6 remains open and is listed at the foot of this file. F3, F9 and F10 are closed
+under D1 (paper governs) at their original entries. F11, F42 and F97 are closed (Phases 48–49).
 
 ---
 

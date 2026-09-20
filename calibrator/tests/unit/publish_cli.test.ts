@@ -128,7 +128,19 @@ describe('publish CLI main', () => {
   it('exits 1 when the sample is insufficient', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'bell-publish-'));
     const store = join(dir, 'store.json');
-    const result = await run(['--store', store, '--window', '200']);
+    const barsDir = join(dir, 'bars');
+    await mkdir(barsDir);
+    await writeFile(join(barsDir, 'AAPL.csv'), csvBody(50), 'utf8');
+    const result = await run([
+      '--store',
+      store,
+      '--bars',
+      barsDir,
+      '--symbol',
+      'AAPL',
+      '--window',
+      '200',
+    ]);
     expect(result.code).toBe(1);
     expect(result.stdout).toContain('kind=insufficient');
     await expect(access(store)).rejects.toMatchObject({ code: 'ENOENT' });

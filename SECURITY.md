@@ -97,7 +97,7 @@ These are not mitigated and the design does not pretend otherwise.
   than one. The compliance path is multi-year and is the single largest item on the critical path.
 - **Dependency provenance.** Every Solidity dependency is vendored in `contracts/lib/` and pinned to
   an exact tag and commit, recorded in `contracts/lib/VENDOR.md`. There are no submodules and no
-  floating refs. Python runtime dependencies in `domain/` are zero, enforced by `import-linter`.
+  floating refs. Runtime dependencies in the TypeScript `domain/` layer are zero, enforced by `dependency-cruiser`.
 
 ## What is *not* protected
 

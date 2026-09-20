@@ -68,6 +68,9 @@ deploy-fork: ## Broadcast the deployment to a fork. Requires BELL_RPC_URL and BE
 	@if [ -z "$$BELL_RPC_URL" ]; then \
 		echo "BELL_RPC_URL is not set; cannot deploy (see DESIGN_NOTES.md F6)"; exit 1; \
 	fi
+	@if [ -z "$$BELL_DEPLOYER_KEY" ]; then \
+		echo "BELL_DEPLOYER_KEY is not set; cannot deploy"; exit 1; \
+	fi
 	cd $(CONTRACTS) && forge script script/Deploy.s.sol \
 		--rpc-url $$BELL_RPC_URL --broadcast --private-key $$BELL_DEPLOYER_KEY
 
