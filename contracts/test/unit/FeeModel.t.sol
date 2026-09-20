@@ -160,12 +160,12 @@ contract FeeModelTest is Test {
     function test_volatilityScaledFee_scalesLinearlyBelowTheCap() public pure {
         // At the reference volatility the fee is phi_ref, and it doubles when volatility doubles.
         assertEq(
-            FeeModel.volatilityScaledTradingFeeWad(0.02e18, 0.02e18, 1e18),
+            FeeModel.volatilityScaledTradingFeeWad(0.02e18, 1e18),
             Constants.TRADING_FEE_REFERENCE_WAD,
             "at the reference"
         );
         assertEq(
-            FeeModel.volatilityScaledTradingFeeWad(0.04e18, 0.02e18, 1e18),
+            FeeModel.volatilityScaledTradingFeeWad(0.04e18, 1e18),
             2 * Constants.TRADING_FEE_REFERENCE_WAD,
             "linear in sigma"
         );
@@ -173,12 +173,79 @@ contract FeeModelTest is Test {
 
     function test_volatilityScaledFee_respectsTheCap() public pure {
         uint256 phiMax = 0.01e18;
-        assertEq(FeeModel.volatilityScaledTradingFeeWad(0.2e18, 0.02e18, phiMax), phiMax, "capped");
+        assertEq(FeeModel.volatilityScaledTradingFeeWad(0.2e18, phiMax), phiMax, "capped");
     }
 
-    function test_volatilityScaledFee_revertsOnZeroReference() public {
-        vm.expectRevert(FeeModel.ReferenceVolatilityZero.selector);
-        this.externalVolatilityScaledFee(0.02e18, 0, 1e18);
+    function test_volatilityScaledFee_referenceIsPinnedAndNonZero() public pure {
+        // The reference is a generated constant, not a caller-supplied parameter (F11 ruling). The
+        // guard that used to take a zero reference now checks the constant itself, so the test
+        // asserts the constant is the pinned 2% and non-zero.
+        assertEq(Constants.TRADING_FEE_REFERENCE_VOLATILITY_WAD, 0.02e18, "pinned at 2%");
+        assertGt(Constants.TRADING_FEE_REFERENCE_VOLATILITY_WAD, 0, "non-zero");
+    }
+
+    // ---------------------------------------------------------------- Eq (19) x Eq (20)
+
+    function test_volatilityMultiplierWad_dividesThePriceByTheReference() public pure {
+        assertEq(FeeModel.volatilityMultiplierWad(0.15e18, 0.15e18), 1e18, "at the reference");
+        assertEq(FeeModel.volatilityMultiplierWad(0.3e18, 0.15e18), 2e18, "double the price");
+        assertEq(FeeModel.volatilityMultiplierWad(0.075e18, 0.15e18), 0.5e18, "half the price");
+    }
+
+    /// @dev At the reference premium the multiplier is one and the fee is the pure ramp, whose
+    ///      time-average is phi_ref -- the two equations agree at the reference, which is the
+    ///      natural reading of Eq (20)'s "phi_ref = 0.55% at the calibration reference".
+    function test_scaledTradingFee_atTheReferencePremiumIsTheRamp() public pure {
+        assertEq(
+            FeeModel.scaledTradingFeeWad(0, OVERNIGHT_HOURS, 0.15e18, 0.15e18),
+            Constants.RAMP_PHI_0_WAD,
+            "at the close"
+        );
+        assertEq(
+            FeeModel.scaledTradingFeeWad(OVERNIGHT_HOURS, OVERNIGHT_HOURS, 0.15e18, 0.15e18),
+            Constants.RAMP_PHI_1_WAD,
+            "at the open"
+        );
+        assertEq(
+            FeeModel.scaledTradingFeeWad(OVERNIGHT_HOURS / 2, OVERNIGHT_HOURS, 0.15e18, 0.15e18),
+            (Constants.RAMP_PHI_0_WAD + Constants.RAMP_PHI_1_WAD) / 2,
+            "midway"
+        );
+    }
+
+    /// @dev The volatility multiplier is the paper's Eq (20) ratio with the pool price as the
+    ///      on-chain volatility signal: `p_L / p_L_ref` is `sigma / sigma_ref` to the paper's
+    ///      measured 1.2% tolerance. Doubling the price doubles the fee, below the cap; the close
+    ///      is used so the doubled ramp (0.20%) stays under phi_1.
+    function test_scaledTradingFee_scalesWithThePremium() public pure {
+        uint256 atReference = FeeModel.scaledTradingFeeWad(0, OVERNIGHT_HOURS, 0.15e18, 0.15e18);
+        assertEq(
+            FeeModel.scaledTradingFeeWad(0, OVERNIGHT_HOURS, 0.3e18, 0.15e18),
+            2 * atReference,
+            "linear in the premium"
+        );
+    }
+
+    function test_scaledTradingFee_respectsTheCap() public pure {
+        // Ten times the reference premium at the open would be ten times the ramp's ceiling; the
+        // fee is capped at phi_1, the same ceiling the ramp itself never exceeds.
+        assertEq(
+            FeeModel.scaledTradingFeeWad(OVERNIGHT_HOURS, OVERNIGHT_HOURS, 1.5e18, 0.15e18),
+            Constants.RAMP_PHI_1_WAD,
+            "capped at phi_1"
+        );
+    }
+
+    function test_scaledTradingFee_revertsBeyondTheTerm() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(FeeModel.ElapsedBeyondTerm.selector, 18e18, OVERNIGHT_HOURS)
+        );
+        this.externalScaledTradingFeeWad(18e18, OVERNIGHT_HOURS, 0.15e18, 0.15e18);
+    }
+
+    function test_scaledTradingFee_revertsOnZeroTerm() public {
+        vm.expectRevert(FeeModel.TermZero.selector);
+        this.externalScaledTradingFeeWad(0, 0, 0.15e18, 0.15e18);
     }
 
     // ---------------------------------------------------------------- external wrappers
@@ -195,11 +262,12 @@ contract FeeModelTest is Test {
         return FeeModel.tradingFeeWad(elapsedHoursWad, termHoursWad);
     }
 
-    function externalVolatilityScaledFee(uint256 s, uint256 r, uint256 m)
-        external
-        pure
-        returns (uint256)
-    {
-        return FeeModel.volatilityScaledTradingFeeWad(s, r, m);
+    function externalScaledTradingFeeWad(
+        uint256 elapsedHoursWad,
+        uint256 termHoursWad,
+        uint256 pLWad,
+        uint256 pLRefWad
+    ) external pure returns (uint256) {
+        return FeeModel.scaledTradingFeeWad(elapsedHoursWad, termHoursWad, pLWad, pLRefWad);
     }
 }

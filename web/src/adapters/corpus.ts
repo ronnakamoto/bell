@@ -42,7 +42,7 @@ export const INDEXER_CONFIG: IndexerConfig = {
 };
 
 /** The settled session address the corpus folds to (lower-case). */
-export const CORPUS_SESSION_ADDRESS = '0x3fc355a5bc036ea3f52849bba638d3e257a0e6cc';
+export const CORPUS_SESSION_ADDRESS = '0xebaa350fe46c7b07170af86dd750752f1e0e5202';
 
 /** The adapters a page asks, plus the three singleton addresses the fold attributes against. */
 export interface ResolvedSources {

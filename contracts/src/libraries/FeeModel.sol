@@ -20,9 +20,6 @@ library FeeModel {
     /// @dev Thrown when a trading fee is requested at an elapsed time beyond the term.
     error ElapsedBeyondTerm(uint256 elapsedHours, uint256 termHours);
 
-    /// @dev Thrown when the volatility scaling reference is zero.
-    error ReferenceVolatilityZero();
-
     /// @notice The protocol fee for a term, after the premium cap is applied.
     /// @param pLWad fair premium of the long claim at WAD scale.
     /// @param termHoursWad session length in hours at WAD scale.
@@ -105,7 +102,6 @@ library FeeModel {
 
     /// @notice The trading fee scaled by realised volatility, capped.
     /// @param sigmaRealisedWad realised session volatility at WAD scale.
-    /// @param sigmaReferenceWad the calibration reference volatility at WAD scale; must be non-zero.
     /// @param phiMaxWad the ceiling on the scaled fee at WAD scale.
     /// @return `min(phi_ref * sigma_realised / sigma_ref, phi_max)`.
     /// @dev Paper Eq (20). The break-even condition makes the required fee linear in the premium,
@@ -115,22 +111,73 @@ library FeeModel {
     ///
     ///      `phi_ref` is a fee and `sigma_reference` is a volatility; the two are separate
     ///      parameters because the paper pins only the first. Its Eq (20) names a "calibration
-    ///      reference" without a number, so the reference volatility is supplied by the calibrator
-    ///      rather than baked in here. See DESIGN_NOTES.md F11.
+    ///      reference" without a number, so the reference volatility is pinned by ruling (F11) as
+    ///      `TRADING_FEE_REFERENCE_VOLATILITY_WAD` (2%) rather than supplied by the caller -- the
+    ///      value nearest the Table 5 measured range (mean 1.86%, median 1.88%). There is no zero
+    ///      guard here: the reference is a generated constant, non-zero by construction, and a
+    ///      YAML edit that made it zero would revert in `divWad` with the generic arithmetic error
+    ///      rather than a named one -- a named error that cannot be thrown is an untested path, and
+    ///      the brief forbids those. See DESIGN_NOTES.md F11.
     ///
     ///      The honest note from the paper's simulation is that this does not raise the *median*
     ///      fee: the median turnover is near 1x and the level multiplier is near 1 there. What it
     ///      changes is the mean and the upper tail, which is where the liquidity provider's exposure
     ///      actually is.
-    function volatilityScaledTradingFeeWad(
-        uint256 sigmaRealisedWad,
-        uint256 sigmaReferenceWad,
-        uint256 phiMaxWad
-    ) internal pure returns (uint256) {
-        if (sigmaReferenceWad == 0) revert ReferenceVolatilityZero();
+    function volatilityScaledTradingFeeWad(uint256 sigmaRealisedWad, uint256 phiMaxWad)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 sigmaReferenceWad = Constants.TRADING_FEE_REFERENCE_VOLATILITY_WAD;
         uint256 scaled = WadMath.divWad(
             WadMath.mulWad(Constants.TRADING_FEE_REFERENCE_WAD, sigmaRealisedWad), sigmaReferenceWad
         );
         return WadMath.min(scaled, phiMaxWad);
+    }
+
+    /// @notice The volatility multiplier: the pool's marginal long price over the reference premium.
+    /// @param pLWad the pool's marginal long price at WAD scale.
+    /// @param pLRefWad the fair long premium at the reference volatility, at WAD scale.
+    /// @return `p_L / p_L_ref`, at WAD scale.
+    /// @dev Paper Eq (20) with the pool price as the on-chain volatility signal. The premium is
+    ///      linear in sigma over the range that matters -- measured across sigma = 1-3%, the ratio
+    ///      `p_L / sigma` is constant to within 1.2% -- so `p_L / p_L_ref` is `sigma / sigma_ref`
+    ///      to that tolerance, and it is the only volatility signal a session can observe on chain.
+    ///      It is also the right signal for the fee's purpose: the liquidity provider's exposure
+    ///      (paper Eq 22) grows with the net imbalance, and the pool price embeds the imbalance as
+    ///      well as the volatility. The reference premium is computed by the factory at
+    ///      construction as `lam * E[min(|G|, 1/lam)]` at `sigma_ref` (F97 ruling).
+    function volatilityMultiplierWad(uint256 pLWad, uint256 pLRefWad)
+        internal
+        pure
+        returns (uint256)
+    {
+        return WadMath.divWad(pLWad, pLRefWad);
+    }
+
+    /// @notice The trading fee at a point in the session, scaled by the volatility multiplier.
+    /// @param elapsedHours hours elapsed since the reference close.
+    /// @param termHours total session length in hours.
+    /// @param pLWad the pool's marginal long price at WAD scale.
+    /// @param pLRefWad the fair long premium at the reference volatility, at WAD scale.
+    /// @return `min(ramp(elapsed, term) * p_L / p_L_ref, phi_max)`, at WAD scale.
+    /// @dev Paper Eq (19) scaled by Eq (20)'s volatility ratio, capped at the ramp's own ceiling.
+    ///      The paper's parameter table specifies the trading fee as a linear rise into the open
+    ///      "scaled by realised volatility relative to the calibration reference (equation (20))",
+    ///      and its cold-start lever 3 weights the Eq (19) schedule by realised session volatility
+    ///      to raise LP revenue in exactly the states where the short exposure is largest. At the
+    ///      reference premium the multiplier is one and the fee is the pure ramp, whose time-average
+    ///      is `phi_ref = 0.55%` -- the two equations agree at the reference, which is the natural
+    ///      reading of Eq (20)'s "phi_ref = 0.55% at the calibration reference". See DESIGN_NOTES.md
+    ///      F97.
+    function scaledTradingFeeWad(
+        uint256 elapsedHours,
+        uint256 termHours,
+        uint256 pLWad,
+        uint256 pLRefWad
+    ) internal pure returns (uint256) {
+        uint256 ramp = tradingFeeWad(elapsedHours, termHours);
+        uint256 scaled = WadMath.mulWad(ramp, volatilityMultiplierWad(pLWad, pLRefWad));
+        return WadMath.min(scaled, Constants.RAMP_PHI_1_WAD);
     }
 }

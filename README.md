@@ -65,24 +65,27 @@ asserted by `make check-coverage` rather than eyeballed:
 
 | Scope | Rule | Measured |
 |---|---|---|
-| `contracts/src/libraries/` | 100% on lines, statements, branches, functions | **100%** |
+| `contracts/src/libraries/` | 100% on lines, statements, branches, functions | **100%** (5 libraries) |
 | `contracts/src/**` | ≥ 95% lines | **99.47%** |
-| `calibrator/src` | ≥ 95% lines and branches | **98.80% / 97.29%** |
-| `settlement/src` | ≥ 95% lines and branches | **100% / 100%** |
-| `indexer/src` | ≥ 95% lines and branches | **99.46% / 97.92%** |
-| every `domain/**` file | 100% on all four metrics | **100%** (33 files) |
+| `calibrator/src` | ≥ 95% lines and branches | **97.96% / 95.56%** |
+| `settlement/src` | ≥ 95% lines and branches | **97.76% / 95.04%** |
+| `indexer/src` | ≥ 95% lines and branches | **99.15% / 96.72%** |
+| `web/src` | ≥ 95% lines and branches | **99.12% / 97.22%** |
+| every `domain/**` file | 100% on all four metrics | **100%** (46 files) |
 
-One brief requirement is not met and is recorded rather than hidden: `commit` costs 158,247 gas against
-a §13.3 cap of 150,000 — see F42 in `DESIGN_NOTES.md` and `GAS_REPORT.md` for the attribution and the
-recommended remedy.
+One brief requirement is not met as written and is recorded rather than hidden: `commit` costs
+158,247 gas against the brief's §13.3 cap of 150,000. The cap was raised to 170,000 by ruling (F42)
+— the record is five packed slots plus the bond transfer, and the narrowing that would meet 150,000
+trades real limits for 5% of one operation's gas — see F42 in `DESIGN_NOTES.md` and `GAS_REPORT.md`.
 
 The fork suite is the one item that cannot run here: the brief requires tests against a pinned
 block on chain 4663 but supplies no RPC endpoint, so `make test-fork` skips with an explanation
 (F6). Everything else in the brief is executable and executed.
 
 `DESIGN_NOTES.md` carries the findings. Most are defects the build found in itself rather than
-objections to the brief. What remains open without a ruling or an input is the web wallet broadcast,
-the fork suite (F6), the Eq (20) volatility pin (F11), the `commit` gas cap (F42), and Phase D/E/G3.
+objections to the brief. What remains open without an input is the web wallet broadcast, the fork
+suite (F6), and G3 (a maker for the LP cold start); the Eq (20) volatility pin (F11) and the
+`commit` gas cap (F42) are ruled (Phase 48).
 F84's calibrator composition root is `make calibrate-publish` (calibrate → store window → commit
 intent preview); settlement's challenge-verify root landed with F2.
 

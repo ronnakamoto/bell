@@ -12,15 +12,15 @@ quoted without the frame would be a budget for arithmetic nobody performs in iso
 |---|---|---|---|
 | Truncated-moment payoff path | within 2× of 37,439 → 74,878 | **26,911** | met, and below the baseline |
 | Premium read from storage | within 1.5× of 2,640 → 3,960 | **2,108** | met |
-| `commit` | ≤ 150,000 | **158,247** | **not met — over by 8,247 (5.5%)** |
+| `commit` | ≤ 170,000 (raised from 150,000 by ruling F42) | **158,247** | met, with 6.9% headroom |
 | `challenge` | ≤ 150,000 | **35,807** | met |
 | `resolve` | ≤ 150,000 | **43,911** | met |
 | `quote` | ≤ 150,000 | **15,274** | met |
 
 ## The one miss, attributed
 
-`commit` is the only operation over budget, and the overrun is not in the registry's arithmetic. The
-measurement splits as:
+`commit` was the only operation over the brief's 150,000, and the overrun is not in the registry's
+arithmetic. The measurement splits as:
 
 | Component | Gas | Share |
 |---|---|---|
@@ -43,8 +43,11 @@ would not be a registry — the bond is the mechanism that makes publishing a fi
 Meeting 150,000 would require narrowing the session counter to `uint32` and the bond to `uint56`, so
 that both pack into the publisher's slot. That trades a real, if distant, limit — 4.29e9 sessions,
 and a bond capped at $72bn — for 5% of one operation's gas. **The brief's cap is 5.5% too tight for
-this design, and the recommendation is to raise it to 170,000 rather than to narrow two fields for
-it.** Recorded as F42 in `DESIGN_NOTES.md`.
+this design, so the cap was raised to 170,000 by ruling rather than narrowing two fields for it**
+(F42): the record is five packed slots and the bond transfer is the ERC-20's, so 158,247 is the
+structural cost of the trust mechanism, not an inefficiency. The budget now reads from the generated
+`GAS_COMMIT_MAX` constant, so `spec/constants.yaml` is the single source. Recorded as F42 in
+`DESIGN_NOTES.md`.
 
 ## The measurement that justifies the trust shift
 
@@ -69,3 +72,12 @@ The gas of a real settlement: minting, seeding, trading, settling and claiming a
 Those are covered for correctness by `test/unit/Session.t.sol` and
 `test/invariant/Session.t.sol`, but their gas is not budgeted by the brief and is therefore not
 asserted. `make gas` prints a per-function report for them.
+
+Two measured figures from the trading-fee wiring (F97) belong beside that note. A `buyLong` with the
+trading fee charged measures **128,339** gas against roughly 100k without it -- the delta is the fee
+computation plus the `poolFees` storage line, which is written on every trade. And the session
+constructor now computes the reference premium `pLRefWad = lam * E[min(|G|, 1/lam)]` at the pinned
+2% reference volatility; the truncated moment measures **~35k** gas at the published leverages, so a
+`createSession` with the fee wiring costs **3,662,616** gas, dominated by the CREATE2 deployment
+itself. The 685,590 figure quoted in `Stat.sol`'s NatSpec is the paper's quadrature-based estimate
+for an on-chain implementation, not the cost of the erf-polynomial route the library actually uses.

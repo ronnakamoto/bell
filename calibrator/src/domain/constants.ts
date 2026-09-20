@@ -52,6 +52,9 @@ export const RAMP_TIME_AVERAGE_CEILING_WAD = 7_000_000_000_000_000n;
 /** phi_ref, a fee not a volatility. Source: paper §6.3 Eq 20. */
 export const TRADING_FEE_REFERENCE_WAD = 5_500_000_000_000_000n;
 
+/** sigma_ref, the Eq (20) calibration reference. Source: paper §6.3 Eq 20; F11 ruling. */
+export const TRADING_FEE_REFERENCE_VOLATILITY_WAD = 20_000_000_000_000_000n;
+
 /** cap grid; 0.25% reproduces the published lambdas. Source: paper §6.1, Table 26. */
 export const ROUNDING_LATTICE_WAD = 2_500_000_000_000_000n;
 

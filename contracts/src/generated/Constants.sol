@@ -38,6 +38,8 @@ library Constants {
     uint256 internal constant RAMP_TIME_AVERAGE_CEILING_WAD = 7_000_000_000_000_000;
     /// @dev phi_ref, a fee not a volatility. Source: paper §6.3 Eq 20.
     uint256 internal constant TRADING_FEE_REFERENCE_WAD = 5_500_000_000_000_000;
+    /// @dev sigma_ref, the Eq (20) calibration reference. Source: paper §6.3 Eq 20; F11 ruling.
+    uint256 internal constant TRADING_FEE_REFERENCE_VOLATILITY_WAD = 20_000_000_000_000_000;
     /// @dev cap grid; 0.25% reproduces the published lambdas. Source: paper §6.1, Table 26.
     uint256 internal constant ROUNDING_LATTICE_WAD = 2_500_000_000_000_000;
     /// @dev commitment usable horizon, in sessions. Source: paper Table 19.
@@ -79,5 +81,5 @@ library Constants {
     /// @dev Baselines are the paper's measurements; budgets are the brief's §13.3 multiples.
     uint256 internal constant GAS_TRUNCATED_MOMENT_BASELINE = 37_439;
     uint256 internal constant GAS_PREMIUM_STORAGE_BASELINE = 2_640;
-    uint256 internal constant GAS_REGISTRY_OPERATION_MAX = 150_000;
+    uint256 internal constant GAS_COMMIT_MAX = 170_000;
 }

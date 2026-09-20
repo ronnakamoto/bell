@@ -60,6 +60,7 @@ abstract contract SessionPool is ReentrancyGuard {
     ///        slot 2: shortReserve
     ///        slot 3: totalPoolShares
     ///        slot 4..: poolShares
+    ///        slot 5: poolFees
     ///      The claim tokens and the collateral are immutable and occupy no storage.
     /// @notice The pool's long reserve.
     uint256 public longReserve;
@@ -73,6 +74,14 @@ abstract contract SessionPool is ReentrancyGuard {
     ///      share as `w` without specifying the mechanism, and the brief's Session API lists no
     ///      share token and no pool-withdrawal function. Recorded as F19 in DESIGN_NOTES.md.
     mapping(address provider => uint256) public poolShares;
+    /// @notice Trading fees accrued to the pool and not yet distributed. Collateral units.
+    /// @dev The trading fee (paper Eq 19 scaled by Eq 20) is liquidity-provider compensation, not
+    ///      protocol margin, so it accrues to the pool rather than to `collectedFees`. It is kept
+    ///      as a collateral line rather than minted into the reserves: minting claims into the pool
+    ///      would move the marginal price toward one half, and the price is the fee's own
+    ///      volatility signal -- a fee that distorts the signal it scales with is a feedback loop.
+    ///      Distributed to share holders at settlement with the claims (F97 ruling).
+    uint256 public poolFees;
 
     /// @param collateral_ the collateral token; its decimals are asserted here, once, for the whole
     ///        session and both claim legs.
@@ -150,8 +159,21 @@ abstract contract SessionPool is ReentrancyGuard {
         payout = WadMath.mulWad(longOut, payoffLongWad)
             + WadMath.mulWad(shortOut, Constants.WAD - payoffLongWad);
 
+        // The trading fees accrued to the pool are distributed with the claims, the last
+        // withdrawal taking the remainder so integer rounding cannot strand a wei and make
+        // `close()` unreachable. The fee line is a pool asset like the claims, so the same
+        // proportional rule applies to both.
+        uint256 feeOut;
+        if (shares == totalPoolShares) {
+            feeOut = poolFees;
+        } else {
+            feeOut = (poolFees * shares) / totalPoolShares;
+        }
+        payout += feeOut;
+
         poolShares[provider] = 0;
         totalPoolShares -= shares;
+        poolFees -= feeOut;
         longClaim.burn(address(this), longOut);
         shortClaim.burn(address(this), shortOut);
         _pushCollateral(provider, payout);
@@ -161,15 +183,20 @@ abstract contract SessionPool is ReentrancyGuard {
     // ---------------------------------------------------------------- trading
 
     /// @notice Acquire long claims by depositing collateral.
+    /// @param feeAmount the trading fee on the deposit, pulled with the collateral and accrued to
+    ///        the pool's `poolFees` line. The reserves move only by the swap -- the fee is a
+    ///        collateral line, never claims, so the marginal price is untouched by it.
     /// @return longFromSwap the long claims delivered from the pool, excluding the minted leg.
     /// @dev The paper describes this as minting both legs to the trader and then swapping her short
     ///      leg into the pool. Minting the short leg directly into the pool is the same net effect
     ///      with one fewer interaction, and it spares the trader an `approve` she would otherwise
     ///      have to grant inside the same transaction.
-    function _acquireLong(address trader, uint256 collateralIn, uint256 minTotalLong)
-        internal
-        returns (uint256 longFromSwap)
-    {
+    function _acquireLong(
+        address trader,
+        uint256 collateralIn,
+        uint256 feeAmount,
+        uint256 minTotalLong
+    ) internal returns (uint256 longFromSwap) {
         if (longReserve == 0 || shortReserve == 0) revert PoolDepthZero();
         longFromSwap = Amm.longOutForShortIn(longReserve, shortReserve, collateralIn);
         // The floor is checked against the whole delivered quantity -- the minted leg plus the
@@ -181,17 +208,20 @@ abstract contract SessionPool is ReentrancyGuard {
         longReserve -= longFromSwap;
         shortReserve += collateralIn;
 
-        _pullCollateral(trader, collateralIn);
+        _pullCollateral(trader, collateralIn + feeAmount);
+        if (feeAmount != 0) poolFees += feeAmount;
         longClaim.mint(trader, collateralIn);
         shortClaim.mint(address(this), collateralIn);
         if (!longClaim.transfer(trader, longFromSwap)) revert ClaimTransferFailed();
     }
 
     /// @notice Acquire short claims by depositing collateral. The mirror of `_acquireLong`.
-    function _acquireShort(address trader, uint256 collateralIn, uint256 minTotalShort)
-        internal
-        returns (uint256 shortFromSwap)
-    {
+    function _acquireShort(
+        address trader,
+        uint256 collateralIn,
+        uint256 feeAmount,
+        uint256 minTotalShort
+    ) internal returns (uint256 shortFromSwap) {
         if (longReserve == 0 || shortReserve == 0) revert PoolDepthZero();
         shortFromSwap = Amm.shortOutForLongIn(longReserve, shortReserve, collateralIn);
         uint256 totalShort = collateralIn + shortFromSwap;
@@ -200,7 +230,8 @@ abstract contract SessionPool is ReentrancyGuard {
         longReserve += collateralIn;
         shortReserve -= shortFromSwap;
 
-        _pullCollateral(trader, collateralIn);
+        _pullCollateral(trader, collateralIn + feeAmount);
+        if (feeAmount != 0) poolFees += feeAmount;
         shortClaim.mint(trader, collateralIn);
         longClaim.mint(address(this), collateralIn);
         if (!shortClaim.transfer(trader, shortFromSwap)) revert ClaimTransferFailed();

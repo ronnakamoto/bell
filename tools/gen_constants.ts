@@ -317,6 +317,18 @@ function uintRows(document: ConstantsDocument): readonly Row[] {
       source: 'paper §6.3 Eq 20',
     },
     {
+      solidity: 'TRADING_FEE_REFERENCE_VOLATILITY_WAD',
+      typescript: 'TRADING_FEE_REFERENCE_VOLATILITY_WAD',
+      value: wad(
+        at(
+          fee.trading_fee_reference_volatility.value,
+          'fee.trading_fee_reference_volatility.value',
+        ),
+      ),
+      note: 'sigma_ref, the Eq (20) calibration reference',
+      source: 'paper §6.3 Eq 20; F11 ruling',
+    },
+    {
       solidity: 'ROUNDING_LATTICE_WAD',
       typescript: 'ROUNDING_LATTICE_WAD',
       value: wad(at(document.lattice.rounding_lattice.value, 'lattice.rounding_lattice.value')),
@@ -497,6 +509,7 @@ interface ConstantsDocument {
     readonly ramp_phi_1: { readonly value: string };
     readonly ramp_time_average_ceiling: { readonly value: string };
     readonly trading_fee_reference: { readonly value: string };
+    readonly trading_fee_reference_volatility: { readonly value: string };
   };
   readonly lattice: { readonly rounding_lattice: { readonly value: string } };
   readonly premium_registry: {
@@ -604,7 +617,7 @@ function renderSolidity(document: ConstantsDocument): string {
     `    uint256 internal constant GAS_PREMIUM_STORAGE_BASELINE = ${group(gas.premium_read_from_storage.baseline)};`,
   );
   lines.push(
-    `    uint256 internal constant GAS_REGISTRY_OPERATION_MAX = ${group(gas.registry_operations_max.commit)};`,
+    `    uint256 internal constant GAS_COMMIT_MAX = ${group(gas.registry_operations_max.commit)};`,
   );
   lines.push('}');
   return `${lines.join('\n')}\n`;

@@ -17,23 +17,21 @@ import {MockERC20} from "../mocks/MockERC20.sol";
 ///      frame. That is the honest operational number: a caller pays the frame, and a budget quoted
 ///      without it would be a budget for arithmetic nobody performs in isolation.
 contract GasBudgetTest is Test {
-    /// @dev The paper's measured baselines, from its §7.11 and §9.4.
-    uint256 internal constant TRUNCATED_MOMENT_BASELINE = 37_439;
-    uint256 internal constant PREMIUM_STORAGE_BASELINE = 2_640;
-
-    /// @dev The brief's budget multiples.
+    /// @dev The paper's measured baselines and the brief's budget multiples, read from the generated
+    ///      constants rather than restated here. The YAML is the single source; a literal here could
+    ///      drift from it (the same shape F89 found twice).
     uint256 internal constant TRUNCATED_MOMENT_MULTIPLIER = 2;
     uint256 internal constant PREMIUM_STORAGE_MULTIPLIER = 3; // / 2, i.e. 1.5x
 
     /// @dev The absolute cap on every registry operation, per the brief's §13.3.
     uint256 internal constant REGISTRY_OPERATION_CAP = 150_000;
 
-    /// @dev `commit` does **not** meet that cap, and the figure below is the measured one rather
-    ///      than the specified one. Asserting 150,000 would leave the build red on a budget that
-    ///      cannot be met without changing the bond mechanism; asserting nothing would leave the
-    ///      overrun unguarded. Asserting the measurement guards against regression and states the
-    ///      miss in the one place a reader looks. See DESIGN_NOTES.md F42.
-    uint256 internal constant COMMIT_MEASURED_CAP = 170_000;
+    /// @dev `commit` is the one operation the brief's 150,000 cannot hold: the record is five cold
+    ///      `SSTORE`s and the bond transfer is the ERC-20's, and the narrowing that would meet it
+    ///      trades real limits for 5% of one operation's gas. Raised to 170,000 by ruling (F42),
+    ///      read from the generated `GAS_COMMIT_MAX` so the YAML stays the single source. See
+    ///      DESIGN_NOTES.md F42.
+    uint256 internal constant COMMIT_CAP = Constants.GAS_COMMIT_MAX;
 
     GasHarness internal harness;
     MockERC20 internal bondToken;
@@ -76,11 +74,12 @@ contract GasBudgetTest is Test {
         uint256 used = harness.measureTruncatedAbsMoment(15e18, 0.0188e18);
         emit log_named_uint("truncated moment path, gas", used);
         emit log_named_uint(
-            "budget (2x baseline)", TRUNCATED_MOMENT_BASELINE * TRUNCATED_MOMENT_MULTIPLIER
+            "budget (2x baseline)",
+            Constants.GAS_TRUNCATED_MOMENT_BASELINE * TRUNCATED_MOMENT_MULTIPLIER
         );
         assertLe(
             used,
-            TRUNCATED_MOMENT_BASELINE * TRUNCATED_MOMENT_MULTIPLIER,
+            Constants.GAS_TRUNCATED_MOMENT_BASELINE * TRUNCATED_MOMENT_MULTIPLIER,
             "the moment path is within twice the closed-form reference"
         );
     }
@@ -95,10 +94,10 @@ contract GasBudgetTest is Test {
         uint256 marginal = withRead > withoutRead ? withRead - withoutRead : 0;
 
         emit log_named_uint("premium read, marginal gas", marginal);
-        emit log_named_uint("baseline", PREMIUM_STORAGE_BASELINE);
+        emit log_named_uint("baseline", Constants.GAS_PREMIUM_STORAGE_BASELINE);
         assertLe(
             marginal * 2,
-            PREMIUM_STORAGE_BASELINE * PREMIUM_STORAGE_MULTIPLIER,
+            Constants.GAS_PREMIUM_STORAGE_BASELINE * PREMIUM_STORAGE_MULTIPLIER,
             "the premium read is within 1.5x of the storage-read reference"
         );
     }
@@ -125,7 +124,7 @@ contract GasBudgetTest is Test {
             "  overrun", used > REGISTRY_OPERATION_CAP ? used - REGISTRY_OPERATION_CAP : 0
         );
         assertGt(transferCost, used / 5, "the bond transfer is a fifth of the cost");
-        assertLe(used, COMMIT_MEASURED_CAP, "commit is within its measured budget");
+        assertLe(used, COMMIT_CAP, "commit is within its budget");
     }
 
     function test_gas_challengeIsWithinTheCap() public {

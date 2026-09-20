@@ -519,6 +519,16 @@ would have put an unmeasured number into a file whose whole purpose is provenanc
 **Requested ruling.** Either state the reference volatility, or confirm it stays a calibrator
 parameter.
 
+**Ruling (F11).** The reference volatility is pinned at **2%** — `trading_fee_reference_volatility`
+in `spec/constants.yaml`, emitted as `TRADING_FEE_REFERENCE_VOLATILITY_WAD` into `Constants.sol` and
+`constants.ts`. The value is derived rather than invented: the paper's Table 5 measured per-name
+session volatilities span 1.09–2.72% with a mean of 1.86% and a median of 1.88%, and 2% is the round
+value nearest that range — the same value the fee tests had been using as their reference all along.
+`volatilityScaledTradingFeeWad` now takes only the realised volatility and the cap; the reference
+comes from the constant. The `ReferenceVolatilityZero` guard went with the parameter: a named error
+that cannot be thrown is an untested path (the same rule Amm.sol states), and a YAML edit that made
+the constant zero would revert in `divWad` with the generic arithmetic error. F11 is closed.
+
 ## F12 — The paper writes the tail count as `n(1 - alpha)` but uses `n * alpha`
 
 Paper §7.8 and Table 14 describe the governing quantity as `n(1 - alpha)`, the expected number of
@@ -1120,6 +1130,15 @@ the build red on a budget that cannot be met without a worse design; asserting n
 the overrun unguarded.
 
 **Requested ruling.** Raise the cap to 170,000, or state that the narrowing is wanted.
+
+**Ruling (F42).** The cap is raised to **170,000**. `spec/constants.yaml`'s
+`registry_operations_max.commit` is now 170000 (challenge/resolve/quote keep the brief's 150,000),
+and the generator emits it as `GAS_COMMIT_MAX` — renamed from `GAS_REGISTRY_OPERATION_MAX`, which
+read the commit value under a name that claimed to be the general cap and would have been wrong the
+moment the two diverged. `GasBudget.t.sol` now reads `GAS_COMMIT_MAX` (and the two baselines) from
+the generated constants rather than restating them, so the YAML is the single source. The narrowing
+is rejected: `uint32` sessions and a `uint56` bond trade real limits for 5% of one operation's gas.
+F42 is closed.
 
 
 
@@ -2842,6 +2861,12 @@ invert the stack. Whether the two services are *meant* to have a runnable entry 
 question, and the brief's §6 describes them as services without supplying one; that is recorded here
 rather than answered by a paragraph.
 
+**Resolution.** Both services now have entry points. The settlement's `challenge-verify` root landed
+with F2 slice 1 (`settlement/src/cli/verify.ts`); the calibrator's landed as `make calibrate-publish`
+(`calibrator/src/cli/publish.ts`): synthetic or CSV bars → `calibrate` → `publish` → merge the window
+into a committed-input store file → print the `PremiumRegistry.commit` intent preview, no wallet.
+`ARCHITECTURE.md` now names both roots. F84 is closed.
+
 ## F85 — Two of the retired gates were still enforced; two rules were not
 
 B3 is the audit the tracker asked for: *"every rule they asserted has a home — confirm that rather than
@@ -3637,13 +3662,76 @@ This is the same failure with the opposite cause: the rule named the spelling ev
 has to be checked against the paths the resolver produces, and the way to check it is to probe every
 spelling rather than the one the author had in mind.
 
+## F97 — the trading fee is implemented and never charged
+
+The paper's §6.3 specifies two fees: a **trading fee** paid to liquidity providers — the ramp of
+Eq (19), `φ(t) = φ0 + (φ1 − φ0)·(t − tk−)/Tk` with φ0 = 0.10%, φ1 = 1.00%, and the volatility scaling
+of Eq (20), `φ(σ) = φref·(σrealised/σref)` capped at φmax — and a **protocol fee** on redemption,
+Eq (17), 12% annualised prorated by term. Only the second is wired: `Session.redeemPair` charges
+`FeeModel.protocolFeeWad` (Session.sol:159). The trading fee functions — `tradingFeeWad` and
+`volatilityScaledTradingFeeWad` — are implemented in `FeeModel` and called by nothing in `src/`:
+only the unit tests and `PrintDiagnostics.s.sol` reach them. `Amm` and `SessionPool` charge no fee.
+
+**Why this is a finding rather than a quiet fix.** Wiring the fee is a protocol change with three
+decisions the paper does not pin down:
+
+- **Which schedule.** Table 5 compares the ramp ("Time"), the reweight and the level schedule
+  (Eq 20) as *alternatives* — "The three candidate schedules are simulated below" — while the §6.3
+  parameter table says the fee is the ramp "scaled by realised volatility relative to the calibration
+  reference (equation (20))". The FeeModel implements both as separate functions, so the final form
+  (ramp × level, or level alone) is a choice, not a transcription.
+- **Where it accrues.** The paper says the trading fee is "liquidity-provider compensation, not
+  protocol margin" — at a 55 bp fee the protocol captures 6.9% of the stack. The protocol fee
+  accrues to `collectedFees`; the trading fee would accrue to the pool's reserves (or to LPs
+  directly), which changes the pool invariant and the settlement accounting.
+- **The volatility source.** Eq (20) needs σ_realised at trade time. The calibrator publishes σ as
+  part of the committed parameter set, but the session does not currently read it; the fee would
+  need the published σ (or a pool-price inversion) at the trade.
+
+**What the F11 ruling changed.** The reference volatility is now pinned (2%), so the constant side of
+Eq (20) is settled; what remains is the wiring itself. Recorded rather than implemented because the
+schedule and accrual questions are rulings, not transcription.
+
+**Ruling (F97).** The trading fee is wired into `buyLong`/`buyShort` as
+`phi(t, pL) = min(ramp(t) * pL / pLRef, phi_max)`, charged on top of the collateral deposited, and
+accruing to a `poolFees` line distributed to the pool's share holders at settlement. Four decisions,
+each grounded in the paper:
+
+- **The schedule is the ramp scaled by the volatility ratio, not either alone.** The §6.3 parameter
+  table specifies the fee as a linear rise into the open "scaled by realised volatility relative to
+  the calibration reference (equation (20))", and §6.4's cold-start lever 3 weights the Eq (19)
+  schedule by realised session volatility. At the reference premium the multiplier is one and the
+  fee is the pure ramp, whose time-average is `phi_ref = 0.55%` -- the two equations agree at the
+  reference, which is the natural reading of Eq (20)'s "phi_ref = 0.55% at the calibration
+  reference". Table 5's three schedules are simulation alternatives, not a specification of the
+  launch fee.
+- **The volatility signal is the pool price.** The session has no on-chain sigma, and the paper
+  does not specify where one would come from. The pool price `pL` is the only volatility signal a
+  session can observe on chain: BELL-IV inverts it (G2), `pL/sigma` is constant to within 1.2% over
+  the measured range, and it embeds the net-flow imbalance that is the liquidity provider's
+  exposure driver (Eq 22). The reference premium `pLRef = lam * E[min(|G|, 1/lam)]` at the
+  F11-pinned 2% is computed in the session constructor and stored as an immutable -- trustless, and
+  reproducible by any challenger from chain state.
+- **The fee accrues to the pool, not the protocol.** The paper says the trading fee is
+  "liquidity-provider compensation, not protocol margin", so it cannot join `collectedFees`. It is
+  kept as a collateral line rather than minted into the reserves: minting claims into the pool
+  would move the marginal price toward one half, and the price is the fee's own volatility signal --
+  a fee that distorts the signal it scales with is a feedback loop. `poolFees` is distributed to
+  share holders with the claims at settlement, the last withdrawal taking the remainder.
+- **The fee base is the collateral deposited, on top of the trade.** The paper's Eq (22) revenue is
+  `phi * V` with `V` the collateral flow, so the fee is `phi * collateralIn`, pulled with the
+  deposit. The swaps are exempt: they convert already-fee-paid claims and do not change the pool's
+  value. The elapsed time is capped at the term so a post-expiry trade (state still `Open`,
+  `expire()` not yet called) pays the open fee rather than reverting.
+
+Measured: a `buyLong` with the fee is 128,339 gas (the delta is the fee computation plus the
+`poolFees` line); the constructor's truncated moment adds ~35k to a `createSession` that measures
+3,662,616 gas. F97 is closed.
+
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). **C0 has extended the layout gate** — it now reads three scopes decided separately rather than one inherited, the coverage hints are bounded by an allow-list, the `dist/` rule can no longer pass vacuously, and the one rule the measurement rejected is recorded rather than added (F86). **G0 has landed the NIG fallback** — by method of moments rather than §7.11's maximum likelihood, with the quadrature's range and point count measured against the WAD grid, and with F39's Bessel premise corrected rather than obeyed (F87). **G1 has landed the event-session parameter set** — the shape pooled, the scale shrunk toward the cross-section, all 22 published `lambda_C` reproduced exactly and all 22 `r*` within a derived 1.0e-3, with the fourth digit of τ taken from the column rather than from the brief's rounding (F89). **G2 has landed BELL-IV** — the pool price inverted in the truncation ratio, where the reachable set and the accuracy bound are both derivable rather than asserted, with the closed-form bracket that replaced a doubling search, all 112 committed points recovered to 3.195e-17 against M15's 1.16e-13, the paper's M14 figure identified as a derivative its stated purpose does not need, and the freshness guard's three decisions recorded (F91). Phases A, B and C are complete and G0, G1 and G2 are done; what remains is D, E and F | — |
+| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). **C0 has extended the layout gate** — it now reads three scopes decided separately rather than one inherited, the coverage hints are bounded by an allow-list, the `dist/` rule can no longer pass vacuously, and the one rule the measurement rejected is recorded rather than added (F86). **G0 has landed the NIG fallback** — by method of moments rather than §7.11's maximum likelihood, with the quadrature's range and point count measured against the WAD grid, and with F39's Bessel premise corrected rather than obeyed (F87). **G1 has landed the event-session parameter set** — the shape pooled, the scale shrunk toward the cross-section, all 22 published `lambda_C` reproduced exactly and all 22 `r*` within a derived 1.0e-3, with the fourth digit of τ taken from the column rather than from the brief's rounding (F89). **G2 has landed BELL-IV** — the pool price inverted in the truncation ratio, where the reachable set and the accuracy bound are both derivable rather than asserted, with the closed-form bracket that replaced a doubling search, all 112 committed points recovered to 3.195e-17 against M15's 1.16e-13, the paper's M14 figure identified as a derivative its stated purpose does not need, and the freshness guard's three decisions recorded (F91). Phases A, B and C are complete, G0, G1 and G2 are done, F0/F1/F2 are complete, Phase E is ruled (F11, F42) and F97 is ruled and wired (Phase 49); what remains is D (blocked on an endpoint) and G3 (blocked on a maker) | — |
 | F6 | no RPC endpoint for the chain-4663 fork suite | `make test-fork` |
-| F11 | the Eq (20) reference volatility is unpinned | the volatility-scaled fee |
-| F42 | `commit` costs 158,247 against a 150,000 cap; meeting it needs two field narrowings | the gas budget |
-| F84 | the two services have no entry point, and the brief describes them as services without supplying one | the deployment story |
 
