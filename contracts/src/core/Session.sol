@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {FeeModel} from "../libraries/FeeModel.sol";
+import {Stat} from "../libraries/Stat.sol";
 import {WadMath} from "../libraries/WadMath.sol";
 import {Constants} from "../generated/Constants.sol";
 import {IERC20} from "../interfaces/IERC20.sol";
@@ -67,6 +68,9 @@ contract Session is SessionPool {
     address public immutable referenceRegistry;
     /// @notice The leverage, at WAD scale.
     uint256 public immutable lamWad;
+    /// @dev `lam * E[min(|G|, 1/lam)]` at `sigma_ref` (Eq 12, F11-pinned), computed in the
+    ///      constructor; the trading fee's volatility multiplier divides the pool price by it (F97).
+    uint256 public immutable pLRefWad;
     /// @notice The moment after which the session stops trading.
     uint256 public immutable expiryTimestamp;
     /// @notice The instant of deployment, used for the term-prorated fee.
@@ -79,11 +83,12 @@ contract Session is SessionPool {
     ///        slot 2: shortReserve         (SessionPool)
     ///        slot 3: totalPoolShares      (SessionPool)
     ///        slot 4..: poolShares         (SessionPool)
-    ///        slot 5: state
-    ///        slot 6: totalPairSupply
-    ///        slot 7: collectedFees
-    ///        slot 8: payoffLongWad
-    ///        slot 9: settledOnStaleReference
+    ///        slot 5: poolFees             (SessionPool)
+    ///        slot 6: state
+    ///        slot 7: totalPairSupply
+    ///        slot 8: collectedFees
+    ///        slot 9: payoffLongWad
+    ///        slot 10: settledOnStaleReference
     /// @notice The lifecycle state.
     State public state;
     /// @notice Pairs outstanding. The session's collateral obligation, unit for unit.
@@ -122,6 +127,10 @@ contract Session is SessionPool {
         factory = msg.sender;
         referenceRegistry = referenceRegistry_;
         lamWad = lamWad_;
+        pLRefWad = WadMath.mulWad(
+            lamWad_,
+            Stat.truncatedAbsMoment(lamWad_, 0, Constants.TRADING_FEE_REFERENCE_VOLATILITY_WAD)
+        );
         expiryTimestamp = expiryTimestamp_;
         openTimestamp = block.timestamp;
         notionalCapWad = notionalCapWad_;
@@ -355,8 +364,7 @@ contract Session is SessionPool {
         shortClaim.mint(to, amount);
     }
 
-    /// @dev Shared by `buyLong` and `buyShort`, which differ only in which leg the pool delivers and
-    ///      which floor the caller sets.
+    /// @dev Shared by `buyLong` and `buyShort`, which differ only in the leg the pool delivers.
     function _reserveForMint(uint256 collateralIn, uint256 minOut, bool wantsLong)
         private
         returns (uint256 fromSwap)
@@ -365,12 +373,28 @@ contract Session is SessionPool {
         uint256 wouldBe = totalPairSupply + collateralIn;
         if (wouldBe > notionalCapWad) revert NotionalCapExceeded(wouldBe, notionalCapWad);
 
+        // The trading fee (Eq 19 scaled by Eq 20) is charged on the deposit and pulled with it.
+        // The rate reads the pre-swap pool price, which also reverts on an unseeded pool.
+        uint256 feeAmount = WadMath.mulWad(
+            collateralIn,
+            FeeModel.scaledTradingFeeWad(
+                _elapsedHoursWad(), termHoursWad(), _poolPriceLongWad(), pLRefWad
+            )
+        );
+
         totalPairSupply = wouldBe;
 
         if (wantsLong) {
-            fromSwap = _acquireLong(msg.sender, collateralIn, minOut);
+            fromSwap = _acquireLong(msg.sender, collateralIn, feeAmount, minOut);
         } else {
-            fromSwap = _acquireShort(msg.sender, collateralIn, minOut);
+            fromSwap = _acquireShort(msg.sender, collateralIn, feeAmount, minOut);
         }
+    }
+
+    /// @dev WAD-scale hours since the reference close, capped at the term so a post-expiry trade (still `Open`, `expire()` not yet called) pays the open fee.
+    function _elapsedHoursWad() internal view returns (uint256) {
+        uint256 elapsed = ((block.timestamp - openTimestamp) * Constants.WAD) / 3_600;
+        uint256 term = termHoursWad();
+        return elapsed < term ? elapsed : term;
     }
 }

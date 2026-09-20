@@ -113,9 +113,18 @@ fee:
     meaning: >
       phi_ref = 0.55%: the trading fee at the calibration reference, which is the time-average of
       the ramp and the value that reproduces the low anchor of the §6.4 tolerance range exactly.
-      Note this is a FEE, not a volatility. The reference volatility it is scaled against is a
-      parameter of the calibrator and is not pinned by the paper; see DESIGN_NOTES.md F11.
+      Note this is a FEE, not a volatility. The reference volatility it is scaled against is
+      pinned by ruling (F11) as trading_fee_reference_volatility below.
     source: paper §6.3 Eq 20, §6.4
+
+  trading_fee_reference_volatility:
+    value: "0.02"
+    meaning: >
+      sigma_ref = 2%: the calibration reference volatility of Eq (20), at which the trading fee
+      equals phi_ref. Pinned by ruling (F11): the paper names a "calibration reference" without a
+      number, and 2% is the round value nearest the Table 5 measured range (mean 1.86%, median
+      1.88%, span 1.09-2.72%) that the fee tests already used. See DESIGN_NOTES.md F11.
+    source: paper §6.3 Eq 20; derived from Table 5's measured range (F11 ruling)
 
 # ---------------------------------------------------------------------------- settlement routes
 
@@ -402,8 +411,11 @@ deployment:
 # ---------------------------------------------------------------------------- gas budget
 
 gas_budget:
-  # The brief's §13.3 budget, against the paper's measured baselines.
-  source: brief §13.3; baselines from paper §7.11
+  # The brief's §13.3 budget, against the paper's measured baselines. `commit` is raised from the
+  # brief's 150,000 to 170,000 by ruling (F42): the record is five packed slots plus the bond
+  # transfer, and the narrowing that would meet 150,000 trades real limits for 5% of one operation's
+  # gas. challenge/resolve/quote hold the brief's 150,000. See DESIGN_NOTES.md F42.
+  source: brief §13.3; baselines from paper §7.11; F42 ruling on commit
   truncated_moment_closed_form:
     baseline: 37439
     budget_multiplier: 2.0
@@ -414,7 +426,7 @@ gas_budget:
     baseline: 685590
     note: not built on-chain; recorded as the measurement that justifies the trust shift
   registry_operations_max:
-    commit: 150000
+    commit: 170000
     challenge: 150000
     resolve: 150000
     quote: 150000

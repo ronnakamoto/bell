@@ -237,7 +237,9 @@ contract SessionTest is Test {
             Amm.longOutForShortIn(session.longReserve(), session.shortReserve(), collateralIn);
         uint256 before = session.longClaim().balanceOf(bob);
 
-        _approve(bob, collateralIn);
+        // The trading fee is pulled with the collateral, so the allowance covers the deposit and
+        // the fee; the fee itself is asserted by the dedicated fee tests.
+        _approve(bob, collateralIn * 2);
         vm.prank(bob);
         session.buyLong(collateralIn, 0);
 
@@ -298,7 +300,7 @@ contract SessionTest is Test {
             Amm.shortOutForLongIn(session.longReserve(), session.shortReserve(), collateralIn);
         uint256 before = session.shortClaim().balanceOf(bob);
 
-        _approve(bob, collateralIn);
+        _approve(bob, collateralIn * 2);
         vm.prank(bob);
         session.buyShort(collateralIn, 0);
 
@@ -341,12 +343,118 @@ contract SessionTest is Test {
         uint256 b = session.shortReserve();
         uint256 swap = Amm.shortOutForLongIn(a, b, collateralIn);
 
-        _approve(bob, collateralIn);
+        _approve(bob, collateralIn * 2);
         vm.prank(bob);
         session.buyShort(collateralIn, 0);
 
         assertEq(session.longReserve(), a + collateralIn, "the long reserve grows by the deposit");
         assertEq(session.shortReserve(), b - swap, "the short reserve falls by what was paid out");
+    }
+
+    // ---------------------------------------------------------------- trading fee (F97)
+
+    /// @dev Seeds the pool at the reference premium, so the fee's volatility multiplier is exactly
+    ///      one and the fee is the pure ramp. The long price is `b / (a + b)`, so a premium of
+    ///      `pLRef` needs `a / b = (1 - pLRef) / pLRef`.
+    function _seedAtReferencePremium(address who) internal {
+        uint256 pLRef = session.pLRefWad();
+        uint256 shortIn = 1_000_000 * UNIT;
+        uint256 longIn = WadMath.mulWad(shortIn, WadMath.divWad(Constants.WAD - pLRef, pLRef));
+        _seed(who, longIn, shortIn);
+    }
+
+    function test_buyLong_chargesTheTradingFeeToThePool() public {
+        _seedAtReferencePremium(alice);
+        uint256 collateralIn = 1_000 * UNIT;
+        _approve(bob, collateralIn * 2);
+        vm.prank(bob);
+        session.buyLong(collateralIn, 0);
+
+        // At the reference premium and elapsed zero the fee is the ramp's close value, phi_0.
+        uint256 expectedFee = WadMath.mulWad(collateralIn, Constants.RAMP_PHI_0_WAD);
+        assertEq(session.poolFees(), expectedFee, "the fee accrues to the pool");
+        assertEq(session.collectedFees(), 0, "not protocol margin");
+    }
+
+    function test_buyShort_chargesTheTradingFeeToThePool() public {
+        _seedAtReferencePremium(alice);
+        uint256 collateralIn = 1_000 * UNIT;
+        _approve(bob, collateralIn * 2);
+        vm.prank(bob);
+        session.buyShort(collateralIn, 0);
+
+        uint256 expectedFee = WadMath.mulWad(collateralIn, Constants.RAMP_PHI_0_WAD);
+        assertEq(session.poolFees(), expectedFee, "the fee accrues to the pool");
+    }
+
+    /// @dev The volatility multiplier is Eq (20)'s ratio with the pool price as the on-chain
+    ///      volatility signal: doubling the price doubles the fee, below the cap.
+    function test_tradingFee_scalesWithThePoolPrice() public {
+        uint256 pLRef = session.pLRefWad();
+        uint256 shortIn = 1_000_000 * UNIT;
+        uint256 longIn =
+            WadMath.mulWad(shortIn, WadMath.divWad(Constants.WAD - 2 * pLRef, 2 * pLRef));
+        _seed(alice, longIn, shortIn);
+
+        uint256 collateralIn = 1_000 * UNIT;
+        _approve(bob, collateralIn * 2);
+        vm.prank(bob);
+        session.buyLong(collateralIn, 0);
+
+        uint256 expectedFee = WadMath.mulWad(collateralIn, 2 * Constants.RAMP_PHI_0_WAD);
+        assertEq(session.poolFees(), expectedFee, "linear in the premium");
+    }
+
+    /// @dev The fee is a collateral line, never claims, so the reserves move only by the swap and
+    ///      the marginal price is untouched by it -- the fee cannot distort the volatility signal
+    ///      it scales with.
+    function test_tradingFee_isPriceNeutral() public {
+        _seedAtReferencePremium(alice);
+        uint256 a = session.longReserve();
+        uint256 b = session.shortReserve();
+        uint256 collateralIn = 1_000 * UNIT;
+        uint256 swap = Amm.longOutForShortIn(a, b, collateralIn);
+
+        _approve(bob, collateralIn * 2);
+        vm.prank(bob);
+        session.buyLong(collateralIn, 0);
+
+        assertEq(session.longReserve(), a - swap, "long reserve moves by the swap only");
+        assertEq(
+            session.shortReserve(), b + collateralIn, "short reserve moves by the deposit only"
+        );
+    }
+
+    /// @dev The trading fee is liquidity-provider compensation: at settlement the whole fee line
+    ///      reaches the pool's share holders with the claims.
+    function test_withdrawPool_distributesPoolFeesToLiquidityProviders() public {
+        _seedAtReferencePremium(alice);
+        uint256 collateralIn = 1_000 * UNIT;
+        _approve(bob, collateralIn * 2);
+        vm.prank(bob);
+        session.buyLong(collateralIn, 0);
+        uint256 fees = session.poolFees();
+        assertGt(fees, 0, "the trade accrued a fee");
+
+        uint256 poolLong = session.longClaim().balanceOf(address(session));
+        uint256 poolShort = session.shortClaim().balanceOf(address(session));
+
+        vm.warp(block.timestamp + 18 hours);
+        session.expire();
+        vm.prank(REFERENCE_REGISTRY);
+        session.settle(0.4e18, false);
+
+        uint256 before = collateral.balanceOf(alice);
+        vm.prank(alice);
+        session.withdrawPool();
+        uint256 payout = collateral.balanceOf(alice) - before;
+
+        // Alice holds every share, so the withdrawal is the pool's claims at the settled payoff
+        // plus the whole fee line.
+        uint256 claimsPayout =
+            WadMath.mulWad(poolLong, 0.4e18) + WadMath.mulWad(poolShort, Constants.WAD - 0.4e18);
+        assertEq(payout, claimsPayout + fees, "the fee reaches the LP");
+        assertEq(session.poolFees(), 0, "the fee line is exhausted");
     }
 
     function test_swapLongForShort_movesThePoolAndPreservesK() public {

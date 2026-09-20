@@ -87,8 +87,8 @@ describe('the corpus folds into one settled session', () => {
     // only attribution, and the factory's event is the only thing that reveals it. The corpus
     // renders one checksummed and the other lower-case.
     expect(created.emitter).toMatch(/[A-F]/);
-    expect(session?.address).toBe('0x3fc355a5bc036ea3f52849bba638d3e257a0e6cc');
-    expect(sessionOf(catalogue, '0x3Fc355a5BC036EA3F52849Bba638D3e257A0E6cc')?.address).toBe(
+    expect(session?.address).toBe('0xebaa350fe46c7b07170af86dd750752f1e0e5202');
+    expect(sessionOf(catalogue, '0xEbaa350Fe46C7b07170af86dD750752F1e0E5202')?.address).toBe(
       session?.address,
     );
   });
@@ -287,7 +287,7 @@ describe('two SessionCreated events are two rows', () => {
     };
     const folded = foldLogs([created, second], configOf());
     expect(folded.sessions.map((session) => session.address)).toEqual([
-      '0x3fc355a5bc036ea3f52849bba638d3e257a0e6cc',
+      '0xebaa350fe46c7b07170af86dd750752f1e0e5202',
       otherSession,
     ]);
   });
