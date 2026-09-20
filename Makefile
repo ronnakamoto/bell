@@ -52,7 +52,7 @@ build: ## Generate spec-derived artifacts, then compile everything
 test: test-contracts ts-test ## Run the full suite
 
 test-contracts: ## Solidity unit, fuzz, invariant and differential suites
-	cd $(CONTRACTS) && forge test -vv
+	cd $(CONTRACTS) && forge test --no-match-path "test/fork/*" -vv
 
 test-fork: ## Fork suite against the pinned chain. Requires BELL_RPC_URL; skipped if unset
 	@if [ -z "$$BELL_RPC_URL" ]; then \
@@ -78,11 +78,11 @@ diagnostics: ## Print the lattice, canonical, AMM and fee diagnostics from the d
 	cd $(CONTRACTS) && forge script script/PrintDiagnostics.s.sol
 
 coverage: ## Print coverage for everything. `make check-coverage` asserts the thresholds
-	cd $(CONTRACTS) && forge coverage --report summary
+	cd $(CONTRACTS) && forge coverage --no-match-contract ChainFork --report summary
 	npm run coverage
 
 gas: ## Per-operation gas report, against the brief's §13.3 budget
-	cd $(CONTRACTS) && forge test --gas-report
+	cd $(CONTRACTS) && forge test --no-match-contract ChainFork --gas-report
 
 # ---------------------------------------------------------------------------- check
 

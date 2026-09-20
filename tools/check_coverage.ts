@@ -244,7 +244,15 @@ function parse(report: string): Coverage[] {
 function runForge(): string {
   const result = spawnSync(
     'forge',
-    ['coverage', '--report', 'summary', '--no-match-path', 'test/indexer/LogFixture.t.sol'],
+    [
+      'coverage',
+      '--report',
+      'summary',
+      '--no-match-path',
+      'test/indexer/LogFixture.t.sol',
+      '--no-match-contract',
+      'ChainFork',
+    ],
     {
       cwd: CONTRACTS,
       encoding: 'utf8',
