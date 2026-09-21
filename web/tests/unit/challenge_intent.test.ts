@@ -1,7 +1,7 @@
 import { CHALLENGER_BOND } from '@bell/calibrator/domain/constants.js';
 import { describe, expect, it } from 'vitest';
 
-import { buildChallenge } from '../../src/domain/challenge_intent.js';
+import { buildChallenge, buildResolve } from '../../src/domain/challenge_intent.js';
 import { WebDomainError } from '../../src/domain/errors.js';
 
 const NAME_ID = '0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb';
@@ -64,5 +64,36 @@ describe('buildChallenge', () => {
     expect(() => buildChallenge({ nameId: NAME_ID, forSession: 1n, challengerBond: -1n })).toThrow(
       WebDomainError,
     );
+  });
+});
+
+describe('buildResolve', () => {
+  it('builds a single resolve step targeting the premium registry', () => {
+    const batch = buildResolve({ nameId: NAME_ID, forSession: 7n, publisherCorrect: true });
+    expect(batch.kind).toBe('resolve');
+    expect(batch.steps).toHaveLength(1);
+    expect(batch.steps[0]?.method).toBe('resolve');
+    expect(batch.steps[0]?.target).toBe('premium');
+    expect(batch.steps[0]?.args).toEqual([NAME_ID, 7n, 1n]);
+  });
+
+  it('carries a slashed ruling as a false bool', () => {
+    const batch = buildResolve({ nameId: NAME_ID, forSession: 7n, publisherCorrect: false });
+    expect(batch.steps[0]?.args).toEqual([NAME_ID, 7n, 0n]);
+    expect(batch.steps[0]?.label).toBe('Rule publisher slashed');
+  });
+
+  it('labels an upheld ruling', () => {
+    const batch = buildResolve({ nameId: NAME_ID, forSession: 7n, publisherCorrect: true });
+    expect(batch.steps[0]?.label).toBe('Rule publisher correct');
+  });
+
+  it('refuses an invalid nameId and a negative forSession', () => {
+    expect(() =>
+      buildResolve({ nameId: '0x1234', forSession: 1n, publisherCorrect: true }),
+    ).toThrow(/nameId/);
+    expect(() =>
+      buildResolve({ nameId: NAME_ID, forSession: -1n, publisherCorrect: true }),
+    ).toThrow(/forSession/);
   });
 });

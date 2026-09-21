@@ -21,7 +21,7 @@ import { WebDomainError } from './errors.js';
 import { type IntentStep } from './intents.js';
 
 /** One ABI input type. Every type the intent surface uses is static. */
-export type AbiType = 'address' | 'uint256' | 'uint64' | 'bytes32';
+export type AbiType = 'address' | 'uint256' | 'uint64' | 'bytes32' | 'bool';
 
 export interface AbiFragment {
   /** The canonical signature, as Solidity declares it. */
@@ -40,11 +40,13 @@ export const ABI_FRAGMENTS: Readonly<Record<string, AbiFragment>> = {
   claim: { signature: 'claim()', inputs: [] },
   withdrawPool: { signature: 'withdrawPool()', inputs: [] },
   challenge: { signature: 'challenge(bytes32,uint64)', inputs: ['bytes32', 'uint64'] },
+  resolve: { signature: 'resolve(bytes32,uint64,bool)', inputs: ['bytes32', 'uint64', 'bool'] },
   // Read getters the broadcast use case resolves its targets with.
   collateral: { signature: 'collateral()', inputs: [] },
   longClaim: { signature: 'longClaim()', inputs: [] },
   shortClaim: { signature: 'shortClaim()', inputs: [] },
   bondToken: { signature: 'bondToken()', inputs: [] },
+  arbiter: { signature: 'arbiter()', inputs: [] },
 };
 
 const WORD_HEX_DIGITS = 64;
@@ -87,7 +89,20 @@ export function encodeWord(type: AbiType, value: bigint | string): string {
     case 'bytes32': {
       return requireHex(value, BYTES32_HEX_DIGITS, 'bytes32');
     }
+    case 'bool': {
+      const word = requireBool(value);
+      return `0x${'00'.repeat(31)}${word}`;
+    }
   }
+}
+
+function requireBool(value: bigint | string): string {
+  if (typeof value === 'string') {
+    throw new WebDomainError('bool must be a bigint');
+  }
+  if (value === 0n) return '00';
+  if (value === 1n) return '01';
+  throw new WebDomainError('bool must be 0 or 1');
 }
 
 /** The calldata for one intent step: selector then one word per argument. */

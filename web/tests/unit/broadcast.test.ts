@@ -9,7 +9,7 @@ import { nobleKeccak } from '@bell/settlement/adapters/keccak_noble.js';
 import { describe, expect, it } from 'vitest';
 
 import { broadcastIntents } from '../../src/application/broadcast.js';
-import { buildChallenge } from '../../src/domain/challenge_intent.js';
+import { buildChallenge, buildResolve } from '../../src/domain/challenge_intent.js';
 import { type WalletProvider, type WalletTx } from '../../src/domain/ports.js';
 import { buildClaim } from '../../src/domain/settlement.js';
 import { buildBuyLong } from '../../src/domain/trade.js';
@@ -119,6 +119,20 @@ describe('broadcastIntents', () => {
   it('reads nothing for a batch whose targets are all given', async () => {
     const { wallet, readCalls } = walletOf({});
     await broadcastIntents(buildClaim(), { session: SESSION }, wallet, nobleKeccak);
+    expect(readCalls).toEqual([]);
+  });
+
+  it('sends a resolve ruling to the premium registry with no reads', async () => {
+    const { wallet, sent, readCalls } = walletOf({});
+    const nameId = `0x${'cd'.repeat(32)}`;
+    await broadcastIntents(
+      buildResolve({ nameId, forSession: 7n, publisherCorrect: true }),
+      { premium: PREMIUM },
+      wallet,
+      nobleKeccak,
+    );
+    expect(sent.map((tx) => tx.to)).toEqual([PREMIUM]);
+    expect(sent[0]?.data.startsWith('0x0564e9d1')).toBe(true);
     expect(readCalls).toEqual([]);
   });
 
