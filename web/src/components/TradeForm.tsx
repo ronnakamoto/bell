@@ -2,27 +2,37 @@
 
 import { type FormEvent, type ReactNode, useState } from 'react';
 
+import { type IntentBatch } from '../domain/intents.js';
 import { buildBuyLong, buildBuyShort } from '../domain/trade.js';
+import { BroadcastButton } from './BroadcastButton.js';
 import { describeCaughtError, parseDigitAmount } from './parseAmount.js';
 
-export function TradeForm(): ReactNode {
+export interface TradeFormProps {
+  /** The session the trade batch acts on. */
+  readonly sessionAddress: string;
+}
+
+export function TradeForm({ sessionAddress }: TradeFormProps): ReactNode {
   const [side, setSide] = useState<'long' | 'short'>('long');
   const [collateralIn, setCollateralIn] = useState('');
   const [minOut, setMinOut] = useState('');
   const [steps, setSteps] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  function buildBatch(): IntentBatch {
+    const collateral = parseDigitAmount(collateralIn);
+    const min = parseDigitAmount(minOut);
+    return side === 'long'
+      ? buildBuyLong({ collateralIn: collateral, minLongOut: min })
+      : buildBuyShort({ collateralIn: collateral, minShortOut: min });
+  }
+
   function onPreview(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     setError(null);
     setSteps([]);
     try {
-      const collateral = parseDigitAmount(collateralIn);
-      const min = parseDigitAmount(minOut);
-      const batch =
-        side === 'long'
-          ? buildBuyLong({ collateralIn: collateral, minLongOut: min })
-          : buildBuyShort({ collateralIn: collateral, minShortOut: min });
+      const batch = buildBatch();
       setSteps(batch.steps.map((step) => step.label));
     } catch (caught) {
       setError(describeCaughtError(caught));
@@ -80,6 +90,7 @@ export function TradeForm(): ReactNode {
           ))}
         </ol>
       ) : null}
+      <BroadcastButton build={buildBatch} targets={{ session: sessionAddress }} />
     </section>
   );
 }

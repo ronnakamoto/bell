@@ -128,8 +128,8 @@ export default async function SessionPage({
       <QuotePanel quote={quote} />
       <BellIvPanel iv={iv} />
       <EligibilityGate>
-        <SessionIntents quote={quote} />
-        <SessionSettlementIntents settled={session.settled} />
+        <SessionIntents quote={quote} sessionAddress={session.address} />
+        <SessionSettlementIntents settled={session.settled} sessionAddress={session.address} />
       </EligibilityGate>
     </div>
   );

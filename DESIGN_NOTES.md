@@ -3870,6 +3870,41 @@ factory's event, so no emitter check is needed and a registry or premium log can
 it. `resolveSources` now wraps the RPC source in the session-aware one; the fixture path is
 unchanged. F105 is closed.
 
+## F106 — the participant surface could not broadcast
+
+F50 recorded that the web app was read-only: it built intents — `approve` then `buyLong`, `mintPair`
+then `approveClaims` then `seedPool` — but the steps were previews, not transactions. The contracts
+were fully usable through a block explorer or `cast`, and the paper's own argument is that the
+participant who cannot monitor a margin call is not going to call `cast send` on a Saturday. The
+write side was the one missing surface.
+
+**Resolution.** A broadcast layer with the same three-layer shape as the read side:
+
+- **Domain** (`web/src/domain/abi.ts`): the ABI fragments the intent surface can name, and the
+  encoding. All inputs are static types — address, uint256, uint64, bytes32 — so the encoding is a
+  selector plus one 32-byte word per argument, with no dynamic section and no ABI library. The
+  selector is computed from the signature rather than copied, so the table is the only place a
+  signature can be wrong, and a fixture test pins every selector against a known-good value.
+- **Port** (`web/src/domain/ports.ts`): `WalletProvider` — `connect`, `read`, `send` — the seam
+  between the use case and whatever wallet is injected.
+- **Application** (`web/src/application/broadcast.ts`): `broadcastIntents` connects, resolves the
+  batch's targets, and sends each step in intent order. Target resolution is a read, not a guess:
+  the session's `collateral()`, `longClaim()` and `shortClaim()` getters, and the premium registry's
+  `bondToken()` for the challenge flow, whose bond is the registry's token rather than any session's.
+  Only the targets a batch actually references are read, once each. An `approve` step names only the
+  amount; the spender is the contract the batch acts on — the session for trade/LP/claim/withdraw,
+  the premium registry for the challenge bond.
+- **Adapter** (`web/src/adapters/wallet.ts`): `Eip1193Wallet` wraps an injected provider
+  (`window.ethereum`), mapping the three port methods onto `eth_requestAccounts`, `eth_call` and
+  `eth_sendTransaction`. A missing provider is a refusal naming the gap.
+- **Surface** (`web/src/components/BroadcastButton.tsx`): each intent form now carries a broadcast
+  button that builds the batch from the form's current state, injects the wallet at click time, and
+  shows one hash per step. The app never holds keys.
+
+**Verified.** `make check` exit 0; **370 Solidity** + 844 TypeScript = **1214** tests; coverage bars
+met (web/src 98.25/95.82 on lines/branches, 47 domain/ files at 100%). Architecture 131 modules /
+343 dependencies. F106 is closed.
+
 ## Still open
 
 | # | Item | Blocking |

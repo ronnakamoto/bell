@@ -3,8 +3,14 @@
 import { type FormEvent, type ReactNode, useState } from 'react';
 
 import { buildWithdrawPool } from '../domain/settlement.js';
+import { BroadcastButton } from './BroadcastButton.js';
 
-export function WithdrawPoolForm(): ReactNode {
+export interface WithdrawPoolFormProps {
+  /** The session the withdraw batch acts on. */
+  readonly sessionAddress: string;
+}
+
+export function WithdrawPoolForm({ sessionAddress }: WithdrawPoolFormProps): ReactNode {
   const [steps, setSteps] = useState<readonly string[]>([]);
 
   function onPreview(event: FormEvent<HTMLFormElement>): void {
@@ -28,6 +34,7 @@ export function WithdrawPoolForm(): ReactNode {
           ))}
         </ol>
       ) : null}
+      <BroadcastButton build={buildWithdrawPool} targets={{ session: sessionAddress }} />
     </section>
   );
 }

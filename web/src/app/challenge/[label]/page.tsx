@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import type { ReactNode } from 'react';
 
 import { FileChallengeSource } from '../../../adapters/challenge_verify.js';
+import { resolveSources } from '../../../adapters/corpus.js';
 import {
   listChallengeLabels,
   loadChallengeIdentity,
@@ -20,12 +21,13 @@ export default async function ChallengeCasePage({
   params: Promise<{ label: string }>;
 }): Promise<ReactNode> {
   const { label } = await params;
+  const { indexerConfig } = resolveSources();
   const source = new FileChallengeSource();
   const labels = await listChallengeLabels(source);
   if (!labels.includes(label)) notFound();
 
   const report = await verifyChallengeCase(source, label);
-  const intent = await challengeIntent(source, label, report);
+  const intent = await challengeIntent(source, label, report, indexerConfig.premium);
 
   return (
     <div>
@@ -34,8 +36,8 @@ export default async function ChallengeCasePage({
       </p>
       <h2>{label}</h2>
       <p>
-        Same store re-fit as the CLI. Challenge intent preview is available when the report is
-        slashed; no wallet, no broadcast.
+        Same store re-fit as the CLI. Challenge intent preview and broadcast are available when the
+        report is slashed; no wallet is held by the app.
       </p>
       <ChallengeReport report={report} />
       {intent}
@@ -47,6 +49,7 @@ async function challengeIntent(
   source: ChallengeSource,
   label: string,
   report: ChallengeReportView,
+  premium: string,
 ): Promise<ReactNode> {
   if (report.kind !== 'slashed') {
     return disabledChallengeIntent(report.kind);
@@ -55,7 +58,11 @@ async function challengeIntent(
   const identity = await loadChallengeIdentity(source, label);
   return (
     <EligibilityGate>
-      <ChallengeForm nameId={identity.nameId} forSession={identity.forSession.toString()} />
+      <ChallengeForm
+        nameId={identity.nameId}
+        forSession={identity.forSession.toString()}
+        premiumAddress={premium}
+      />
     </EligibilityGate>
   );
 }

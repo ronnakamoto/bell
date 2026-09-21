@@ -5,10 +5,15 @@ import { WithdrawPoolForm } from './WithdrawPoolForm.js';
 
 export interface SessionSettlementIntentsProps {
   readonly settled: boolean;
+  /** The session the claim/withdraw batches act on. */
+  readonly sessionAddress: string;
 }
 
 /** Gate claim/withdrawPool intent forms on a settled session. */
-export function SessionSettlementIntents({ settled }: SessionSettlementIntentsProps): ReactNode {
+export function SessionSettlementIntents({
+  settled,
+  sessionAddress,
+}: SessionSettlementIntentsProps): ReactNode {
   if (!settled) {
     return (
       <p data-testid="claim-disabled-not-settled">
@@ -19,8 +24,8 @@ export function SessionSettlementIntents({ settled }: SessionSettlementIntentsPr
 
   return (
     <>
-      <ClaimForm />
-      <WithdrawPoolForm />
+      <ClaimForm sessionAddress={sessionAddress} />
+      <WithdrawPoolForm sessionAddress={sessionAddress} />
     </>
   );
 }

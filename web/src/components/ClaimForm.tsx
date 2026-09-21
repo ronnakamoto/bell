@@ -3,8 +3,14 @@
 import { type FormEvent, type ReactNode, useState } from 'react';
 
 import { buildClaim } from '../domain/settlement.js';
+import { BroadcastButton } from './BroadcastButton.js';
 
-export function ClaimForm(): ReactNode {
+export interface ClaimFormProps {
+  /** The session the claim batch acts on. */
+  readonly sessionAddress: string;
+}
+
+export function ClaimForm({ sessionAddress }: ClaimFormProps): ReactNode {
   const [steps, setSteps] = useState<readonly string[]>([]);
 
   function onPreview(event: FormEvent<HTMLFormElement>): void {
@@ -28,6 +34,7 @@ export function ClaimForm(): ReactNode {
           ))}
         </ol>
       ) : null}
+      <BroadcastButton build={buildClaim} targets={{ session: sessionAddress }} />
     </section>
   );
 }

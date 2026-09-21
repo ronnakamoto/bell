@@ -14,7 +14,13 @@ const NAME_ID = '0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2e
 
 describe('ChallengeForm', () => {
   it('previews challenge steps with no amount inputs', () => {
-    render(<ChallengeForm nameId={NAME_ID} forSession="12345" />);
+    render(
+      <ChallengeForm
+        nameId={NAME_ID}
+        forSession="12345"
+        premiumAddress="0x2222222222222222222222222222222222222222"
+      />,
+    );
     expect(screen.queryByRole('textbox')).toBeNull();
     fireEvent.click(screen.getByTestId('challenge-preview'));
     expect(screen.getByText('Approve premium registry to spend collateral')).toBeInTheDocument();
