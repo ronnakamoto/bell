@@ -12,6 +12,7 @@ import {
 import { ChallengeForm } from '../../../components/ChallengeForm.js';
 import { ChallengeReport } from '../../../components/ChallengeReport.js';
 import { EligibilityGate } from '../../../components/EligibilityGate.js';
+import { ResolveForm } from '../../../components/ResolveForm.js';
 import { type ChallengeReportView } from '../../../domain/challenge.js';
 import { type ChallengeSource } from '../../../domain/ports.js';
 
@@ -28,6 +29,7 @@ export default async function ChallengeCasePage({
 
   const report = await verifyChallengeCase(source, label);
   const intent = await challengeIntent(source, label, report, indexerConfig.premium);
+  const ruling = await arbiterRuling(source, label, report, indexerConfig.premium);
 
   return (
     <div>
@@ -37,11 +39,37 @@ export default async function ChallengeCasePage({
       <h2>{label}</h2>
       <p>
         Same store re-fit as the CLI. Challenge intent preview and broadcast are available when the
-        report is slashed; no wallet is held by the app.
+        report is slashed, and the arbiter's ruling surface when it is upheld or slashed; no wallet
+        is held by the app.
       </p>
       <ChallengeReport report={report} />
       {intent}
+      {ruling}
     </div>
+  );
+}
+
+/** The arbiter's ruling surface, shown when the report is a ruling the arbiter can submit. */
+async function arbiterRuling(
+  source: ChallengeSource,
+  label: string,
+  report: ChallengeReportView,
+  premium: string,
+): Promise<ReactNode> {
+  if (report.kind !== 'upheld' && report.kind !== 'slashed') {
+    return null;
+  }
+
+  const identity = await loadChallengeIdentity(source, label);
+  return (
+    <EligibilityGate>
+      <ResolveForm
+        nameId={identity.nameId}
+        forSession={identity.forSession.toString()}
+        publisherCorrect={report.kind === 'upheld'}
+        premiumAddress={premium}
+      />
+    </EligibilityGate>
   );
 }
 

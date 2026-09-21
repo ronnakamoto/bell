@@ -8,6 +8,7 @@ export interface IntentStep {
 }
 
 export interface IntentBatch {
-  readonly kind: 'buyLong' | 'buyShort' | 'mintThenSeed' | 'claim' | 'withdrawPool' | 'challenge';
+  readonly kind:
+    'buyLong' | 'buyShort' | 'mintThenSeed' | 'claim' | 'withdrawPool' | 'challenge' | 'resolve';
   readonly steps: readonly IntentStep[];
 }

@@ -3905,6 +3905,25 @@ write side was the one missing surface.
 met (web/src 98.25/95.82 on lines/branches, 47 domain/ files at 100%). Architecture 131 modules /
 343 dependencies. F106 is closed.
 
+## F107 — the arbiter could not submit a ruling
+
+F106 gave the challenger a broadcast button but left the challenge lifecycle half-finished: a
+challenged commitment is stuck in `Challenged` until the arbiter calls `resolve`, and nothing in the
+participant surface could. F50's table put the arbiter on the CLI, but the ruling is deterministic —
+the re-fit either matches the committed inputs or it does not — so the submission is a single
+`resolve(bytes32,uint64,bool)` step with no approvals, and the browser wallet is the fastest honest
+surface for it.
+
+**Resolution.** The challenge page now carries a ruling surface for the two report kinds the arbiter
+can act on — `upheld` (publisher correct) and `slashed` (publisher slashed); the two negative kinds
+(`inputs-unavailable`, `digest-mismatch`) have no ruling to submit and show nothing. `buildResolve`
+builds the single-step batch; the ABI table gains `bool` (encoded as a word of 0 or 1, refused
+otherwise) and the `resolve` and `arbiter()` fragments. The form reads the registry's `arbiter()`
+and refuses a connected account that is not the arbiter by name — the chain enforces the same gate,
+so the read is a named refusal rather than an opaque revert. The ruling surface is gated behind
+eligibility like every other intent form, and the chain's `resolve` transfers the bonds, so no
+further step is needed after it. F107 is closed.
+
 ## Still open
 
 | # | Item | Blocking |

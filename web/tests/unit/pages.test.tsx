@@ -114,6 +114,19 @@ describe('ChallengeListPage', () => {
 });
 
 describe('ChallengeCasePage', () => {
+  /** Accept the first remaining eligibility gate, which disappears once accepted. */
+  function acceptGate(): void {
+    const notUs = screen.getAllByTestId('eligibility-not-us').at(0);
+    const tosReset = screen.getAllByTestId('eligibility-tos-reset').at(0);
+    const accept = screen.getAllByTestId('eligibility-accept').at(0);
+    if (notUs === undefined || tosReset === undefined || accept === undefined) {
+      throw new Error('expected an eligibility gate');
+    }
+    fireEvent.click(notUs);
+    fireEvent.click(tosReset);
+    fireEvent.click(accept);
+  }
+
   it('renders an upheld report from a real store re-fit', async () => {
     const page = await ChallengeCasePage({
       params: Promise.resolve({ label: 'upheld-store' }),
@@ -125,7 +138,13 @@ describe('ChallengeCasePage', () => {
     expect(screen.getByText(/no wallet/i)).toBeInTheDocument();
     expect(screen.getByTestId('challenge-intent-disabled-upheld')).toBeInTheDocument();
     expect(screen.queryByTestId('challenge-preview')).toBeNull();
-    expect(screen.queryByTestId('eligibility-required')).toBeNull();
+    // The upheld report carries the arbiter's ruling surface, behind eligibility.
+    expect(screen.getByTestId('eligibility-required')).toBeInTheDocument();
+    expect(screen.queryByTestId('resolve-submit')).toBeNull();
+    fireEvent.click(screen.getByTestId('eligibility-not-us'));
+    fireEvent.click(screen.getByTestId('eligibility-tos-reset'));
+    fireEvent.click(screen.getByTestId('eligibility-accept'));
+    expect(screen.getByTestId('resolve-submit')).toBeEnabled();
   });
 
   it('renders the three negative fixture kinds', async () => {
@@ -162,18 +181,21 @@ describe('ChallengeCasePage', () => {
     }
   });
 
-  it('gates the slashed preview behind eligibility and then shows the form', async () => {
+  it('gates the slashed preview and the ruling behind eligibility and then shows both', async () => {
     const page = await ChallengeCasePage({
       params: Promise.resolve({ label: 'slashed-premium' }),
     });
     render(page);
     expect(screen.getByTestId('challenge-kind')).toHaveTextContent('kind=slashed');
-    expect(screen.getByTestId('eligibility-required')).toBeInTheDocument();
+    // Both the challenger's form and the arbiter's ruling surface are gated.
+    expect(screen.getAllByTestId('eligibility-required')).toHaveLength(2);
     expect(screen.queryByTestId('challenge-preview')).toBeNull();
-    fireEvent.click(screen.getByTestId('eligibility-not-us'));
-    fireEvent.click(screen.getByTestId('eligibility-tos-reset'));
-    fireEvent.click(screen.getByTestId('eligibility-accept'));
+    expect(screen.queryByTestId('resolve-submit')).toBeNull();
+    acceptGate();
+    // The first gate is now gone; the remaining one is the ruling's.
+    acceptGate();
     expect(screen.getByTestId('challenge-preview')).toBeEnabled();
+    expect(screen.getByTestId('resolve-submit')).toBeEnabled();
     fireEvent.click(screen.getByTestId('challenge-preview'));
     expect(screen.getByText('Approve premium registry to spend collateral')).toBeInTheDocument();
     expect(screen.getByText('Challenge committed premium')).toBeInTheDocument();

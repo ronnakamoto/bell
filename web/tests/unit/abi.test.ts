@@ -32,10 +32,12 @@ describe('selectorOf', () => {
       claim: '0x4e71d92d',
       withdrawPool: '0x5c42c733',
       challenge: '0x1cd3c0dd',
+      resolve: '0x0564e9d1',
       collateral: '0xd8dfeb45',
       longClaim: '0x1671ce49',
       shortClaim: '0x223b052d',
       bondToken: '0xc28f4392',
+      arbiter: '0xfe25e00a',
     };
     for (const [method, selector] of Object.entries(expected)) {
       expect(selectorOf(fragmentOf(method), nobleKeccak)).toBe(selector);
@@ -63,6 +65,16 @@ describe('encodeWord', () => {
   it('passes a bytes32 through unchanged', () => {
     const word = `0x${'ab'.repeat(32)}`;
     expect(encodeWord('bytes32', word)).toBe(word);
+  });
+
+  it('encodes a bool as a word of 0 or 1', () => {
+    expect(encodeWord('bool', 1n)).toBe(`0x${'00'.repeat(31)}01`);
+    expect(encodeWord('bool', 0n)).toBe(`0x${'00'.repeat(32)}`);
+  });
+
+  it('refuses a bool that is not 0 or 1', () => {
+    expect(() => encodeWord('bool', 2n)).toThrow(/bool must be 0 or 1/);
+    expect(() => encodeWord('bool', 'true')).toThrow(/bool must be a bigint/);
   });
 
   it('refuses an address that is not 20 bytes', () => {
@@ -109,6 +121,15 @@ describe('encodeCalldata', () => {
     expect(calldata).toBe(`0x1cd3c0dd${'cd'.repeat(32)}${'00'.repeat(31)}07`);
   });
 
+  it('encodes resolve with a bool ruling', () => {
+    const nameId = `0x${'cd'.repeat(32)}`;
+    const calldata = encodeCalldata(
+      { label: 'x', target: 'premium', method: 'resolve', args: [nameId, 7n, 1n] },
+      nobleKeccak,
+    );
+    expect(calldata).toBe(`0x0564e9d1${'cd'.repeat(32)}${'00'.repeat(31)}07${'00'.repeat(31)}01`);
+  });
+
   it('refuses an argument count that does not match the fragment', () => {
     expect(() =>
       encodeCalldata({ label: 'x', target: 'session', method: 'buyLong', args: [1n] }, nobleKeccak),
@@ -135,6 +156,7 @@ describe('ABI_FRAGMENTS', () => {
     expect(Object.keys(ABI_FRAGMENTS).sort()).toEqual(
       [
         'approve',
+        'arbiter',
         'bondToken',
         'buyLong',
         'buyShort',
@@ -143,6 +165,7 @@ describe('ABI_FRAGMENTS', () => {
         'collateral',
         'longClaim',
         'mintPair',
+        'resolve',
         'seedPool',
         'shortClaim',
         'withdrawPool',
