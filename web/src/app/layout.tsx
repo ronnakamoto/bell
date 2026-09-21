@@ -13,7 +13,7 @@ export default function RootLayout({ children }: { children: ReactNode }): React
         <header>
           <h1>BELL</h1>
           <p>
-            Discovery, pricing, and intent builder — transactions are not broadcast in this build.
+            Discovery, pricing, intent builder, and wallet broadcast — the app never holds keys.
           </p>
         </header>
         <main>{children}</main>

@@ -62,3 +62,28 @@ export interface ChallengeSource {
   /** The `(nameId, forSession)` of the case labelled `label`. */
   identity(label: string): Promise<ChallengeCaseIdentity>;
 }
+
+/** One transaction to broadcast. */
+export interface WalletTx {
+  /** The contract to call. */
+  readonly to: string;
+  /** The calldata, as `0x`-prefixed hex. */
+  readonly data: string;
+}
+
+/**
+ * The seam between the broadcast use case and whatever wallet is injected.
+ *
+ * `connect` returns the account the wallet will sign with; `read` is an `eth_call` returning the
+ * raw 32-byte result word (the use case decodes it); `send` broadcasts a transaction and returns
+ * its hash. The use case never learns whether the provider is `window.ethereum`, a test double or
+ * a future wallet SDK.
+ */
+export interface WalletProvider {
+  /** The account the wallet will sign with, connecting first if needed. */
+  connect(): Promise<string>;
+  /** The raw result word of `eth_call` to `address` with `calldata`. */
+  read(address: string, calldata: string): Promise<string>;
+  /** Broadcast `tx` and return its hash. */
+  send(tx: WalletTx): Promise<string>;
+}

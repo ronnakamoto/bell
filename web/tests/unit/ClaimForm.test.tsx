@@ -14,7 +14,7 @@ afterEach(() => {
 
 describe('ClaimForm', () => {
   it('previews claim steps with no amount inputs', () => {
-    render(<ClaimForm />);
+    render(<ClaimForm sessionAddress="0x1111111111111111111111111111111111111111" />);
     expect(screen.queryByRole('textbox')).toBeNull();
     fireEvent.click(screen.getByTestId('claim-preview'));
     expect(screen.getByText('Claim settlement payout')).toBeInTheDocument();
@@ -23,7 +23,7 @@ describe('ClaimForm', () => {
 
 describe('WithdrawPoolForm', () => {
   it('previews withdrawPool steps with no amount inputs', () => {
-    render(<WithdrawPoolForm />);
+    render(<WithdrawPoolForm sessionAddress="0x1111111111111111111111111111111111111111" />);
     expect(screen.queryByRole('textbox')).toBeNull();
     fireEvent.click(screen.getByTestId('withdraw-pool-preview'));
     expect(screen.getByText('Withdraw liquidity from pool')).toBeInTheDocument();
@@ -32,14 +32,24 @@ describe('WithdrawPoolForm', () => {
 
 describe('SessionSettlementIntents', () => {
   it('renders claim and withdrawPool forms when the session is settled', () => {
-    render(<SessionSettlementIntents settled={true} />);
+    render(
+      <SessionSettlementIntents
+        settled={true}
+        sessionAddress="0x1111111111111111111111111111111111111111"
+      />,
+    );
     expect(screen.queryByTestId('claim-disabled-not-settled')).toBeNull();
     expect(screen.getByTestId('claim-preview')).toBeEnabled();
     expect(screen.getByTestId('withdraw-pool-preview')).toBeEnabled();
   });
 
   it('hides claim and withdrawPool forms when the session is not settled', () => {
-    render(<SessionSettlementIntents settled={false} />);
+    render(
+      <SessionSettlementIntents
+        settled={false}
+        sessionAddress="0x1111111111111111111111111111111111111111"
+      />,
+    );
     expect(screen.getByTestId('claim-disabled-not-settled')).toBeInTheDocument();
     expect(screen.queryByTestId('claim-preview')).toBeNull();
     expect(screen.queryByTestId('withdraw-pool-preview')).toBeNull();

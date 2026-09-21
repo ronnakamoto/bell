@@ -6,10 +6,12 @@ import { TradeForm } from './TradeForm.js';
 
 export interface SessionIntentsProps {
   readonly quote: Quote;
+  /** The session the trade/LP batches act on. */
+  readonly sessionAddress: string;
 }
 
 /** Gate trade/LP intent forms on a non-Refuse quote. */
-export function SessionIntents({ quote }: SessionIntentsProps): ReactNode {
+export function SessionIntents({ quote, sessionAddress }: SessionIntentsProps): ReactNode {
   if (quote.verdict === 'Refuse') {
     return (
       <p data-testid="trade-disabled-refuse">
@@ -20,8 +22,8 @@ export function SessionIntents({ quote }: SessionIntentsProps): ReactNode {
 
   return (
     <>
-      <TradeForm />
-      <LpForm />
+      <TradeForm sessionAddress={sessionAddress} />
+      <LpForm sessionAddress={sessionAddress} />
     </>
   );
 }

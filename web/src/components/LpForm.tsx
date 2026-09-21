@@ -2,26 +2,37 @@
 
 import { type FormEvent, type ReactNode, useState } from 'react';
 
+import { type IntentBatch } from '../domain/intents.js';
 import { buildMintThenSeed } from '../domain/lp.js';
+import { BroadcastButton } from './BroadcastButton.js';
 import { describeCaughtError, parseDigitAmount } from './parseAmount.js';
 
-export function LpForm(): ReactNode {
+export interface LpFormProps {
+  /** The session the LP batch acts on. */
+  readonly sessionAddress: string;
+}
+
+export function LpForm({ sessionAddress }: LpFormProps): ReactNode {
   const [mintAmount, setMintAmount] = useState('');
   const [longIn, setLongIn] = useState('');
   const [shortIn, setShortIn] = useState('');
   const [steps, setSteps] = useState<readonly string[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  function buildBatch(): IntentBatch {
+    return buildMintThenSeed({
+      mintAmount: parseDigitAmount(mintAmount),
+      longIn: parseDigitAmount(longIn),
+      shortIn: parseDigitAmount(shortIn),
+    });
+  }
+
   function onPreview(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
     setError(null);
     setSteps([]);
     try {
-      const batch = buildMintThenSeed({
-        mintAmount: parseDigitAmount(mintAmount),
-        longIn: parseDigitAmount(longIn),
-        shortIn: parseDigitAmount(shortIn),
-      });
+      const batch = buildBatch();
       setSteps(batch.steps.map((step) => step.label));
     } catch (caught) {
       setError(describeCaughtError(caught));
@@ -77,6 +88,7 @@ export function LpForm(): ReactNode {
           ))}
         </ol>
       ) : null}
+      <BroadcastButton build={buildBatch} targets={{ session: sessionAddress }} />
     </section>
   );
 }

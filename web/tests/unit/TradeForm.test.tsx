@@ -13,12 +13,12 @@ afterEach(() => {
 
 describe('TradeForm', () => {
   it('starts with an empty minOut input', () => {
-    render(<TradeForm />);
+    render(<TradeForm sessionAddress="0x1111111111111111111111111111111111111111" />);
     expect(screen.getByTestId('trade-min-out')).toHaveValue('');
   });
 
   it('previews buy-long steps for integer amounts', () => {
-    render(<TradeForm />);
+    render(<TradeForm sessionAddress="0x1111111111111111111111111111111111111111" />);
     fireEvent.change(screen.getByLabelText('Collateral in'), { target: { value: '50' } });
     fireEvent.change(screen.getByTestId('trade-min-out'), { target: { value: '1' } });
     fireEvent.click(screen.getByTestId('trade-preview'));
@@ -27,7 +27,7 @@ describe('TradeForm', () => {
   });
 
   it('previews buy-short steps when short is selected', () => {
-    render(<TradeForm />);
+    render(<TradeForm sessionAddress="0x1111111111111111111111111111111111111111" />);
     fireEvent.change(screen.getByLabelText('Side'), { target: { value: 'short' } });
     fireEvent.change(screen.getByLabelText('Collateral in'), { target: { value: '50' } });
     fireEvent.change(screen.getByTestId('trade-min-out'), { target: { value: '1' } });
@@ -36,7 +36,7 @@ describe('TradeForm', () => {
   });
 
   it('treats a non-short side as long', () => {
-    render(<TradeForm />);
+    render(<TradeForm sessionAddress="0x1111111111111111111111111111111111111111" />);
     fireEvent.change(screen.getByLabelText('Side'), { target: { value: 'short' } });
     fireEvent.change(screen.getByLabelText('Side'), { target: { value: 'long' } });
     fireEvent.change(screen.getByLabelText('Collateral in'), { target: { value: '50' } });
@@ -46,7 +46,7 @@ describe('TradeForm', () => {
   });
 
   it('shows an error for non-digit amounts', () => {
-    render(<TradeForm />);
+    render(<TradeForm sessionAddress="0x1111111111111111111111111111111111111111" />);
     fireEvent.change(screen.getByLabelText('Collateral in'), { target: { value: '1.5' } });
     fireEvent.change(screen.getByTestId('trade-min-out'), { target: { value: '1' } });
     fireEvent.click(screen.getByTestId('trade-preview'));
@@ -55,7 +55,7 @@ describe('TradeForm', () => {
   });
 
   it('shows the domain error when minOut is zero', () => {
-    render(<TradeForm />);
+    render(<TradeForm sessionAddress="0x1111111111111111111111111111111111111111" />);
     fireEvent.change(screen.getByLabelText('Collateral in'), { target: { value: '50' } });
     fireEvent.change(screen.getByTestId('trade-min-out'), { target: { value: '0' } });
     fireEvent.click(screen.getByTestId('trade-preview'));
@@ -65,7 +65,12 @@ describe('TradeForm', () => {
 
 describe('SessionIntents', () => {
   it('hides trade and LP forms when the quote is Refuse', () => {
-    render(<SessionIntents quote={{ verdict: 'Refuse' }} />);
+    render(
+      <SessionIntents
+        quote={{ verdict: 'Refuse' }}
+        sessionAddress="0x1111111111111111111111111111111111111111"
+      />,
+    );
     expect(screen.getByTestId('trade-disabled-refuse')).toBeInTheDocument();
     expect(screen.queryByTestId('trade-preview')).toBeNull();
     expect(screen.queryByTestId('lp-preview')).toBeNull();
@@ -79,6 +84,7 @@ describe('SessionIntents', () => {
           lambdaWad: 10n ** 18n,
           premiumWad: 10n ** 17n,
         }}
+        sessionAddress="0x1111111111111111111111111111111111111111"
       />,
     );
     expect(screen.queryByTestId('trade-disabled-refuse')).toBeNull();
@@ -94,6 +100,7 @@ describe('SessionIntents', () => {
           lambdaWad: 10n ** 18n,
           premiumWad: 10n ** 17n,
         }}
+        sessionAddress="0x1111111111111111111111111111111111111111"
       />,
     );
     expect(screen.queryByTestId('trade-disabled-refuse')).toBeNull();
