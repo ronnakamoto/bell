@@ -49,13 +49,19 @@ function upheldInputsHashHex(): string {
 }
 
 function aWindow(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  const windowSessions = (overrides['windowSessions'] as number | undefined) ?? 100;
+  const bars = Array.from({ length: windowSessions }, (_, index) => ({
+    tradingDate: `2020-01-${String((index % 28) + 1).padStart(2, '0')}`,
+    closeWad: '100000000000000000000',
+    nextOpenWad: '101000000000000000000',
+  }));
   return {
     symbol: 'NVDA',
     session: 'E',
-    windowSessions: 100,
+    windowSessions,
     sourceIds: ['test-fixture'],
     familyName: 'empirical',
-    bars: [SAMPLE_BAR],
+    bars,
     ...overrides,
   };
 }
@@ -237,6 +243,45 @@ describe('parseCommittedInputsDocument', () => {
       ),
     ).toThrow(CommittedInputStoreMalformed);
   });
+
+  it('refuses a window whose bar count differs from its windowSessions', () => {
+    expect(() =>
+      parseCommittedInputsDocument(
+        '/s.json',
+        documentOf({ [SAMPLE_HASH]: aWindow({ windowSessions: 100, bars: [SAMPLE_BAR] }) }),
+      ),
+    ).toThrow(/holds exactly the tail/);
+  });
+
+  it('refuses a bar whose tradingDate is not a calendar date', () => {
+    expect(() =>
+      parseCommittedInputsDocument(
+        '/s.json',
+        documentOf({
+          [SAMPLE_HASH]: aWindow({ bars: [{ ...SAMPLE_BAR, tradingDate: '2020-13-45' }] }),
+        }),
+      ),
+    ).toThrow(/tradingDate/);
+    expect(() =>
+      parseCommittedInputsDocument(
+        '/s.json',
+        documentOf({
+          [SAMPLE_HASH]: aWindow({ bars: [{ ...SAMPLE_BAR, tradingDate: 'not-a-date' }] }),
+        }),
+      ),
+    ).toThrow(/tradingDate/);
+  });
+
+  it('refuses a bar whose close is not positive', () => {
+    expect(() =>
+      parseCommittedInputsDocument(
+        '/s.json',
+        documentOf({
+          [SAMPLE_HASH]: aWindow({ bars: [{ ...SAMPLE_BAR, closeWad: '0' }] }),
+        }),
+      ),
+    ).toThrow(/closeWad must be positive/);
+  });
 });
 
 describe('FileCommittedInputStore', () => {
@@ -244,7 +289,7 @@ describe('FileCommittedInputStore', () => {
     const store = storeFrom({ [SAMPLE_HASH]: aWindow() });
     const found = await store.window(bytesFromHex(SAMPLE_HASH));
     expect(found?.symbol).toBe('NVDA');
-    expect(found?.bars).toHaveLength(1);
+    expect(found?.bars).toHaveLength(100);
     expect(found?.bars[0]?.closeWad).toBe(100_000_000_000_000_000_000n);
   });
 

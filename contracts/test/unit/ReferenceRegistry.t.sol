@@ -132,6 +132,18 @@ contract ReferenceRegistryTest is Test {
         registry.submitPrint(address(0xBAD), 1, uint64(block.timestamp), 0.01e18);
     }
 
+    function test_submitPrint_refusesAPrintThatClaimsAnotherSource() public {
+        // An authorised source must not be able to attribute its evidence to a different feed: the
+        // recorded source is the audit trail's answer to which feed reported it.
+        vm.prank(REPORTER);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ReferencePrintBook.SourceSpoofed.selector, REPORTER, address(0xBAD)
+            )
+        );
+        registry.submitPrint(address(0xBAD), 1, uint64(block.timestamp), 0.01e18);
+    }
+
     function test_submitPrint_refusesAPrintWhenTheBookIsFull() public {
         // The settlement scan is O(prints), so the book has a capacity: without it an authorised
         // source could grow the book without bound and push a settlement's scan past the block gas

@@ -3804,6 +3804,36 @@ reference token (F28), so the cap is per listing. A listing that exhausts it has
 sources: submissions revert loudly with `PrintBookFull`, and settlement degrades to the fallback
 routes rather than bricking. F101 is closed.
 
+## F102 — a print could attribute itself to a different feed
+
+The brief's `submitPrint(source, priority, timestamp, gapWad)` takes the source as an argument, and
+the authorisation check is on `msg.sender` — so an authorised source could pass any `source` value
+and the print would be recorded, and the `PrintSubmitted` event would name, a feed that never
+reported it. The recorded source is the audit trail's answer to "which feed reported it"; a print
+that could blame its evidence on another feed breaks the trail at the one place it is trusted
+(F30's whole point is that the source is the authorised entity).
+
+**Resolution.** `submitPrint` now refuses `source != msg.sender` with the named `SourceSpoofed`
+error, after the authorisation check (an unauthorised caller still gets `NotAuthorisedSource`
+first). The brief's signature is unchanged; the parameter is now a claim that must match the
+caller, not a free field. F102 is closed.
+
+## F103 — the committed-input parser accepted windows no calibration could have produced
+
+The committed-input file parser validated the shape of a window — key width, session kind, integer
+fields — but not its semantics: a window could hold a bar count that differed from its own
+`windowSessions`, a `tradingDate` that was not a calendar date, or a non-positive close. Each of
+these would surface later as a `DomainError` from the digest or the fit — crashing a challenge path
+that must report unavailability instead of throwing, and accepting documents no calibration could
+have produced.
+
+**Resolution.** The parser now refuses all three as `CommittedInputStoreMalformed`: the bar count
+must equal `windowSessions` (the publisher stores exactly the tail the fit consumed, so a mismatch
+is not the committed window however its rows read), the `tradingDate` must pass the calibrator's
+`dateOrdinal` (the same validation the digest applies), and the `close` must be positive (the gap
+is `nextOpen / close - 1`, so a non-positive close cannot form a ratio). The HTTP adapter shares
+this parser, so both store edges refuse the same set. F103 is closed.
+
 ## Still open
 
 | # | Item | Blocking |
