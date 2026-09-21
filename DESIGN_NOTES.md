@@ -3731,6 +3731,33 @@ Measured: a `buyLong` with the fee is 128,339 gas (the delta is the fee computat
 `poolFees` line); the constructor's truncated moment adds ~35k to a `createSession` that measures
 3,662,616 gas. F97 is closed.
 
+## F98 — the committed-input store is keyed by a hash nothing verifies
+
+The challenge path commits `inputsHash` on chain and later re-fits the window the store returns for
+that key. The binding was never checked: `refitFromStore` retrieved `store.window(inputsHash)` and
+fit whatever came back, and `mergeCommittedWindow` accepted any caller-supplied key for any window.
+A store that returned a *different* window for a committed key — a corrupted fixture, a buggy
+publisher, a malicious mirror — would make the re-fit judge against inputs the publisher never
+committed, and the challenge would rule on the wrong data. The `rowsDigest` field the store carries
+is derived from the window and cannot drift, but the `inputsHash` key itself was unverified, and the
+key is what the on-chain commitment names.
+
+**The fix is a binding check at both edges.** The writer recomputes `inputsHash` from the window's
+metadata and rows and refuses to store a window under a hash its content does not produce; the
+reader recomputes the same hash from the window it retrieved and treats a mismatch as
+`inputs-unavailable` rather than fitting it. The recomputation is exactly the publisher's: the
+preimage is `(windowSessions, session, sourceIds, rowCount, rowsDigest)` with `rowCount =
+windowSessions` (the tail the fit consumed) and the digest over the last `windowSessions` bars, so a
+store that holds the full series rather than the tail still binds if its tail is the committed one.
+The `session` field is typed as the calibrator's `SessionKind` (the file parser already validated
+it), so a non-kind string cannot reach the preimage.
+
+**Why a binding check rather than a trust model.** The store is a mirror, not a signer: it cannot
+prove it holds the committed inputs, and the whole point of the challenge mechanism is that a
+challenger can verify from the commitment alone. The hash recomputation is the cheapest possible
+verification — a keccak over the window — and it makes the store's key a *derived* value rather than
+an asserted one. F98 is closed.
+
 ## Still open
 
 | # | Item | Blocking |
