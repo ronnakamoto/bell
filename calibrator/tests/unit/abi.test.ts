@@ -6,6 +6,9 @@
  * padding rules and the named refusals.
  */
 
+import { nobleKeccak } from '@bell/settlement/adapters/keccak_noble.js';
+import { describe, expect, it } from 'vitest';
+
 import {
   ABI_FRAGMENTS,
   decodeAddressWord,
@@ -14,8 +17,6 @@ import {
   fragmentOf,
   selectorOf,
 } from '../../src/domain/abi.js';
-import { nobleKeccak } from '@bell/settlement/adapters/keccak_noble.js';
-import { describe, expect, it } from 'vitest';
 
 const SESSION = '0x1111111111111111111111111111111111111111';
 const COLLATERAL = '0x2222222222222222222222222222222222222222';
@@ -149,8 +150,10 @@ describe('ABI_FRAGMENTS', () => {
         'buyShort',
         'challenge',
         'claim',
+        'close',
         'collateral',
         'commit',
+        'expire',
         'longClaim',
         'mintPair',
         'resolve',

@@ -40,6 +40,8 @@ export const ABI_FRAGMENTS: Readonly<Record<string, AbiFragment>> = {
   mintPair: { signature: 'mintPair(uint256)', inputs: ['uint256'] },
   seedPool: { signature: 'seedPool(uint256,uint256)', inputs: ['uint256', 'uint256'] },
   claim: { signature: 'claim()', inputs: [] },
+  close: { signature: 'close()', inputs: [] },
+  expire: { signature: 'expire()', inputs: [] },
   withdrawPool: { signature: 'withdrawPool()', inputs: [] },
   challenge: { signature: 'challenge(bytes32,uint64)', inputs: ['bytes32', 'uint64'] },
   resolve: { signature: 'resolve(bytes32,uint64,bool)', inputs: ['bytes32', 'uint64', 'bool'] },
