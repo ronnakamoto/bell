@@ -6,6 +6,7 @@ import {Constants} from "../../src/generated/Constants.sol";
 import {Branch} from "../../src/types/Branch.sol";
 import {Payoff} from "../../src/libraries/Payoff.sol";
 import {ReferencePrintBook} from "../../src/core/ReferencePrintBook.sol";
+import {ReferencePrintBook} from "../../src/core/ReferencePrintBook.sol";
 import {ReferenceRegistry} from "../../src/core/ReferenceRegistry.sol";
 import {Session} from "../../src/core/Session.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
@@ -81,6 +82,31 @@ contract ReferenceRegistryTest is Test {
         registry.registerSession(address(session), address(referenceToken));
     }
 
+    function test_registerSession_refusesAZeroSessionOrToken() public {
+        vm.expectRevert(ReferencePrintBook.ZeroAddress.selector);
+        registry.registerSession(address(0), address(referenceToken));
+        vm.expectRevert(ReferencePrintBook.ZeroAddress.selector);
+        registry.registerSession(address(session), address(0));
+    }
+
+    function test_registerSession_refusesAnAddressThatIsNotASession() public {
+        // An EOA has no session surface: the calls decode as a zero leverage and a zero expiry,
+        // and the record must be refused rather than stored with either.
+        vm.expectRevert(
+            abi.encodeWithSelector(ReferenceRegistry.NotASession.selector, address(0xBEEF))
+        );
+        registry.registerSession(address(0xBEEF), address(referenceToken));
+    }
+
+    function test_registerSession_refusesAContractWithoutTheSessionSurface() public {
+        // A contract with code but no `expiryTimestamp`/`lamWad` getters reverts on the reads;
+        // the low-level read turns that into the named error rather than an anonymous revert.
+        vm.expectRevert(
+            abi.encodeWithSelector(ReferenceRegistry.NotASession.selector, address(collateral))
+        );
+        registry.registerSession(address(collateral), address(referenceToken));
+    }
+
     // ---------------------------------------------------------------- ingestion guards
 
     function test_submitPrint_acceptsAPlausibleGap() public {
@@ -104,6 +130,27 @@ contract ReferenceRegistryTest is Test {
             abi.encodeWithSelector(ReferencePrintBook.NotAuthorisedSource.selector, address(0xBAD))
         );
         registry.submitPrint(address(0xBAD), 1, uint64(block.timestamp), 0.01e18);
+    }
+
+    function test_submitPrint_refusesAPrintWhenTheBookIsFull() public {
+        // The settlement scan is O(prints), so the book has a capacity: without it an authorised
+        // source could grow the book without bound and push a settlement's scan past the block gas
+        // limit. Fill the book and check the next print is refused loudly.
+        for (uint256 i = 0; i < Constants.MAX_PRINTS; ++i) {
+            vm.prank(REPORTER);
+            registry.submitPrint(REPORTER, 1, uint64(block.timestamp + i), 0.01e18);
+        }
+        assertEq(registry.printCount(), Constants.MAX_PRINTS);
+
+        vm.prank(REPORTER);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ReferencePrintBook.PrintBookFull.selector,
+                Constants.MAX_PRINTS,
+                Constants.MAX_PRINTS
+            )
+        );
+        registry.submitPrint(REPORTER, 1, uint64(block.timestamp + Constants.MAX_PRINTS), 0.01e18);
     }
 
     function test_G3_refusesAPrintBeyondTheTier1HaltBand() public {

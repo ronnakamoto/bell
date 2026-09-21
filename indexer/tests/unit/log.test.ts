@@ -63,8 +63,8 @@ function log(topics: readonly string[], data = '0x'): RawLog {
 
 describe('addresses are compared in one form', () => {
   it('lower-cases a checksummed address', () => {
-    expect(addressKey('0xEbaa350Fe46C7b07170af86dD750752F1e0E5202')).toBe(
-      '0xebaa350fe46c7b07170af86dd750752f1e0e5202',
+    expect(addressKey('0xCaEBaDcd061f2529967Bb966288176b1e3701c37')).toBe(
+      '0xcaebadcd061f2529967bb966288176b1e3701c37',
     );
   });
 
@@ -77,7 +77,7 @@ describe('addresses are compared in one form', () => {
     const settled = firstWith(SETTLED);
     expect(settled.emitter).toMatch(/[A-F]/);
     expect(emitterKey(settled)).toBe(addressOfTopic(firstWith(SESSION_CREATED), 1));
-    expect(emitterKey(settled)).toBe('0xebaa350fe46c7b07170af86dd750752f1e0e5202');
+    expect(emitterKey(settled)).toBe('0xcaebadcd061f2529967bb966288176b1e3701c37');
   });
 });
 
@@ -113,7 +113,7 @@ describe('topicAt and wordAt refuse by naming the index', () => {
 describe('addresses are read out of a word, and only out of a word that holds one', () => {
   it('takes the low twenty bytes of a topic', () => {
     expect(addressOfTopic(firstWith(SESSION_CREATED), 1)).toBe(
-      '0xebaa350fe46c7b07170af86dd750752f1e0e5202',
+      '0xcaebadcd061f2529967bb966288176b1e3701c37',
     );
   });
 

@@ -3758,6 +3758,52 @@ challenger can verify from the commitment alone. The hash recomputation is the c
 verification — a keccak over the window — and it makes the store's key a *derived* value rather than
 an asserted one. F98 is closed.
 
+## F99 — the commit preview refuses a premium above 100%, which the calibrator already refuses
+
+The calibrator's `ParameterSet` bounds the premium to `(0, 1]` — "a premium outside (0, 1] is not
+priceable" — but the commit path that spends the publisher's gas did not: `buildCommit` checked
+`premiumWad > 0` and nothing else, and the on-chain `PremiumRegistry.commit` rejects only a zero
+premium. A publisher could commit a premium above 100%, which no calibration can produce and any
+challenge would slash. The preview exists precisely so a publisher finds that out before spending
+gas (the registry would revert the zero case; the over-100% case would not revert, only lose the
+bond later).
+
+**Resolution.** `buildCommit` now refuses `premiumWad > WAD` with a named error, matching
+`ParameterSet`'s bound. The on-chain registry is unchanged: its job is to store the commitment
+faithfully, and the challenge mechanism is the arbiter of a bad value — but the preview should not
+hand a publisher a commitment that is doomed. F99 is closed.
+
+## F100 — `registerSession` accepted an EOA as a session
+
+The registry's `registerSession` is permissionless so a session created outside the factory can
+still be registered (F93). It read `expiryTimestamp` and `lamWad` from the address and stored the
+record — but a call to an EOA or to a contract without the session surface returns empty data, and
+Solidity 0.8.26's high-level call turns that into an anonymous empty revert that `try/catch` does
+not catch. An EOA would register as a session with a zero leverage and a zero expiry, poisoning
+resolution with a record no real session could have.
+
+**Resolution.** `registerSession` now refuses both zero addresses with the existing `ZeroAddress`
+error, and reads the two session fields with a low-level `staticcall` that converts a missing
+surface into the named `NotASession` error. A real session always carries a positive leverage and a
+future expiry, so either zero proves the address is not a session even when the reads did not
+revert. F100 is closed.
+
+## F101 — the print book had no capacity, and the settlement scan is O(prints)
+
+`ReferencePrintBook` accepted prints without bound, and `_trySelect` scans the whole book on every
+settlement. Measured in this repository: the scan costs ~6,017 gas per print, so an authorised
+source — or a compromised one — could grow the book until a settlement's scan passed the block gas
+limit, a DoS on settlement itself. The magnitude guards bound a print's *truth* (F30, F31); nothing
+bound its *volume*.
+
+**Resolution.** A `MAX_PRINTS` capacity, wired through `spec/constants.yaml` as the single source:
+4,096 prints, chosen so a settlement's scan stays at ~25M gas (within one block) and so the cap
+covers years of the paper's reporting cadence — a handful of whitelisted sources reporting the
+session gap at the open, a few prints per session. The book is per registry and a registry is per
+reference token (F28), so the cap is per listing. A listing that exhausts it has misbehaving
+sources: submissions revert loudly with `PrintBookFull`, and settlement degrades to the fallback
+routes rather than bricking. F101 is closed.
+
 ## Still open
 
 | # | Item | Blocking |

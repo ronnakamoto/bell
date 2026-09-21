@@ -70,7 +70,7 @@ describe('parseIvDocument', () => {
       JSON.stringify({
         readings: [
           {
-            forSessionAddress: '0xEbaa350Fe46C7b07170af86dD750752F1e0E5202',
+            forSessionAddress: '0xCaEBaDcd061f2529967Bb966288176b1e3701c37',
             viewSession: '1',
             pool: { sigmaWad: '1', session: '1', provenance: 'pool' },
             fallback: null,
@@ -79,7 +79,7 @@ describe('parseIvDocument', () => {
       }),
     );
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.forSessionAddress).toBe('0xebaa350fe46c7b07170af86dd750752f1e0e5202');
+    expect(rows[0]?.forSessionAddress).toBe('0xcaebadcd061f2529967bb966288176b1e3701c37');
     expect(rows[0]?.boundSessions).toBeUndefined();
   });
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildCommit } from '../../src/domain/commit_intent.js';
-import { MIN_PUBLISHER_BOND } from '../../src/domain/constants.js';
+import { MIN_PUBLISHER_BOND, WAD } from '../../src/domain/constants.js';
 import { DomainError } from '../../src/domain/models.js';
 
 const NAME_ID = '0xe108948b9667048232851f26a1427d3a908b22da622562906ca50ea536c2ecfb';
@@ -118,6 +118,15 @@ describe('buildCommit', () => {
         inputsHash: INPUTS_HASH,
       }),
     ).toThrow(/premiumWad/);
+    expect(() =>
+      buildCommit({
+        nameId: NAME_ID,
+        forSession: 1n,
+        lambdaWad: 1n,
+        premiumWad: WAD + 1n,
+        inputsHash: INPUTS_HASH,
+      }),
+    ).toThrow(/at most 1/);
     expect(() =>
       buildCommit({
         nameId: NAME_ID,
