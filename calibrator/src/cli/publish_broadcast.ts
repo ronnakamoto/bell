@@ -9,8 +9,8 @@
  */
 
 import { nobleKeccak } from '../adapters/keccak_noble.js';
-import { JsonRpcClient } from '../adapters/rpc_client.js';
 import { rpcBroadcastNode } from '../adapters/rpc_broadcast_node.js';
+import { JsonRpcClient } from '../adapters/rpc_client.js';
 import { privateKeyToAddress } from '../adapters/signer.js';
 import { signLegacyTx } from '../adapters/tx_signer.js';
 import { broadcastCommitBatch } from '../application/broadcast.js';
