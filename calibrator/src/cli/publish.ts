@@ -25,6 +25,7 @@ import {
 } from '../adapters/gap_source_file.js';
 import { nobleKeccak } from '../adapters/keccak_noble.js';
 import { RecordingPublisher } from '../adapters/publisher_recording.js';
+import { RpcMalformed, RpcUnavailable } from '../adapters/rpc_client.js';
 import { calibrate, CalibrationRequest } from '../application/calibrate.js';
 import { publish, PublishRequest } from '../application/publish.js';
 import { hexOf } from '../domain/bytes.js';
@@ -33,9 +34,14 @@ import { WAD } from '../domain/constants.js';
 import { nameId } from '../domain/digest.js';
 import { seedFamily } from '../domain/families/index.js';
 import { DailyBar, DomainError, SessionKind, Symbol, Wad } from '../domain/models.js';
+import {
+  broadcastIntent,
+  BroadcastUsageError,
+  requireBroadcastFlags,
+} from './publish_broadcast.js';
 
 const USAGE =
-  'usage: publish [--bars <csv-or-dir>] [--store <path>] [--symbol <sym>] [--session E|W|H|C] [--window <n>] [--source-id <id>]... [--for-session <n>] [--current-session <n>]';
+  'usage: publish [--bars <csv-or-dir>] [--store <path>] [--symbol <sym>] [--session E|W|H|C] [--window <n>] [--source-id <id>]... [--for-session <n>] [--current-session <n>] [--rpc-url <url> --private-key <hex> --premium <address>]';
 
 const DEFAULT_SYMBOL = 'NVDA';
 const DEFAULT_SESSION = SessionKind.OVERNIGHT;
@@ -79,6 +85,9 @@ interface ParsedArgs {
   readonly sourceIds: readonly string[];
   readonly forSession: bigint;
   readonly currentSession: bigint;
+  readonly rpcUrl: string | undefined;
+  readonly privateKey: string | undefined;
+  readonly premium: string | undefined;
 }
 
 function defaultStorePath(): string {
@@ -116,6 +125,9 @@ function parseArgv(argv: readonly string[]): ParsedArgs {
   const sourceIds: string[] = [];
   let forSession = DEFAULT_FOR_SESSION;
   let currentSession = DEFAULT_CURRENT_SESSION;
+  let rpcUrl: string | undefined;
+  let privateKey: string | undefined;
+  let premium: string | undefined;
 
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];
@@ -155,6 +167,15 @@ function parseArgv(argv: readonly string[]): ParsedArgs {
       case '--current-session':
         currentSession = parseNonNegativeBigInt('--current-session', value());
         break;
+      case '--rpc-url':
+        rpcUrl = value();
+        break;
+      case '--private-key':
+        privateKey = value();
+        break;
+      case '--premium':
+        premium = value();
+        break;
       default:
         throw new UsageError(`unknown argument: ${argument}\n${USAGE}`);
     }
@@ -169,6 +190,9 @@ function parseArgv(argv: readonly string[]): ParsedArgs {
     sourceIds: sourceIds.length === 0 ? [DEFAULT_SOURCE_ID] : sourceIds,
     forSession,
     currentSession,
+    rpcUrl,
+    privateKey,
+    premium,
   };
 }
 
@@ -324,6 +348,13 @@ export async function main(
         formatIntent(intent),
       ].join('\n') + '\n',
     );
+    if (
+      parsed.rpcUrl !== undefined ||
+      parsed.privateKey !== undefined ||
+      parsed.premium !== undefined
+    ) {
+      await broadcastIntent(intent, requireBroadcastFlags(parsed), (line) => io.stdout.write(line));
+    }
     return 0;
   } catch (error) {
     if (
@@ -332,7 +363,10 @@ export async function main(
       error instanceof GapSourceMalformed ||
       error instanceof CommittedInputStoreWriterUnavailable ||
       error instanceof CommittedInputStoreWriterMalformed ||
-      error instanceof DomainError
+      error instanceof DomainError ||
+      error instanceof RpcUnavailable ||
+      error instanceof RpcMalformed ||
+      error instanceof BroadcastUsageError
     ) {
       io.stderr.write(`${error.message}\n`);
       return 2;

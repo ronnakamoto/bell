@@ -1,11 +1,11 @@
 'use client';
 
+import { decodeAddressWord, fragmentOf, selectorOf } from '@bell/calibrator/domain/abi.js';
 import { nobleKeccak } from '@bell/settlement/adapters/keccak_noble.js';
 import { type ReactNode, useState } from 'react';
 
 import { injectedWallet } from '../adapters/wallet.js';
 import { broadcastIntents } from '../application/broadcast.js';
-import { decodeAddressWord, fragmentOf, selectorOf } from '../domain/abi.js';
 import { buildResolve } from '../domain/challenge_intent.js';
 
 export interface ResolveFormProps {
