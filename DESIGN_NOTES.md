@@ -3834,6 +3834,22 @@ is not the committed window however its rows read), the `tradingDate` must pass 
 is `nextOpen / close - 1`, so a non-positive close cannot form a ratio). The HTTP adapter shares
 this parser, so both store edges refuse the same set. F103 is closed.
 
+## F104 — the RPC log source asked the node for the whole chain in one request
+
+`RpcLogSource.logs()` issued a single `eth_getLogs` with `fromBlock: 'earliest'` and
+`toBlock: 'latest'`. A node caps both the block range and the result count of one request: a range
+that spans the whole chain is refused outright, and a page that returns more than the node's result
+cap is truncated or rejected. The indexer's catalogue would silently miss sessions — or fail to
+build at all — on any chain old enough to matter.
+
+**Resolution.** The source now reads `eth_blockNumber` once and walks the history in bounded pages
+of 10,000 blocks (the common node cap), concatenating in block order. A page the node refuses is
+halved and retried — the halving fires only on `RpcMalformed` (the node answered but refused,
+which is what a range or result cap looks like), never on `RpcUnavailable` (a down node), and a
+page that still fails at a single block propagates the refusal rather than being silently dropped.
+The head is snapshotted once per call, so a block mined mid-walk is picked up by the next call
+rather than half-included. F104 is closed.
+
 ## Still open
 
 | # | Item | Blocking |
