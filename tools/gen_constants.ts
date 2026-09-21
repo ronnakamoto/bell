@@ -393,6 +393,15 @@ function uintRows(document: ConstantsDocument): readonly Row[] {
       note: 'W; the longest the sample supports',
       source: 'paper §7.9 Table 15',
     },
+    {
+      solidity: 'MAX_PRINTS',
+      typescript: 'MAX_PRINTS',
+      value: BigInt(
+        exactInteger(at(document.print_book.max_prints.value, 'print_book.max_prints')),
+      ),
+      note: 'print book capacity; the settlement scan is O(prints)',
+      source: 'derived; measured in this repository',
+    },
   ];
 }
 
@@ -531,6 +540,7 @@ interface ConstantsDocument {
     readonly R5: { readonly expected_cost_bp: string };
   };
   readonly deployment: { readonly chain_id: number; readonly fork_block_l2: number };
+  readonly print_book: { readonly max_prints: { readonly value: number } };
   readonly gas_budget: {
     readonly truncated_moment_closed_form: { readonly baseline: number };
     readonly premium_read_from_storage: { readonly baseline: number };

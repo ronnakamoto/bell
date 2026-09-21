@@ -3731,6 +3731,145 @@ Measured: a `buyLong` with the fee is 128,339 gas (the delta is the fee computat
 `poolFees` line); the constructor's truncated moment adds ~35k to a `createSession` that measures
 3,662,616 gas. F97 is closed.
 
+## F98 — the committed-input store is keyed by a hash nothing verifies
+
+The challenge path commits `inputsHash` on chain and later re-fits the window the store returns for
+that key. The binding was never checked: `refitFromStore` retrieved `store.window(inputsHash)` and
+fit whatever came back, and `mergeCommittedWindow` accepted any caller-supplied key for any window.
+A store that returned a *different* window for a committed key — a corrupted fixture, a buggy
+publisher, a malicious mirror — would make the re-fit judge against inputs the publisher never
+committed, and the challenge would rule on the wrong data. The `rowsDigest` field the store carries
+is derived from the window and cannot drift, but the `inputsHash` key itself was unverified, and the
+key is what the on-chain commitment names.
+
+**The fix is a binding check at both edges.** The writer recomputes `inputsHash` from the window's
+metadata and rows and refuses to store a window under a hash its content does not produce; the
+reader recomputes the same hash from the window it retrieved and treats a mismatch as
+`inputs-unavailable` rather than fitting it. The recomputation is exactly the publisher's: the
+preimage is `(windowSessions, session, sourceIds, rowCount, rowsDigest)` with `rowCount =
+windowSessions` (the tail the fit consumed) and the digest over the last `windowSessions` bars, so a
+store that holds the full series rather than the tail still binds if its tail is the committed one.
+The `session` field is typed as the calibrator's `SessionKind` (the file parser already validated
+it), so a non-kind string cannot reach the preimage.
+
+**Why a binding check rather than a trust model.** The store is a mirror, not a signer: it cannot
+prove it holds the committed inputs, and the whole point of the challenge mechanism is that a
+challenger can verify from the commitment alone. The hash recomputation is the cheapest possible
+verification — a keccak over the window — and it makes the store's key a *derived* value rather than
+an asserted one. F98 is closed.
+
+## F99 — the commit preview refuses a premium above 100%, which the calibrator already refuses
+
+The calibrator's `ParameterSet` bounds the premium to `(0, 1]` — "a premium outside (0, 1] is not
+priceable" — but the commit path that spends the publisher's gas did not: `buildCommit` checked
+`premiumWad > 0` and nothing else, and the on-chain `PremiumRegistry.commit` rejects only a zero
+premium. A publisher could commit a premium above 100%, which no calibration can produce and any
+challenge would slash. The preview exists precisely so a publisher finds that out before spending
+gas (the registry would revert the zero case; the over-100% case would not revert, only lose the
+bond later).
+
+**Resolution.** `buildCommit` now refuses `premiumWad > WAD` with a named error, matching
+`ParameterSet`'s bound. The on-chain registry is unchanged: its job is to store the commitment
+faithfully, and the challenge mechanism is the arbiter of a bad value — but the preview should not
+hand a publisher a commitment that is doomed. F99 is closed.
+
+## F100 — `registerSession` accepted an EOA as a session
+
+The registry's `registerSession` is permissionless so a session created outside the factory can
+still be registered (F93). It read `expiryTimestamp` and `lamWad` from the address and stored the
+record — but a call to an EOA or to a contract without the session surface returns empty data, and
+Solidity 0.8.26's high-level call turns that into an anonymous empty revert that `try/catch` does
+not catch. An EOA would register as a session with a zero leverage and a zero expiry, poisoning
+resolution with a record no real session could have.
+
+**Resolution.** `registerSession` now refuses both zero addresses with the existing `ZeroAddress`
+error, and reads the two session fields with a low-level `staticcall` that converts a missing
+surface into the named `NotASession` error. A real session always carries a positive leverage and a
+future expiry, so either zero proves the address is not a session even when the reads did not
+revert. F100 is closed.
+
+## F101 — the print book had no capacity, and the settlement scan is O(prints)
+
+`ReferencePrintBook` accepted prints without bound, and `_trySelect` scans the whole book on every
+settlement. Measured in this repository: the scan costs ~6,017 gas per print, so an authorised
+source — or a compromised one — could grow the book until a settlement's scan passed the block gas
+limit, a DoS on settlement itself. The magnitude guards bound a print's *truth* (F30, F31); nothing
+bound its *volume*.
+
+**Resolution.** A `MAX_PRINTS` capacity, wired through `spec/constants.yaml` as the single source:
+4,096 prints, chosen so a settlement's scan stays at ~25M gas (within one block) and so the cap
+covers years of the paper's reporting cadence — a handful of whitelisted sources reporting the
+session gap at the open, a few prints per session. The book is per registry and a registry is per
+reference token (F28), so the cap is per listing. A listing that exhausts it has misbehaving
+sources: submissions revert loudly with `PrintBookFull`, and settlement degrades to the fallback
+routes rather than bricking. F101 is closed.
+
+## F102 — a print could attribute itself to a different feed
+
+The brief's `submitPrint(source, priority, timestamp, gapWad)` takes the source as an argument, and
+the authorisation check is on `msg.sender` — so an authorised source could pass any `source` value
+and the print would be recorded, and the `PrintSubmitted` event would name, a feed that never
+reported it. The recorded source is the audit trail's answer to "which feed reported it"; a print
+that could blame its evidence on another feed breaks the trail at the one place it is trusted
+(F30's whole point is that the source is the authorised entity).
+
+**Resolution.** `submitPrint` now refuses `source != msg.sender` with the named `SourceSpoofed`
+error, after the authorisation check (an unauthorised caller still gets `NotAuthorisedSource`
+first). The brief's signature is unchanged; the parameter is now a claim that must match the
+caller, not a free field. F102 is closed.
+
+## F103 — the committed-input parser accepted windows no calibration could have produced
+
+The committed-input file parser validated the shape of a window — key width, session kind, integer
+fields — but not its semantics: a window could hold a bar count that differed from its own
+`windowSessions`, a `tradingDate` that was not a calendar date, or a non-positive close. Each of
+these would surface later as a `DomainError` from the digest or the fit — crashing a challenge path
+that must report unavailability instead of throwing, and accepting documents no calibration could
+have produced.
+
+**Resolution.** The parser now refuses all three as `CommittedInputStoreMalformed`: the bar count
+must equal `windowSessions` (the publisher stores exactly the tail the fit consumed, so a mismatch
+is not the committed window however its rows read), the `tradingDate` must pass the calibrator's
+`dateOrdinal` (the same validation the digest applies), and the `close` must be positive (the gap
+is `nextOpen / close - 1`, so a non-positive close cannot form a ratio). The HTTP adapter shares
+this parser, so both store edges refuse the same set. F103 is closed.
+
+## F104 — the RPC log source asked the node for the whole chain in one request
+
+`RpcLogSource.logs()` issued a single `eth_getLogs` with `fromBlock: 'earliest'` and
+`toBlock: 'latest'`. A node caps both the block range and the result count of one request: a range
+that spans the whole chain is refused outright, and a page that returns more than the node's result
+cap is truncated or rejected. The indexer's catalogue would silently miss sessions — or fail to
+build at all — on any chain old enough to matter.
+
+**Resolution.** The source now reads `eth_blockNumber` once and walks the history in bounded pages
+of 10,000 blocks (the common node cap), concatenating in block order. A page the node refuses is
+halved and retried — the halving fires only on `RpcMalformed` (the node answered but refused,
+which is what a range or result cap looks like), never on `RpcUnavailable` (a down node), and a
+page that still fails at a single block propagates the refusal rather than being silently dropped.
+The head is snapshotted once per call, so a block mined mid-walk is picked up by the next call
+rather than half-included. F104 is closed.
+
+## F105 — the live indexer could not see session-emitted events
+
+`resolveSources` filtered the RPC log source to the three singleton addresses — factory, registry,
+premium. That filter is enough to learn that a session exists (`SessionCreated`), but `PoolSeeded`,
+`Traded` and `Settled` are emitted by the session's own contract, whose address is only known after
+the creation event is read. The live catalogue would show sessions with no pool, no trades and no
+settlement — a silently empty half of the protocol — while the fixture corpus, which contains the
+session logs, made the gap invisible in replay mode.
+
+**Resolution.** A `SessionAwareLogSource` composes the two fetches: the singleton-filtered source's
+logs first, then one more `RpcLogSource` over every session address the creation events name,
+appended after the singleton batch. The session logs follow the creation events, so the fold learns
+each session's role before it attributes the session's own events — a session's events always
+postdate its creation, which is the one ordering the fold depends on. A stream with no
+`SessionCreated` events is returned untouched; a duplicate creation names a session once, in
+first-seen order. The discovery decodes `SessionCreated` by its topic0, which is unique to the
+factory's event, so no emitter check is needed and a registry or premium log cannot collide with
+it. `resolveSources` now wraps the RPC source in the session-aware one; the fixture path is
+unchanged. F105 is closed.
+
 ## Still open
 
 | # | Item | Blocking |

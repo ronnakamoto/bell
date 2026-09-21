@@ -408,6 +408,24 @@ deployment:
   uniswap_v3_factory: "0x1f7d7550B1b028f7571E69A784071F0205FD2EfA"
   uniswap_v3_factory_source: paper §7.6
 
+# ---------------------------------------------------------------------------- print book
+
+print_book:
+  max_prints:
+    value: 4096
+    meaning: >
+      the print book's capacity; the settlement scan is O(prints), so the cap bounds both the
+      storage the book can occupy and the gas a settlement spends iterating it
+    derivation: >
+      Measured in this repository: the selection scan costs ~6,017 gas per print, so 4,096 prints
+      keep a settlement's scan at ~25M gas (within one block). The book is per registry and a
+      registry is per reference token (F28); at the paper's reporting cadence -- a handful of
+      whitelisted sources reporting the session gap at the open, a few prints per session -- 4,096
+      prints covers years of daily sessions. A listing that exhausts the cap has misbehaving
+      sources: submissions revert loudly, and settlement degrades to the fallback routes rather
+      than bricking.
+    source: derived; measured in this repository
+
 # ---------------------------------------------------------------------------- gas budget
 
 gas_budget:

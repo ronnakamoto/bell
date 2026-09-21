@@ -5,7 +5,7 @@
  * `buildChallenge`, on the publisher side of the bond.
  */
 
-import { MIN_PUBLISHER_BOND } from './constants.js';
+import { MIN_PUBLISHER_BOND, WAD } from './constants.js';
 import { DomainError } from './models.js';
 
 const HEX32 = /^0x[0-9a-fA-F]{64}$/;
@@ -53,6 +53,12 @@ export function buildCommit(input: {
   }
   if (input.premiumWad <= 0n) {
     throw new DomainError('premiumWad must be positive');
+  }
+  if (input.premiumWad > WAD) {
+    // The calibrator's `ParameterSet` refuses a premium above 100% — it is not priceable — and
+    // the registry stores whatever it is given, so a commit above the bound would be slashed by
+    // any challenge. Refuse it here, before the publisher spends gas.
+    throw new DomainError('premiumWad must be at most 1 (100%)');
   }
 
   const publisherBond = input.publisherBond ?? MIN_PUBLISHER_BOND;

@@ -17,6 +17,7 @@ import { readFile } from 'node:fs/promises';
 
 import { rowsDigest } from '@bell/calibrator/application/calibrate.js';
 import { bytesFromHex, hexOf } from '@bell/calibrator/domain/bytes.js';
+import { dateOrdinal } from '@bell/calibrator/domain/dates.js';
 import { DailyBar, DIGEST_BYTES, type SessionKind, Wad } from '@bell/calibrator/domain/models.js';
 import { type Keccak } from '@bell/calibrator/domain/ports.js';
 
@@ -101,13 +102,27 @@ export function parseCommittedWindow(path: string, where: string, value: unknown
   if (!Array.isArray(barsValue)) {
     throw new CommittedInputStoreMalformed(`${path}: ${where}: bars must be an array`);
   }
+  const windowSessions = parseWindowSessions(path, where, row);
+  const bars = barsValue.map((entry, index) =>
+    parseBar(path, `${where}.bars[${String(index)}]`, entry),
+  );
+  // The publisher stores exactly the tail the fit consumed, so a window whose bar count differs
+  // from its own `windowSessions` is not the committed window however its rows read. Refusing it
+  // here keeps the store shape canonical; the refit's binding check would refuse it anyway, but
+  // as unavailability rather than as the malformed document it is.
+  if (bars.length !== windowSessions) {
+    throw new CommittedInputStoreMalformed(
+      `${path}: ${where}: windowSessions is ${String(windowSessions)} but the window holds ` +
+        `${String(bars.length)} bars; a committed window holds exactly the tail it was fit on`,
+    );
+  }
   return {
     symbol: requireString(path, where, row, 'symbol'),
     session: parseSession(path, where, row),
-    windowSessions: parseWindowSessions(path, where, row),
+    windowSessions,
     sourceIds,
     familyName: requireString(path, where, row, 'familyName'),
-    bars: barsValue.map((entry, index) => parseBar(path, `${where}.bars[${String(index)}]`, entry)),
+    bars,
   };
 }
 
@@ -220,9 +235,25 @@ function parseBar(path: string, where: string, value: unknown): CommittedBar {
     throw new CommittedInputStoreMalformed(`${path}: ${where}: expected an object`);
   }
   const row = value as Record<string, unknown>;
+  const tradingDate = requireString(path, where, row, 'tradingDate');
+  try {
+    // A malformed date would otherwise surface later as a `DomainError` from the digest or the
+    // fit, crashing a challenge path that must report unavailability instead.
+    dateOrdinal(tradingDate);
+  } catch (error) {
+    throw new CommittedInputStoreMalformed(
+      `${path}: ${where}: tradingDate: ${describeError(error)}`,
+    );
+  }
+  const closeWad = parseBigIntField(path, where, row, 'closeWad');
+  if (closeWad <= 0n) {
+    // The gap is `nextOpen / close - 1`, so a non-positive close cannot form a ratio; the fit
+    // would throw a `DomainError` that the challenge path must not surface as a crash.
+    throw new CommittedInputStoreMalformed(`${path}: ${where}: closeWad must be positive`);
+  }
   return {
-    tradingDate: requireString(path, where, row, 'tradingDate'),
-    closeWad: parseBigIntField(path, where, row, 'closeWad'),
+    tradingDate,
+    closeWad,
     nextOpenWad: parseBigIntField(path, where, row, 'nextOpenWad'),
   };
 }

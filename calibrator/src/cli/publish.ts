@@ -300,6 +300,7 @@ export async function main(
           nextOpenWad: bar.nextOpen.raw.toString(),
         })),
       },
+      keccak: nobleKeccak,
     });
 
     const digestHex = `0x${hexOf(published.digest)}`;

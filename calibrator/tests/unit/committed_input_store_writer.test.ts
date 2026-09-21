@@ -9,16 +9,43 @@ import {
   mergeCommittedWindow,
   type StoreWindowPayload,
 } from '../../src/adapters/committed_input_store_writer.js';
+import { nobleKeccak } from '../../src/adapters/keccak_noble.js';
+import { rowsDigest } from '../../src/application/calibrate.js';
+import { hexOf } from '../../src/domain/bytes.js';
+import { inputsHash } from '../../src/domain/digest.js';
+import { DailyBar, Wad } from '../../src/domain/models.js';
 
-const HASH_A = `0x${'ab'.repeat(32)}`;
-const HASH_B = `0x${'cd'.repeat(32)}`;
+function hashOf(window: StoreWindowPayload): string {
+  const digest = inputsHash(
+    nobleKeccak,
+    window.windowSessions,
+    window.session,
+    window.sourceIds,
+    window.windowSessions,
+    rowsDigest(
+      nobleKeccak,
+      window.bars.map(
+        (bar) =>
+          new DailyBar(
+            bar.tradingDate,
+            new Wad(BigInt(bar.closeWad)),
+            new Wad(BigInt(bar.nextOpenWad)),
+          ),
+      ),
+    ),
+  );
+  return `0x${hexOf(digest)}`;
+}
 
-function sampleWindow(symbol: string): StoreWindowPayload {
+const HASH_A = hashOf(sampleWindow('NVDA'));
+const HASH_B = hashOf(sampleWindow('AAPL', 'second-source'));
+
+function sampleWindow(symbol: string, sourceId = 'test-fixture'): StoreWindowPayload {
   return {
     symbol,
     session: 'E',
     windowSessions: 2,
-    sourceIds: ['test-fixture'],
+    sourceIds: [sourceId],
     familyName: 'empirical',
     bars: [
       {
@@ -40,7 +67,7 @@ describe('mergeCommittedWindow', () => {
     const dir = await mkdtemp(join(tmpdir(), 'bell-store-'));
     const path = join(dir, 'nested', 'store.json');
     const window = sampleWindow('NVDA');
-    await mergeCommittedWindow({ path, inputsHashHex: HASH_A, window });
+    await mergeCommittedWindow({ path, inputsHashHex: HASH_A, window, keccak: nobleKeccak });
     const document = JSON.parse(await readFile(path, 'utf8')) as {
       windows: Record<string, StoreWindowPayload>;
     };
@@ -55,11 +82,13 @@ describe('mergeCommittedWindow', () => {
       path,
       inputsHashHex: HASH_A,
       window: sampleWindow('NVDA'),
+      keccak: nobleKeccak,
     });
     await mergeCommittedWindow({
       path,
       inputsHashHex: HASH_B,
-      window: sampleWindow('AAPL'),
+      window: sampleWindow('AAPL', 'second-source'),
+      keccak: nobleKeccak,
     });
     const document = JSON.parse(await readFile(path, 'utf8')) as {
       windows: Record<string, StoreWindowPayload>;
@@ -75,11 +104,13 @@ describe('mergeCommittedWindow', () => {
       path,
       inputsHashHex: HASH_A,
       window: sampleWindow('NVDA'),
+      keccak: nobleKeccak,
     });
     await mergeCommittedWindow({
       path,
       inputsHashHex: HASH_A,
       window: sampleWindow('TSLA'),
+      keccak: nobleKeccak,
     });
     const document = JSON.parse(await readFile(path, 'utf8')) as {
       windows: Record<string, StoreWindowPayload>;
@@ -97,6 +128,7 @@ describe('mergeCommittedWindow', () => {
         path,
         inputsHashHex: HASH_A,
         window: sampleWindow('NVDA'),
+        keccak: nobleKeccak,
       }),
     ).rejects.toThrow(CommittedInputStoreWriterMalformed);
   });
@@ -110,6 +142,7 @@ describe('mergeCommittedWindow', () => {
         path: badJson,
         inputsHashHex: HASH_A,
         window: sampleWindow('NVDA'),
+        keccak: nobleKeccak,
       }),
     ).rejects.toThrow(CommittedInputStoreWriterMalformed);
 
@@ -120,6 +153,7 @@ describe('mergeCommittedWindow', () => {
         path: noWindows,
         inputsHashHex: HASH_A,
         window: sampleWindow('NVDA'),
+        keccak: nobleKeccak,
       }),
     ).rejects.toThrow(/windows/);
 
@@ -130,6 +164,7 @@ describe('mergeCommittedWindow', () => {
         path: windowsArray,
         inputsHashHex: HASH_A,
         window: sampleWindow('NVDA'),
+        keccak: nobleKeccak,
       }),
     ).rejects.toThrow(/windows must be an object/);
   });
@@ -142,7 +177,41 @@ describe('mergeCommittedWindow', () => {
         path,
         inputsHashHex: `0x${'AB'.repeat(32)}`,
         window: sampleWindow('NVDA'),
+        keccak: nobleKeccak,
       }),
     ).rejects.toThrow(/lowercase/);
+  });
+
+  it('refuses a window stored under a hash its content does not produce', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bell-store-'));
+    const path = join(dir, 'store.json');
+    await expect(
+      mergeCommittedWindow({
+        path,
+        inputsHashHex: `0x${'ab'.repeat(32)}`,
+        window: sampleWindow('NVDA'),
+        keccak: nobleKeccak,
+      }),
+    ).rejects.toThrow(/does not hash to the key/);
+  });
+
+  it('refuses a window whose bars were altered after the key was computed', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bell-store-'));
+    const path = join(dir, 'store.json');
+    const window = sampleWindow('NVDA');
+    const tampered = {
+      ...window,
+      bars: window.bars.map((bar, index) =>
+        index === 0 ? { ...bar, closeWad: '99900000000000000000' } : bar,
+      ),
+    };
+    await expect(
+      mergeCommittedWindow({
+        path,
+        inputsHashHex: HASH_A,
+        window: tampered,
+        keccak: nobleKeccak,
+      }),
+    ).rejects.toThrow(/does not hash to the key/);
   });
 });

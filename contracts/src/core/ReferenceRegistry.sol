@@ -47,6 +47,10 @@ contract ReferenceRegistry is ReferencePrintBook {
     /// @dev Thrown when the reference token reports a zero multiplier, which would make the adjusted
     ///      gap undefined.
     error ZeroMultiplier(address referenceToken);
+    /// @dev Thrown when `registerSession` is given an address that does not behave like a session:
+    ///      an EOA or a contract without the session surface reads back a zero leverage and a zero
+    ///      expiry, and a record with either would poison resolution.
+    error NotASession(address session);
     /// @dev Thrown by the branch switch if it is ever reached with a member it does not handle. It is
     ///      unreachable while the chain below covers every member of `Branch`, and it exists so that
     ///      an added member is a failing test rather than a silent fall-through.
@@ -114,12 +118,19 @@ contract ReferenceRegistry is ReferencePrintBook {
         external
         returns (uint256 expiryTimestamp, uint256 lamWad)
     {
+        if (session == address(0)) revert ZeroAddress();
+        if (referenceToken == address(0)) revert ZeroAddress();
         if (_sessions[session].referenceToken != address(0)) {
             revert AlreadyRegistered(session);
         }
-        Session target = Session(session);
-        expiryTimestamp = target.expiryTimestamp();
-        lamWad = target.lamWad();
+        // An EOA has no code and a contract without the session surface reverts on the calls; a
+        // high-level call to either reverts with empty data that try/catch does not catch. The
+        // low-level read turns both into the named error so the refusal is observable.
+        expiryTimestamp = _readSessionField(session, bytes4(keccak256("expiryTimestamp()")));
+        lamWad = _readSessionField(session, bytes4(keccak256("lamWad()")));
+        // A real session always carries a positive leverage and a future expiry, so either zero
+        // proves the address is not a session even when the reads did not revert.
+        if (lamWad == 0 || expiryTimestamp == 0) revert NotASession(session);
 
         uint256 multiplier = _readMultiplier(referenceToken);
         _sessions[session] = SessionRecord({
@@ -343,6 +354,20 @@ contract ReferenceRegistry is ReferencePrintBook {
         uint256 multiplier = IMultiplierToken(referenceToken).multiplier();
         if (multiplier == 0) revert ZeroMultiplier(referenceToken);
         return multiplier;
+    }
+
+    /// @dev Read one no-argument `uint256` session field, refusing a non-session with the named
+    ///      error. A high-level call to an EOA or to a contract without the surface reverts with
+    ///      empty data that try/catch does not catch, so the read is low-level and the refusal is
+    ///      `NotASession` rather than an anonymous revert.
+    function _readSessionField(address session, bytes4 selector)
+        private
+        view
+        returns (uint256 value)
+    {
+        (bool ok, bytes memory data) = session.staticcall(abi.encodeWithSelector(selector));
+        if (!ok || data.length < 32) revert NotASession(session);
+        return abi.decode(data, (uint256));
     }
 
     /// @dev Selection that reports absence as a sentinel rather than reverting, so the caller can

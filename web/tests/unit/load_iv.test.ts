@@ -7,7 +7,7 @@ import { type IvPublishInput, type IvSource } from '../../src/domain/ports.js';
 
 const ivSource = new FileIvSource(IV_PATH);
 
-const CORPUS_SESSION_ADDRESS = '0xebaa350fe46c7b07170af86dd750752f1e0e5202';
+const CORPUS_SESSION_ADDRESS = '0xcaebadcd061f2529967bb966288176b1e3701c37';
 const TRAILING_SESSION_ADDRESS = '0x00000000000000000000000000000000000000f1';
 const REFUSE_SESSION_ADDRESS = '0x00000000000000000000000000000000000000f2';
 
@@ -88,7 +88,7 @@ describe('loadPublishedIv', () => {
   });
 
   it('matches a mixed-case session address against the lowercased fixture key', async () => {
-    const display = await loadPublishedIv(ivSource, '0xEbaa350Fe46C7b07170af86dD750752F1e0E5202');
+    const display = await loadPublishedIv(ivSource, '0xCaEBaDcd061f2529967Bb966288176b1e3701c37');
     expect(display.kind).toBe('show');
   });
 

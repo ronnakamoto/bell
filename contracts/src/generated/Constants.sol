@@ -54,6 +54,8 @@ library Constants {
     uint256 internal constant OVERNIGHT_WINDOW_SESSIONS_AAPL = 378;
     /// @dev W; the longest the sample supports. Source: paper §7.9 Table 15.
     uint256 internal constant WEEKEND_WINDOW_SESSIONS = 126;
+    /// @dev print book capacity; the settlement scan is O(prints). Source: derived; measured in this repository.
+    uint256 internal constant MAX_PRINTS = 4_096;
 
     // ---------------------------------------------------------------- bonds, in collateral base units (USDG, 6 decimals)
     /// @dev 3x the largest one-session mispricing gain. Source: paper Table 19.

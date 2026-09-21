@@ -33,6 +33,14 @@ abstract contract ReferencePrintBook {
     error ImplausibleGap(int256 gapWad, uint256 bandWad);
     /// @dev Thrown when a gap is beyond the Tier-1 halt band, i.e. it indicates a trading halt.
     error HaltedGap(int256 gapWad, uint256 bandWad);
+    /// @dev Thrown when the print book is full. The settlement scan is O(prints), so the cap is
+    ///      the DoS guard: without it an authorised source could grow the book without bound and
+    ///      push a settlement's scan past the block gas limit.
+    error PrintBookFull(uint256 printCount, uint256 maxPrints);
+    /// @dev Thrown when a print names a source other than its caller. The recorded source is the
+    ///      audit trail's answer to "which feed reported it", so a print that could attribute
+    ///      itself to a different feed would let one source's evidence be blamed on another.
+    error SourceSpoofed(address caller, address claimedSource);
     /// @dev Thrown when the L2 sequencer is down, or within the grace period after it returned.
     error SequencerDown(uint256 graceRemainingSeconds);
     /// @dev Thrown when no print qualifies for a settlement, and the caller expected one.
@@ -154,11 +162,15 @@ abstract contract ReferencePrintBook {
         external
     {
         if (!authorisedSource[msg.sender]) revert NotAuthorisedSource(msg.sender);
+        if (source != msg.sender) revert SourceSpoofed(msg.sender, source);
         _requireSequencerUp();
 
         uint256 magnitude = _magnitude(gapWad);
         if (magnitude > plausibilityBandWad) revert ImplausibleGap(gapWad, plausibilityBandWad);
         if (magnitude > haltBandWad) revert HaltedGap(gapWad, haltBandWad);
+        if (_prints.length >= Constants.MAX_PRINTS) {
+            revert PrintBookFull(_prints.length, Constants.MAX_PRINTS);
+        }
 
         _prints.push(
             Print({

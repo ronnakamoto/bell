@@ -7,6 +7,7 @@
 
 import { FileLogSource } from '@bell/indexer/adapters/log_source_file.js';
 import { RpcLogSource } from '@bell/indexer/adapters/log_source_rpc.js';
+import { SessionAwareLogSource } from '@bell/indexer/adapters/log_source_sessions.js';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -54,14 +55,18 @@ describe('resolveSources', () => {
 
   it('uses RPC log and quote sources when BELL_RPC_URL is set', () => {
     const sources = resolveSources(LIVE_ENV);
-    expect(sources.logSource).toBeInstanceOf(RpcLogSource);
+    // The log source is session-aware: the singleton filter discovers sessions, and the wrapper
+    // fetches the sessions' own logs the filter cannot see.
+    expect(sources.logSource).toBeInstanceOf(SessionAwareLogSource);
     expect(sources.quoteSource).toBeInstanceOf(RpcQuoteSource);
     expect(sources.ivSource).toBeInstanceOf(FileIvSource);
-    if (!(sources.logSource instanceof RpcLogSource)) return;
+    if (!(sources.logSource instanceof SessionAwareLogSource)) return;
     if (!(sources.quoteSource instanceof RpcQuoteSource)) return;
     if (!(sources.ivSource instanceof FileIvSource)) return;
-    expect(sources.logSource.client.url).toBe(RPC_URL);
-    expect(sources.logSource.addresses).toEqual([FACTORY, REGISTRY, PREMIUM]);
+    expect(sources.logSource.base).toBeInstanceOf(RpcLogSource);
+    if (!(sources.logSource.base instanceof RpcLogSource)) return;
+    expect(sources.logSource.base.client.url).toBe(RPC_URL);
+    expect(sources.logSource.base.addresses).toEqual([FACTORY, REGISTRY, PREMIUM]);
     expect(sources.quoteSource.client.url).toBe(RPC_URL);
     expect(sources.quoteSource.premium).toBe(PREMIUM);
     expect(sources.ivSource.path).toBe(IV_PATH);
@@ -79,7 +84,7 @@ describe('resolveSources', () => {
     };
     try {
       const sources = resolveSources(LIVE_ENV);
-      expect(sources.logSource).toBeInstanceOf(RpcLogSource);
+      expect(sources.logSource).toBeInstanceOf(SessionAwareLogSource);
       expect(sources.quoteSource).toBeInstanceOf(RpcQuoteSource);
     } finally {
       globalThis.fetch = original;

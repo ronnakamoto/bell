@@ -76,6 +76,9 @@ export const OVERNIGHT_WINDOW_SESSIONS_AAPL = 378n;
 /** W; the longest the sample supports. Source: paper §7.9 Table 15. */
 export const WEEKEND_WINDOW_SESSIONS = 126n;
 
+/** print book capacity; the settlement scan is O(prints). Source: derived; measured in this repository. */
+export const MAX_PRINTS = 4_096n;
+
 // Bonds, in collateral base units (USDG, 6 decimals). Ruling R2 in DESIGN_NOTES.
 
 /** 3x the largest one-session mispricing gain. Source: paper Table 19. */

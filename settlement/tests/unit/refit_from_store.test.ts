@@ -8,7 +8,10 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-import { bytesFromHex } from '@bell/calibrator/domain/bytes.js';
+import { rowsDigest } from '@bell/calibrator/application/calibrate.js';
+import { bytesFromHex, hexOf } from '@bell/calibrator/domain/bytes.js';
+import { inputsHash } from '@bell/calibrator/domain/digest.js';
+import { DailyBar, Wad } from '@bell/calibrator/domain/models.js';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -83,6 +86,28 @@ function storeOf(window: CommittedWindow, hashHex = SAMPLE_HASH): FileCommittedI
   );
 }
 
+/** The `inputsHash` a window's own content produces, so a test can store a window under its own key. */
+function hashOf(window: CommittedWindow): string {
+  const digest = inputsHash(
+    nobleKeccak,
+    window.windowSessions,
+    window.session,
+    window.sourceIds,
+    window.windowSessions,
+    rowsDigestOf(window),
+  );
+  return `0x${hexOf(digest)}`;
+}
+
+function rowsDigestOf(window: CommittedWindow): Uint8Array {
+  return rowsDigest(
+    nobleKeccak,
+    window.bars.map(
+      (bar) => new DailyBar(bar.tradingDate, new Wad(bar.closeWad), new Wad(bar.nextOpenWad)),
+    ),
+  );
+}
+
 describe('refitFromStore', () => {
   it('re-fits the upheld-store window to the fixture λ and premium', async () => {
     const upheld = caseNamed('upheld-store');
@@ -109,10 +134,12 @@ describe('refitFromStore', () => {
   });
 
   it('an insufficient window resolves undefined rather than throwing', async () => {
-    const store = storeOf({
+    // A window that binds to its own key but whose sample cannot support a fit: two bars cannot
+    // clear the tail-observation screen, so `calibrate` reports insufficient.
+    const window: CommittedWindow = {
       symbol: 'NVDA',
       session: 'E',
-      windowSessions: 100,
+      windowSessions: 2,
       sourceIds: ['test-fixture'],
       familyName: 'empirical',
       bars: [
@@ -121,9 +148,62 @@ describe('refitFromStore', () => {
           closeWad: BigInt(SAMPLE_BAR.closeWad),
           nextOpenWad: BigInt(SAMPLE_BAR.nextOpenWad),
         },
+        {
+          tradingDate: '2020-01-07',
+          closeWad: BigInt(SAMPLE_BAR.closeWad),
+          nextOpenWad: BigInt(SAMPLE_BAR.nextOpenWad),
+        },
       ],
-    });
+    };
+    const store = storeOf(window, hashOf(window));
+    const runner = refitFromStore(store, nobleKeccak);
+    await expect(runner(bytesFromHex(hashOf(window)))).resolves.toBeUndefined();
+  });
+
+  it('a window stored under a key its content does not hash to is refused', async () => {
+    // The upheld-store window is a valid, fittable window — but stored under a key that is not
+    // its own `inputsHash`. The binding check must refuse it rather than fit it, because the
+    // committed inputs are the window that hashes to the key, not whatever the store holds.
+    const upheld = caseNamed('upheld-store');
+    const store = fixtureStore();
     const runner = refitFromStore(store, nobleKeccak);
     await expect(runner(bytesFromHex(SAMPLE_HASH))).resolves.toBeUndefined();
+    // And the window under its own key still fits.
+    await expect(runner(bytesFromHex(upheld.inputsHash))).resolves.toEqual({
+      lambdaWad: BigInt(upheld.lambdaWad),
+      premiumWad: BigInt(upheld.premiumWad),
+    });
+  });
+
+  it('a window whose bars were tampered with is refused', async () => {
+    // Take the upheld window, alter one bar, and store it under the *original* hash. The
+    // recomputed digest no longer matches the key, so the runner must refuse it.
+    const upheld = caseNamed('upheld-store');
+    const document = JSON.parse(readFileSync(STORE_PATH, 'utf8')) as {
+      windows: Record<string, unknown>;
+    };
+    const original = document.windows[upheld.inputsHash] as {
+      symbol: string;
+      session: string;
+      windowSessions: number;
+      sourceIds: readonly string[];
+      familyName: string;
+      bars: readonly { tradingDate: string; closeWad: string; nextOpenWad: string }[];
+    };
+    const tampered = {
+      ...original,
+      bars: original.bars.map((bar, index) =>
+        index === 0 ? { ...bar, closeWad: '99900000000000000000' } : bar,
+      ),
+    };
+    const store = new FileCommittedInputStore(
+      parseCommittedInputsDocument(
+        '/store.json',
+        JSON.stringify({ windows: { [upheld.inputsHash]: tampered } }),
+      ),
+      nobleKeccak,
+    );
+    const runner = refitFromStore(store, nobleKeccak);
+    await expect(runner(bytesFromHex(upheld.inputsHash))).resolves.toBeUndefined();
   });
 });
