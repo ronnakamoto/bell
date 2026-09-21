@@ -3850,6 +3850,26 @@ page that still fails at a single block propagates the refusal rather than being
 The head is snapshotted once per call, so a block mined mid-walk is picked up by the next call
 rather than half-included. F104 is closed.
 
+## F105 — the live indexer could not see session-emitted events
+
+`resolveSources` filtered the RPC log source to the three singleton addresses — factory, registry,
+premium. That filter is enough to learn that a session exists (`SessionCreated`), but `PoolSeeded`,
+`Traded` and `Settled` are emitted by the session's own contract, whose address is only known after
+the creation event is read. The live catalogue would show sessions with no pool, no trades and no
+settlement — a silently empty half of the protocol — while the fixture corpus, which contains the
+session logs, made the gap invisible in replay mode.
+
+**Resolution.** A `SessionAwareLogSource` composes the two fetches: the singleton-filtered source's
+logs first, then one more `RpcLogSource` over every session address the creation events name,
+appended after the singleton batch. The session logs follow the creation events, so the fold learns
+each session's role before it attributes the session's own events — a session's events always
+postdate its creation, which is the one ordering the fold depends on. A stream with no
+`SessionCreated` events is returned untouched; a duplicate creation names a session once, in
+first-seen order. The discovery decodes `SessionCreated` by its topic0, which is unique to the
+factory's event, so no emitter check is needed and a registry or premium log cannot collide with
+it. `resolveSources` now wraps the RPC source in the session-aware one; the fixture path is
+unchanged. F105 is closed.
+
 ## Still open
 
 | # | Item | Blocking |

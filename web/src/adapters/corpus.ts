@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { JsonRpcClient as IndexerRpcClient } from '@bell/indexer/adapters/json_rpc_client.js';
 import { FileLogSource } from '@bell/indexer/adapters/log_source_file.js';
 import { RpcLogSource } from '@bell/indexer/adapters/log_source_rpc.js';
+import { SessionAwareLogSource } from '@bell/indexer/adapters/log_source_sessions.js';
 import { type IndexerConfig, type LogSource } from '@bell/indexer/domain/ports.js';
 
 import { type IvSource, type QuoteSource } from '../domain/ports.js';
@@ -76,10 +77,16 @@ export function resolveSources(
   const factory = requiredEnv(env, 'BELL_FACTORY');
   const registry = requiredEnv(env, 'BELL_REGISTRY');
   const premium = requiredEnv(env, 'BELL_PREMIUM');
+  const client = new IndexerRpcClient({ url: rpcUrl });
   return {
-    logSource: new RpcLogSource({
-      client: new IndexerRpcClient({ url: rpcUrl }),
-      addresses: [factory, registry, premium],
+    // The singleton filter discovers sessions; the session-aware source then fetches the
+    // sessions' own logs (PoolSeeded, Traded, Settled), which the singleton filter cannot see.
+    logSource: new SessionAwareLogSource({
+      base: new RpcLogSource({
+        client,
+        addresses: [factory, registry, premium],
+      }),
+      client,
     }),
     quoteSource: new RpcQuoteSource({
       client: new JsonRpcClient({ url: rpcUrl }),
