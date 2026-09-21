@@ -186,4 +186,111 @@ describe('publish CLI main', () => {
     expect(result.code).toBe(2);
     expect(result.stderr).toMatch(/windows|expected an object/);
   });
+
+  it('broadcasts the commit batch when --rpc-url/--private-key/--premium are given', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'bell-publish-'));
+    const store = join(dir, 'store.json');
+    const premium = '0x1111111111111111111111111111111111111111';
+    const collateral = '0x2222222222222222222222222222222222222222';
+    const sent: string[] = [];
+    const fetchImpl = (_input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+      const request = JSON.parse(init?.body as string) as { method: string; params: unknown[] };
+      const result = ((): unknown => {
+        switch (request.method) {
+          case 'eth_chainId':
+            return '0xb62a';
+          case 'eth_call':
+            return `0x${'00'.repeat(12)}${collateral.slice(2)}`;
+          case 'eth_getTransactionCount':
+            return '0x5';
+          case 'eth_gasPrice':
+            return '0x3b9aca00';
+          case 'eth_estimateGas':
+            return '0x15f90';
+          case 'eth_sendRawTransaction': {
+            const raw = request.params[0] as string;
+            sent.push(raw);
+            return `0x${'ab'.repeat(32)}`;
+          }
+          default:
+            throw new Error(`unexpected method ${request.method}`);
+        }
+      })();
+      return Promise.resolve(
+        new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result }), { status: 200 }),
+      );
+    };
+    const previous = globalThis.fetch;
+    globalThis.fetch = fetchImpl;
+    try {
+      const result = await run([
+        '--store',
+        store,
+        '--rpc-url',
+        'http://node',
+        '--private-key',
+        `0x${'46'.repeat(32)}`,
+        '--premium',
+        premium,
+      ]);
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain('kind=published');
+      expect(result.stdout).toContain(
+        'tx1=0xabababababababababababababababababababababababababababababababab',
+      );
+      expect(result.stdout).toContain(
+        'tx2=0xabababababababababababababababababababababababababababababababab',
+      );
+      expect(sent).toHaveLength(2);
+      // Both raw txs must be RLP lists (short or long form) carrying the publisher's signature.
+      for (const raw of sent) {
+        expect(raw).toMatch(/^0xf[89]/);
+      }
+    } finally {
+      globalThis.fetch = previous;
+    }
+  });
+
+  it('exits 2 when only some broadcast flags are given', async () => {
+    const result = await run(['--rpc-url', 'http://node']);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain(
+      'broadcast needs --rpc-url, --private-key and --premium together',
+    );
+  });
+
+  it('exits 2 when --premium is not an address', async () => {
+    const result = await run([
+      '--rpc-url',
+      'http://node',
+      '--private-key',
+      `0x${'46'.repeat(32)}`,
+      '--premium',
+      'nope',
+    ]);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toContain('--premium must be a 0x-prefixed address');
+  });
+
+  it('exits 2 when the node is unreachable', async () => {
+    const fetchImpl = (): Promise<Response> => {
+      throw new TypeError('fetch failed');
+    };
+    const previous = globalThis.fetch;
+    globalThis.fetch = fetchImpl;
+    try {
+      const result = await run([
+        '--rpc-url',
+        'http://node',
+        '--private-key',
+        `0x${'46'.repeat(32)}`,
+        '--premium',
+        '0x1111111111111111111111111111111111111111',
+      ]);
+      expect(result.code).toBe(2);
+      expect(result.stderr).toMatch(/rpc http:\/\/node/);
+    } finally {
+      globalThis.fetch = previous;
+    }
+  });
 });

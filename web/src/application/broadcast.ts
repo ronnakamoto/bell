@@ -14,9 +14,14 @@
  * could read, and it never reads an address it does not use.
  */
 
+import {
+  decodeAddressWord,
+  encodeCalldata,
+  fragmentOf,
+  selectorOf,
+} from '@bell/calibrator/domain/abi.js';
 import { type Keccak } from '@bell/calibrator/domain/ports.js';
 
-import { decodeAddressWord, encodeCalldata, fragmentOf, selectorOf } from '../domain/abi.js';
 import { WebDomainError } from '../domain/errors.js';
 import { type IntentBatch, type IntentTargetRole } from '../domain/intents.js';
 import { type WalletProvider } from '../domain/ports.js';
@@ -56,7 +61,7 @@ export async function broadcastIntents(
     // An `approve` step names only the amount; the spender is the contract the batch acts on —
     // the session for trade/LP/claim/withdraw, the premium registry for the challenge bond.
     const args = step.method === 'approve' ? [actorOf(batch, resolved), ...step.args] : step.args;
-    hashes.push(await wallet.send({ to, data: encodeCalldata({ ...step, args }, keccak) }));
+    hashes.push(await wallet.send({ to, data: encodeCalldata(step.method, args, keccak) }));
   }
   return { account, hashes };
 }

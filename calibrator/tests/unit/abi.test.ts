@@ -6,9 +6,6 @@
  * padding rules and the named refusals.
  */
 
-import { nobleKeccak } from '@bell/settlement/adapters/keccak_noble.js';
-import { describe, expect, it } from 'vitest';
-
 import {
   ABI_FRAGMENTS,
   decodeAddressWord,
@@ -17,6 +14,8 @@ import {
   fragmentOf,
   selectorOf,
 } from '../../src/domain/abi.js';
+import { nobleKeccak } from '@bell/settlement/adapters/keccak_noble.js';
+import { describe, expect, it } from 'vitest';
 
 const SESSION = '0x1111111111111111111111111111111111111111';
 const COLLATERAL = '0x2222222222222222222222222222222222222222';
@@ -97,43 +96,31 @@ describe('encodeWord', () => {
 
 describe('encodeCalldata', () => {
   it('encodes approve as selector plus spender and amount', () => {
-    const calldata = encodeCalldata(
-      { label: 'x', target: 'collateral', method: 'approve', args: [COLLATERAL, 100n] },
-      nobleKeccak,
-    );
+    const calldata = encodeCalldata('approve', [COLLATERAL, 100n], nobleKeccak);
     expect(calldata).toBe(`0x095ea7b3${'00'.repeat(12)}${COLLATERAL.slice(2)}${'00'.repeat(31)}64`);
   });
 
   it('encodes a zero-argument method as its selector alone', () => {
-    const calldata = encodeCalldata(
-      { label: 'x', target: 'session', method: 'claim', args: [] },
-      nobleKeccak,
-    );
+    const calldata = encodeCalldata('claim', [], nobleKeccak);
     expect(calldata).toBe('0x4e71d92d');
   });
 
   it('encodes challenge with a bytes32 nameId and uint64 forSession', () => {
     const nameId = `0x${'cd'.repeat(32)}`;
-    const calldata = encodeCalldata(
-      { label: 'x', target: 'premium', method: 'challenge', args: [nameId, 7n] },
-      nobleKeccak,
-    );
+    const calldata = encodeCalldata('challenge', [nameId, 7n], nobleKeccak);
     expect(calldata).toBe(`0x1cd3c0dd${'cd'.repeat(32)}${'00'.repeat(31)}07`);
   });
 
   it('encodes resolve with a bool ruling', () => {
     const nameId = `0x${'cd'.repeat(32)}`;
-    const calldata = encodeCalldata(
-      { label: 'x', target: 'premium', method: 'resolve', args: [nameId, 7n, 1n] },
-      nobleKeccak,
-    );
+    const calldata = encodeCalldata('resolve', [nameId, 7n, 1n], nobleKeccak);
     expect(calldata).toBe(`0x0564e9d1${'cd'.repeat(32)}${'00'.repeat(31)}07${'00'.repeat(31)}01`);
   });
 
   it('refuses an argument count that does not match the fragment', () => {
-    expect(() =>
-      encodeCalldata({ label: 'x', target: 'session', method: 'buyLong', args: [1n] }, nobleKeccak),
-    ).toThrow(/buyLong takes 2 arguments, got 1/);
+    expect(() => encodeCalldata('buyLong', [1n], nobleKeccak)).toThrow(
+      /buyLong takes 2 arguments, got 1/,
+    );
   });
 });
 
@@ -163,6 +150,7 @@ describe('ABI_FRAGMENTS', () => {
         'challenge',
         'claim',
         'collateral',
+        'commit',
         'longClaim',
         'mintPair',
         'resolve',

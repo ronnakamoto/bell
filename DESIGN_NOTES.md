@@ -3924,6 +3924,42 @@ so the read is a named refusal rather than an opaque revert. The ruling surface 
 eligibility like every other intent form, and the chain's `resolve` transfers the bonds, so no
 further step is needed after it. F107 is closed.
 
+
+## F108 — the publisher could not broadcast its commit
+
+F50's actor table put the publisher on the CLI, but the publish CLI stopped at printing the commit
+intent — a preview, not a transaction. The web's F106 broadcast could not help: the publisher is an
+operator with a private key, not a browser wallet, and the app never holds keys. Without a publisher
+committing, no session is priceable (quote → Refuse), so the last operator surface from F50's table
+was the broadcast itself.
+
+**Resolution.** The CLI gained `--rpc-url`, `--private-key` and `--premium` — a set, refused by name
+if partial — and a broadcast path that sends the two-step batch (collateral approve, then
+`PremiumRegistry.commit`) through a signer. Three decisions worth recording:
+
+**The encoder moved to the shared core.** `web/src/domain/abi.ts` became
+`calibrator/src/domain/abi.ts`. The calibrator's domain is the core the web already imports, and a
+second encoder in the web would be the same drift risk as a second copy of the constants. The move
+was also a coverage correction: the web's test exercised the `dist` build, so the `src` copy
+measured 75% until the canonical test lived beside it.
+
+**The recovery id is found, not assumed.** noble's `sign` returns the compact `r||s` without the
+recovery bit, so the signer recovers both candidate public keys and keeps the one matching the
+signer's — one extra point multiplication per signature, and the EIP-155 `v` is exact. The digest is
+signed with `prehash: false`: the curve's default SHA-256 prehash would produce a signature no node
+accepts, because Ethereum signs keccak256.
+
+**RLP is hand-rolled, and the vector caught two bugs.** The two length rules plus the list form are
+the whole of RLP for a legacy tx, so it lives in the tree rather than as a dependency. The canonical
+EIP-155 test vector caught a hardcoded zero r/s (the signed tx must carry the actual signature) and
+the integer-0 encoding (RLP encodes 0 as the *empty* byte string, so the EIP-155 suffix is
+`01 80 80`, not `01 00 00`). The vector pins the whole pipeline.
+
+The RPC client is a third copy of the generic fetch client the indexer and web already carry. That
+duplication is transport plumbing, not domain logic — the encoder and the constants live in the
+domain exactly once — and consolidating the copies would touch the indexer's tested surface for no
+behavioural change. It is recorded here as future work rather than done now. F108 is closed.
+
 ## Still open
 
 | # | Item | Blocking |
