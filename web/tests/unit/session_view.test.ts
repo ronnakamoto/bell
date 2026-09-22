@@ -146,6 +146,12 @@ describe('toSessionDetail', () => {
       shortIn: '200000000000',
       longReserve: '1000000000000',
       shortReserve: '200000000000',
+      health: {
+        longPct: '83.33',
+        shortPct: '16.67',
+        imbalance: '66.67',
+        skewed: true,
+      },
     });
     expect(detail.lastTrade).toEqual({
       trader: '0xtrader',
