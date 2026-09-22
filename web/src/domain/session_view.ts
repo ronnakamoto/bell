@@ -6,6 +6,7 @@
  * application, because the rules (WAD vs plain integer) are view concerns.
  */
 
+import { computePoolHealth } from '@bell/calibrator/domain/pool_health.js';
 import {
   type Catalogue,
   type NameRecord,
@@ -37,6 +38,15 @@ export interface PoolSnapshotView {
   readonly shortIn: string;
   readonly longReserve: string;
   readonly shortReserve: string;
+  readonly health: PoolHealthView;
+}
+
+/** Pool health metrics, serialised for pages. */
+export interface PoolHealthView {
+  readonly longPct: string;
+  readonly shortPct: string;
+  readonly imbalance: string;
+  readonly skewed: boolean;
 }
 
 /** One trade, serialised for pages. */
@@ -114,11 +124,21 @@ function toNameListItem(name: NameRecord): NameListItem {
 }
 
 function toPoolSnapshotView(pool: NonNullable<SessionRecord['pool']>): PoolSnapshotView {
+  const { longPct, shortPct, imbalance, skewed } = computePoolHealth(
+    pool.longReserve,
+    pool.shortReserve,
+  );
   return {
     longIn: formatInteger(pool.longIn),
     shortIn: formatInteger(pool.shortIn),
     longReserve: formatInteger(pool.longReserve),
     shortReserve: formatInteger(pool.shortReserve),
+    health: {
+      longPct: longPct.toFixed(2),
+      shortPct: shortPct.toFixed(2),
+      imbalance: (imbalance * 100).toFixed(2),
+      skewed,
+    },
   };
 }
 

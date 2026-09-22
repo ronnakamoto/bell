@@ -68,6 +68,14 @@ export default async function SessionPage({
             <dd>{session.pool.longReserve}</dd>
             <dt>Short reserve</dt>
             <dd>{session.pool.shortReserve}</dd>
+            <dt>Long %</dt>
+            <dd>{session.pool.health.longPct}%</dd>
+            <dt>Short %</dt>
+            <dd>{session.pool.health.shortPct}%</dd>
+            <dt>Imbalance</dt>
+            <dd>
+              {session.pool.health.imbalance}%{session.pool.health.skewed ? ' ⚠️' : ''}
+            </dd>
           </dl>
         </section>
       ) : null}
