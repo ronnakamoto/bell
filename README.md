@@ -83,11 +83,13 @@ block on chain 4663 but supplies no RPC endpoint, so `make test-fork` skips with
 (F6). Everything else in the brief is executable and executed.
 
 `DESIGN_NOTES.md` carries the findings. Most are defects the build found in itself rather than
-objections to the brief. What remains open without an input is the web wallet broadcast, the fork
-suite (F6), and G3 (a maker for the LP cold start); the Eq (20) volatility pin (F11), the
-`commit` gas cap (F42), and the trading-fee wiring (F97) are ruled (Phases 48–49).
+objections to the brief. What remains open without an input is the fork suite (F6) and G3 (a maker
+for the LP cold start); the Eq (20) volatility pin (F11), the `commit` gas cap (F42), and the
+trading-fee wiring (F97) are ruled (Phases 48–49).
 F84's calibrator composition root is `make calibrate-publish` (calibrate → store window → commit
-intent preview); settlement's challenge-verify root landed with F2.
+intent preview); settlement's challenge-verify root landed with F2. The publisher's broadcast
+surface is the same CLI with `--rpc-url`/`--private-key`/`--premium` (F108), and the session
+authority ops are `make authority-expire` / `make authority-close` (F109).
 
 F50 records the one gap that is a matter of scope rather than defect: the brief's three artifacts are
 the protocol and its two services, and none of them is the surface a participant touches. The paper
@@ -95,7 +97,10 @@ justifies no-liquidation by participants who are "largely retail" and cannot mon
 over a 65-hour weekend (§4.2), which makes the interface part of the product rather than a
 convenience. Discovery has landed: the factory still cannot enumerate sessions, but the indexer
 folds the lifecycle's logs into a catalogue, verified against a corpus the contracts emitted.
-What remains of F50 is the web app, then the challenge tooling.
+F50 is complete: the web app carries the participant surface (browse, quote, trade/LP/claim/
+withdraw intents, challenge and resolve, all broadcastable through a browser wallet — F106/F107),
+the CLI carries the publisher's commit broadcast (F108) and the session authority ops (F109), and
+the challenge tooling is the verify CLI plus the web's challenge page (F2).
 
 ## Deploy
 

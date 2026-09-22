@@ -27,7 +27,8 @@ TOOLS := tools
 .PHONY: help build test test-contracts test-fork check \
         check-format check-lint check-types check-architecture check-layout check-generated \
         check-coverage check-fixtures deploy deploy-fork diagnostics gas coverage clean \
-        ts-install ts-build ts-test ts-check challenge-verify calibrate-publish gen-challenge-store
+        ts-install ts-build ts-test ts-check challenge-verify calibrate-publish gen-challenge-store \
+        authority-expire authority-close
 
 help: ## List every target
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -210,6 +211,12 @@ challenge-verify: ts-build ## Verify a challenge fixture case (CASE=upheld-store
 
 calibrate-publish: ts-build ## Calibrate, write window, preview commit intent
 	node $(CALIBRATOR)/dist/cli/publish.js
+
+authority-expire: ts-build ## Expire a session (SESSION=<address> RPC_URL=... PRIVATE_KEY=...)
+	node $(CALIBRATOR)/dist/cli/authority.js expire --rpc-url $(RPC_URL) --private-key $(PRIVATE_KEY) --session $(SESSION)
+
+authority-close: ts-build ## Close a settled session (SESSION=<address> RPC_URL=... PRIVATE_KEY=...)
+	node $(CALIBRATOR)/dist/cli/authority.js close --rpc-url $(RPC_URL) --private-key $(PRIVATE_KEY) --session $(SESSION)
 
 gen-challenge-store: ts-build ## Generate committed-input store and challenge fixtures from calibrate
 	node $(TOOLS)/gen_challenge_store_fixture.ts
