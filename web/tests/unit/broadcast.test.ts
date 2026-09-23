@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 
 import { broadcastIntents } from '../../src/application/broadcast.js';
 import { buildChallenge, buildResolve } from '../../src/domain/challenge_intent.js';
+import { type IntentBatch } from '../../src/domain/intents.js';
 import { type WalletProvider, type WalletTx } from '../../src/domain/ports.js';
 import { buildClaim } from '../../src/domain/settlement.js';
 import { buildBuyLong } from '../../src/domain/trade.js';
@@ -153,5 +154,49 @@ describe('broadcastIntents', () => {
         nobleKeccak,
       ),
     ).rejects.toThrow(/premium target used but no premium address/);
+  });
+
+  it('refuses a non-challenge batch that uses collateral given no session address', async () => {
+    const { wallet } = walletOf({});
+    const batch: IntentBatch = {
+      kind: 'buyLong',
+      steps: [{ label: 'a', target: 'collateral', method: 'approve', args: [50n] }],
+    };
+    await expect(broadcastIntents(batch, {}, wallet, nobleKeccak)).rejects.toThrow(
+      /collateral target used but no session address/,
+    );
+  });
+
+  it('refuses a challenge batch that uses collateral given no premium address', async () => {
+    const { wallet } = walletOf({});
+    const batch: IntentBatch = {
+      kind: 'challenge',
+      steps: [{ label: 'a', target: 'collateral', method: 'approve', args: [50n] }],
+    };
+    await expect(broadcastIntents(batch, {}, wallet, nobleKeccak)).rejects.toThrow(
+      /collateral target used but no premium address/,
+    );
+  });
+
+  it('refuses a batch that uses longClaim given no session address', async () => {
+    const { wallet } = walletOf({});
+    const batch: IntentBatch = {
+      kind: 'mintThenSeed',
+      steps: [{ label: 'a', target: 'longClaim', method: 'approve', args: [60n] }],
+    };
+    await expect(broadcastIntents(batch, {}, wallet, nobleKeccak)).rejects.toThrow(
+      /longClaim target used but no session address/,
+    );
+  });
+
+  it('refuses a batch that uses shortClaim given no session address', async () => {
+    const { wallet } = walletOf({});
+    const batch: IntentBatch = {
+      kind: 'mintThenSeed',
+      steps: [{ label: 'a', target: 'shortClaim', method: 'approve', args: [40n] }],
+    };
+    await expect(broadcastIntents(batch, {}, wallet, nobleKeccak)).rejects.toThrow(
+      /shortClaim target used but no session address/,
+    );
   });
 });

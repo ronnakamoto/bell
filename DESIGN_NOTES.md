@@ -3955,10 +3955,36 @@ EIP-155 test vector caught a hardcoded zero r/s (the signed tx must carry the ac
 the integer-0 encoding (RLP encodes 0 as the *empty* byte string, so the EIP-155 suffix is
 `01 80 80`, not `01 00 00`). The vector pins the whole pipeline.
 
-The RPC client is a third copy of the generic fetch client the indexer and web already carry. That
+The RPC client was a third copy of the generic fetch client the indexer and web already carry. That
 duplication is transport plumbing, not domain logic — the encoder and the constants live in the
 domain exactly once — and consolidating the copies would touch the indexer's tested surface for no
 behavioural change. It is recorded here as future work rather than done now. F108 is closed.
+
+## F112 — the RPC client consolidated into the shared core
+
+The F108 note's future work is done: the three copies of the JSON-RPC client are one. The copies
+had already drifted — the calibrator's variant treated a `null` error member as a failure and lost
+the node's `.message` — so the canonical implementation (the more thorough indexer/web one) now
+lives in `calibrator/src/adapters/rpc_client.ts`, the workspace the shared core already lives in,
+and the indexer and the web re-export it from their own adapter directories (the seam stays; a
+future divergence has a place to live). The web's `corpus.ts` now imports the indexer's client
+straight from the calibrator instead of hopping through the indexer's package.
+
+Two things the consolidation surfaced:
+
+1. **The F96 comment was already stale.** It claimed no workspace `exports` an `adapters` path, but
+the indexer's package.json exports one and the web imports it. The comment now names the calibrator
+and the indexer as the two workspaces that export the path (F112).
+2. **The web's branch bar was propped up by the moved implementation.** Removing the fully-covered
+client from `web/src` exposed pre-existing uncovered branches (the broadcast error paths for
+collateral/longClaim/shortClaim targets, the resolve broadcast-failure path) that the aggregate had
+masked. They are now covered — four refusal tests in `broadcast.test.ts` and a broadcast-failure
+test in `ResolveForm.test.tsx`. The one branch left uncovered on purpose is the `String(caught)`
+arm of the catch in `ResolveForm`/`BroadcastButton`: the codebase's own lint rule
+(`prefer-promise-reject-errors`) forbids the non-Error rejection that would reach it, so the
+aggregate bar is met without fighting the rule.
+
+F112 is closed. F108 is closed.
 
 
 ## F109 — the session authority ops were the last unbuilt F50 surface

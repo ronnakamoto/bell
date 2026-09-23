@@ -101,4 +101,30 @@ describe('ResolveForm', () => {
     await waitFor(() => expect(screen.getByTestId('resolve-error')).toBeInTheDocument());
     expect(screen.getByTestId('resolve-error')).toHaveTextContent(/no injected wallet/);
   });
+
+  it('surfaces a broadcast failure as a named error', async () => {
+    const { provider } = providerOf(ARBITER);
+    const failing = {
+      ...provider,
+      request: (options: { method: string; params?: unknown[] }): Promise<unknown> => {
+        if (options.method === 'eth_sendTransaction') {
+          return Promise.reject(new Error('user rejected the request'));
+        }
+        return provider.request(options);
+      },
+    };
+    (globalThis as { ethereum?: unknown }).ethereum = failing;
+    render(
+      <ResolveForm
+        nameId={NAME_ID}
+        forSession="7"
+        publisherCorrect={true}
+        premiumAddress={PREMIUM}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('resolve-submit'));
+    await waitFor(() => expect(screen.getByTestId('resolve-error')).toBeInTheDocument());
+    expect(screen.getByTestId('resolve-error')).toHaveTextContent(/user rejected the request/);
+  });
 });

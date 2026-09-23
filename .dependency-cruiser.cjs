@@ -107,8 +107,9 @@ module.exports = {
         'third is the one F96 added: a *resolved* cross-workspace specifier lands in `dist/`, so ' +
         'the `@bell/…/adapters` pattern alone would have missed `../adapters/x.js` in the other ' +
         'workspace even though the edge is right there in the graph. The bare-specifier pattern ' +
-        'guards a spelling that does not resolve today, because no workspace `exports` an ' +
-        '`adapters` path; it is here because the rule names a *target*, not a way of writing it.',
+        'guards the spelling that resolves into `dist/` — the calibrator and the indexer now ' +
+        '`export` an `adapters` path (F112) — and the rule names a *target*, not a way of writing ' +
+        'it, so a future workspace that adds the path is covered without a rule change.',
       severity: 'error',
       from: { path: '^(calibrator|settlement|indexer|web)/src/application' },
       to: {

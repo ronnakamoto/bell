@@ -12,7 +12,7 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { JsonRpcClient as IndexerRpcClient } from '@bell/indexer/adapters/json_rpc_client.js';
+import { JsonRpcClient as IndexerRpcClient } from '@bell/calibrator/adapters/rpc_client.js';
 import { FileLogSource } from '@bell/indexer/adapters/log_source_file.js';
 import { RpcLogSource } from '@bell/indexer/adapters/log_source_rpc.js';
 import { SessionAwareLogSource } from '@bell/indexer/adapters/log_source_sessions.js';

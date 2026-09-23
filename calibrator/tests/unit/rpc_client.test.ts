@@ -67,4 +67,54 @@ describe('JsonRpcClient.call', () => {
     const client = new JsonRpcClient({ url: 'http://node', fetchImpl });
     await expect(client.call('eth_chainId', [])).rejects.toBeInstanceOf(RpcMalformed);
   });
+
+  it('turns an array body into RpcMalformed', async () => {
+    const fetchImpl = (): Promise<Response> => Promise.resolve(responseOf(200, '[]'));
+    const client = new JsonRpcClient({ url: 'http://node', fetchImpl });
+    await expect(client.call('eth_chainId', [])).rejects.toBeInstanceOf(RpcMalformed);
+  });
+
+  it('turns a null JSON body into RpcMalformed', async () => {
+    const fetchImpl = (): Promise<Response> => Promise.resolve(responseOf(200, 'null'));
+    const client = new JsonRpcClient({ url: 'http://node', fetchImpl });
+    await expect(client.call('eth_chainId', [])).rejects.toBeInstanceOf(RpcMalformed);
+  });
+
+  it('turns a primitive JSON body into RpcMalformed', async () => {
+    const fetchImpl = (): Promise<Response> => Promise.resolve(responseOf(200, '1'));
+    const client = new JsonRpcClient({ url: 'http://node', fetchImpl });
+    await expect(client.call('eth_chainId', [])).rejects.toBeInstanceOf(RpcMalformed);
+  });
+
+  it('turns a JSON-RPC error without a message into RpcMalformed', async () => {
+    const fetchImpl = (): Promise<Response> =>
+      Promise.resolve(
+        responseOf(200, JSON.stringify({ jsonrpc: '2.0', id: 1, error: { code: -32000 } })),
+      );
+    const client = new JsonRpcClient({ url: 'http://node', fetchImpl });
+    await expect(client.call('eth_chainId', [])).rejects.toBeInstanceOf(RpcMalformed);
+  });
+
+  it('turns a JSON-RPC error that is not an object into RpcMalformed, keeping its message', async () => {
+    const fetchImpl = (): Promise<Response> =>
+      Promise.resolve(responseOf(200, JSON.stringify({ jsonrpc: '2.0', id: 1, error: 'boom' })));
+    const client = new JsonRpcClient({ url: 'http://node', fetchImpl });
+    await expect(client.call('eth_chainId', [])).rejects.toThrow(/boom/);
+  });
+
+  it('turns a JSON-RPC error array into RpcMalformed', async () => {
+    const fetchImpl = (): Promise<Response> =>
+      Promise.resolve(responseOf(200, JSON.stringify({ jsonrpc: '2.0', id: 1, error: ['boom'] })));
+    const client = new JsonRpcClient({ url: 'http://node', fetchImpl });
+    await expect(client.call('eth_chainId', [])).rejects.toBeInstanceOf(RpcMalformed);
+  });
+
+  it('treats a null error member as no error', async () => {
+    const fetchImpl = (): Promise<Response> =>
+      Promise.resolve(
+        responseOf(200, JSON.stringify({ jsonrpc: '2.0', id: 1, error: null, result: '0x10' })),
+      );
+    const client = new JsonRpcClient({ url: 'http://node', fetchImpl });
+    await expect(client.call('eth_chainId', [])).resolves.toBe('0x10');
+  });
 });

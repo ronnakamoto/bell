@@ -16,6 +16,10 @@
     "./application/*.js": {
       "types": "./dist/application/*.d.ts",
       "default": "./dist/application/*.js"
+    },
+    "./adapters/*.js": {
+      "types": "./dist/adapters/*.d.ts",
+      "default": "./dist/adapters/*.js"
     }
   },
   "dependencies": {

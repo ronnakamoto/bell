@@ -102,7 +102,8 @@ folds the lifecycle's logs into a catalogue, verified against a corpus the contr
 F50 is complete: the web app carries the participant surface (browse, quote, trade/LP/claim/
 withdraw intents, challenge and resolve, all broadcastable through a browser wallet — F106/F107),
 the CLI carries the publisher's commit broadcast (F108) and the session authority ops (F109), and
-the challenge tooling is the verify CLI plus the web's challenge page (F2).
+the challenge tooling is the verify CLI plus the web's challenge page (F2). The JSON-RPC client
+lives once, in the calibrator's adapters, and the indexer and the web re-export it (F112).
 
 ## Deploy
 
