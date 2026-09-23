@@ -62,6 +62,8 @@ library Constants {
     uint256 internal constant MIN_PUBLISHER_BOND = 500_000_000_000;
     /// @dev upper bound on a guessing challenger. Source: paper Table 19.
     uint256 internal constant CHALLENGER_BOND = 50_000_000_000;
+    /// @dev depth gate: a non-zero seed below this is refused. Source: derived; G3 depth commitment, paper Table 30.
+    uint256 internal constant MIN_SEED = 50_000_000_000;
 
     // ---------------------------------------------------------------- settlement route costs, bp
     /// @dev void at 0.50. Source: paper Table 22.

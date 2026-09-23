@@ -426,6 +426,23 @@ print_book:
       than bricking.
     source: derived; measured in this repository
 
+# ---------------------------------------------------------------------------- factory listing gates
+
+factory:
+  min_seed_usd:
+    value: 50000
+    meaning: >
+      the minimum seed a non-zero `createSession` call may provide; the depth gate that refuses to
+      list without a depth commitment (G3). A seed below the challenger bond cannot absorb a
+      challenge-sized trade without material price impact, so the pool is effectively empty; the
+      challenger bond is the protocol's minimum economic unit, and the minimum seed matches it.
+    derivation: >
+      The challenger bond is $50,000 (paper Table 19); the seed is split evenly into long/short
+      reserves, so a $50,000 seed gives $25,000 per leg. Zero remains the documented way to ask
+      for an unseeded session (the factory's comment on `createSession`); the gate refuses only
+      a non-zero seed below the minimum.
+    source: derived; G3 depth commitment, paper §11.4 Table 30
+
 # ---------------------------------------------------------------------------- gas budget
 
 gas_budget:

@@ -291,23 +291,38 @@ contract SessionFactoryTest is Test {
     /// @dev The smallest seed that *can* be split is two, and it must still work: one unit to each
     ///      leg, an even split, and a pool that opens at one half. The refusal above must not have
     ///      been implemented as an off-by-one that also rejects this.
+    /// @dev The smallest seed the depth gate admits: a non-zero seed must be at least `MIN_SEED`.
+    ///      The split is even, so the minimum gives half to each leg.
     function test_createSession_acceptsTheSmallestSplittableSeed() public {
-        collateral.mint(address(this), 2);
-        collateral.approve(address(factory), 2);
+        collateral.mint(address(this), Constants.MIN_SEED);
+        collateral.approve(address(factory), Constants.MIN_SEED);
 
         uint256 expiry = block.timestamp + 17.5 hours;
-        Session deployed =
-            Session(factory.createSession(address(referenceToken), 15e18, expiry, NOTIONAL_CAP, 2));
+        Session deployed = Session(
+            factory.createSession(
+                address(referenceToken), 15e18, expiry, NOTIONAL_CAP, Constants.MIN_SEED
+            )
+        );
 
-        assertEq(deployed.totalPairSupply(), 2, "two pairs minted");
-        assertEq(deployed.longReserve(), 1, "one unit to the long leg");
-        assertEq(deployed.shortReserve(), 1, "one to the short leg");
+        assertEq(deployed.totalPairSupply(), Constants.MIN_SEED, "pairs minted");
+        assertEq(deployed.longReserve(), Constants.MIN_SEED / 2, "half to the long leg");
+        assertEq(deployed.shortReserve(), Constants.MIN_SEED / 2, "half to the short leg");
         assertEq(deployed.poolPriceLongWad(), 0.5e18, "an even split opens at one half");
+    }
+
+    /// @dev A non-zero seed below the depth gate is refused before anything is deployed.
+    function test_createSession_refusesASeedBelowTheMinimum() public {
+        uint256 expiry = block.timestamp + 17.5 hours;
+        vm.expectRevert(
+            abi.encodeWithSelector(SessionFactory.SeedBelowMinimum.selector, 2, Constants.MIN_SEED)
+        );
+        factory.createSession(address(referenceToken), 15e18, expiry, NOTIONAL_CAP, 2);
     }
 
     /// @dev The checked return value on the seed transfer. The factory is the one paying, so a token
     ///      that returns `false` instead of reverting would leave it believing it had funded a pool
-    ///      it had not funded. `MockNonRevertingERC20` is the token that reaches this branch.
+    ///      it had not funded. `MockNonRevertingERC20` is the token that reaches this branch. The
+    ///      seed must clear the depth gate so the transfer check is what fires.
     function test_createSession_refusesACollateralThatWillNotMove() public {
         MockNonRevertingERC20 hostile = new MockNonRevertingERC20("Hostile", "HST", 6);
         SessionFactory hostileFactory = new SessionFactory(hostile, address(registry));
@@ -315,7 +330,7 @@ contract SessionFactoryTest is Test {
         uint256 expiry = block.timestamp + 17.5 hours;
         vm.expectRevert(SessionFactory.SeedTransferFailed.selector);
         hostileFactory.createSession(
-            address(referenceToken), 15e18, expiry, NOTIONAL_CAP, 1_000 * UNIT
+            address(referenceToken), 15e18, expiry, NOTIONAL_CAP, Constants.MIN_SEED
         );
     }
 }

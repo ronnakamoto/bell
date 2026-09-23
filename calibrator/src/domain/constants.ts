@@ -87,6 +87,9 @@ export const MIN_PUBLISHER_BOND = 500_000_000_000n;
 /** upper bound on a guessing challenger. Source: paper Table 19. */
 export const CHALLENGER_BOND = 50_000_000_000n;
 
+/** depth gate: a non-zero seed below this is refused. Source: derived; G3 depth commitment, paper Table 30. */
+export const MIN_SEED = 50_000_000_000n;
+
 // Event session (C), read by the off-chain shrinkage rule only.
 
 /** q_C, the pooled shape constant: median over names of Q_0.99(|G_C|) / sigma_C. Source: paper §7.10, Table 17. */
