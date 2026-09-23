@@ -77,7 +77,10 @@ Two measured figures from the trading-fee wiring (F97) belong beside that note. 
 trading fee charged measures **128,339** gas against roughly 100k without it -- the delta is the fee
 computation plus the `poolFees` storage line, which is written on every trade. And the session
 constructor now computes the reference premium `pLRefWad = lam * E[min(|G|, 1/lam)]` at the pinned
-2% reference volatility; the truncated moment measures **~35k** gas at the published leverages, so a
-`createSession` with the fee wiring costs **3,662,616** gas, dominated by the CREATE2 deployment
-itself. The 685,590 figure quoted in `Stat.sol`'s NatSpec is the paper's quadrature-based estimate
-for an on-chain implementation, not the cost of the erf-polynomial route the library actually uses.
+2% reference volatility; the truncated moment measures **~35k** gas at the published leverages, so an
+unseeded `createSession` with the fee wiring costs **3,663,292** gas, dominated by the CREATE2
+deployment itself. The depth gate (F111) added ~700 gas to that figure (two comparisons against the
+inlined `MIN_SEED` constant). A seeded `createSession` costs **~3,980,220** -- the delta is the pair
+mint and the seed transfer, which the unseeded path skips. The 685,590 figure quoted in `Stat.sol`'s
+NatSpec is the paper's quadrature-based estimate for an on-chain implementation, not the cost of the
+erf-polynomial route the library actually uses.
