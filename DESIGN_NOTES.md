@@ -3997,15 +3997,42 @@ percentages and the absolute imbalance, and the web's session detail page now sh
 warning flag when the pool exceeds the threshold.
 
 **The depth-gated listing** — refusing to create a session without a minimum seed — is the second
-preparatory item the G3 description names. That is a factory-level contract change (the listing
-gates in `SessionFactory.sol` would gain a `minSeed` check), and it changes the protocol's
-behaviour: a session that the factory currently allows would become unlistable. That warrants a
-ruling rather than an unilateral addition, so it is recorded here as a design decision pending
-input rather than implemented. F110 is closed.
+preparatory item the G3 description names. It landed as F111 (Phase 60): the factory now refuses a
+non-zero seed below `MIN_SEED`, with the value ruled at $50,000 (the challenger bond). F110 is
+closed.
+
+## F111 — the depth-gated listing (ruling: minSeed = challenger bond)
+
+The G3 description's second preparatory item — refuse to list without a depth commitment — is a
+factory-level contract change, so the value of the gate was ruled rather than invented. The ruling:
+
+> **A non-zero seed below $50,000 is refused.** The challenger bond is the protocol's minimum
+> economic unit (paper Table 19), and a pool seeded below it cannot absorb a challenge-sized trade
+> without material price impact — the pool is effectively empty, and listing it would hand traders
+> a market they cannot trade against. The seed is split evenly, so a $50,000 seed gives $25,000 per
+> leg. Zero remains the documented way to ask for an unseeded session (the factory's comment on
+> `createSession`), which becomes tradeable once somebody seeds it.
+
+`MIN_SEED = 50_000 * 10^decimals` is a generated constant (`spec/constants.yaml` →
+`Constants.sol`/`constants.ts`), scaled in the collateral's base units like the bonds (ruling R2).
+`SessionFactory.createSession` now checks `seed != 0 && seed < MIN_SEED` and reverts
+`SeedBelowMinimum(seed, minSeed)` before anything is deployed. The existing `SeedTooSmall` error
+keeps its narrower meaning (a non-zero seed too small to split into two non-empty legs).
+
+The change is a CREATE2 ripple: `Constants.sol` is in the Session's compilation unit, so the
+session address moved (`0xcaebadcd…` → `0x86919b92…`). `logs.json` was regenerated with
+`BELL_WRITE_FIXTURES=1`; `iv.json`, `corpus.ts`, and the indexer/web tests that pinned the old
+address were updated. The gate adds one test (the minimum seed is accepted and split evenly; a
+sub-minimum seed is refused) and the collateral-that-will-not-move test now seeds at `MIN_SEED` so
+`SeedTransferFailed` is what fires.
+
+With F111, all three G3 preparatory items are in place: pool imbalance measurement (F110), the
+depth-gated listing (F111), and the volatility-weighted fee (F97). What remains for G3 is the maker
+itself — the repo cannot invent the inventory.
 
 ## Still open
 
 | # | Item | Blocking |
 |---|---|---|
-| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). **C0 has extended the layout gate** — it now reads three scopes decided separately rather than one inherited, the coverage hints are bounded by an allow-list, the `dist/` rule can no longer pass vacuously, and the one rule the measurement rejected is recorded rather than added (F86). **G0 has landed the NIG fallback** — by method of moments rather than §7.11's maximum likelihood, with the quadrature's range and point count measured against the WAD grid, and with F39's Bessel premise corrected rather than obeyed (F87). **G1 has landed the event-session parameter set** — the shape pooled, the scale shrunk toward the cross-section, all 22 published `lambda_C` reproduced exactly and all 22 `r*` within a derived 1.0e-3, with the fourth digit of τ taken from the column rather than from the brief's rounding (F89). **G2 has landed BELL-IV** — the pool price inverted in the truncation ratio, where the reachable set and the accuracy bound are both derivable rather than asserted, with the closed-form bracket that replaced a doubling search, all 112 committed points recovered to 3.195e-17 against M15's 1.16e-13, the paper's M14 figure identified as a derivative its stated purpose does not need, and the freshness guard's three decisions recorded (F91). Phases A, B and C are complete, G0, G1 and G2 are done, F0/F1/F2 are complete, Phase E is ruled (F11, F42), F97 is ruled and wired (Phase 49), Phase D (fork suite) is built against the testnet, and **F50 is fully closed** — the web participant surface (F106/F107), the publisher commit broadcast (F108), and the session authority ops (F109) all landed; F110 prepared for G3 (pool imbalance measurement); what remains is G3 (blocked on a maker, depth-gated listing pending a ruling) | — |
+| R5 | the TypeScript port is **complete, asserted, and the only implementation**: every module is verified against the committed fixtures or a differential dump — the application layer against a 1,203-line one, the CSV adapter against a 58-fixture one, the settlement workspace against a 125-case one — every Python test has a TypeScript counterpart matched by name rather than by total (F79), the coverage bar is set and asserted with the per-file `domain/` rule at 100% (F80), and **B1 has deleted the Python** — 59 files, with the generator's emission removed, the F72 banner corrected, and the whole tree verified with no interpreter on the machine (F81). **B2 has confirmed the layout and closed the one defect it found** — the `exports` pattern points at `dist/`, nothing kept `dist/` in step with `src/`, and the build now prunes it (F82), with the language's last two present-tense claims removed (F83) and a composition root that was described but never written (F84). **B3 has audited the retired gates** — all nine `check_layout.py`/`check_coverage.py` rules and all seven `import-linter` contracts are accounted for, two rules that were blind or absent are now enforced, and the one that genuinely died is recorded (F85). **C0 has extended the layout gate** — it now reads three scopes decided separately rather than one inherited, the coverage hints are bounded by an allow-list, the `dist/` rule can no longer pass vacuously, and the one rule the measurement rejected is recorded rather than added (F86). **G0 has landed the NIG fallback** — by method of moments rather than §7.11's maximum likelihood, with the quadrature's range and point count measured against the WAD grid, and with F39's Bessel premise corrected rather than obeyed (F87). **G1 has landed the event-session parameter set** — the shape pooled, the scale shrunk toward the cross-section, all 22 published `lambda_C` reproduced exactly and all 22 `r*` within a derived 1.0e-3, with the fourth digit of τ taken from the column rather than from the brief's rounding (F89). **G2 has landed BELL-IV** — the pool price inverted in the truncation ratio, where the reachable set and the accuracy bound are both derivable rather than asserted, with the closed-form bracket that replaced a doubling search, all 112 committed points recovered to 3.195e-17 against M15's 1.16e-13, the paper's M14 figure identified as a derivative its stated purpose does not need, and the freshness guard's three decisions recorded (F91). Phases A, B and C are complete, G0, G1 and G2 are done, F0/F1/F2 are complete, Phase E is ruled (F11, F42), F97 is ruled and wired (Phase 49), Phase D (fork suite) is built against the testnet, and **F50 is fully closed** — the web participant surface (F106/F107), the publisher commit broadcast (F108), and the session authority ops (F109) all landed; F110 prepared for G3 (pool imbalance measurement) and F111 landed the depth-gated listing (Phase 60); what remains is G3 (blocked on a maker) | — |
 

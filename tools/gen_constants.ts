@@ -446,6 +446,15 @@ function bondRows(document: ConstantsDocument): readonly Row[] {
       note: 'upper bound on a guessing challenger',
       source: 'paper Table 19',
     },
+    {
+      solidity: 'MIN_SEED',
+      typescript: 'MIN_SEED',
+      value:
+        BigInt(exactInteger(at(document.factory.min_seed_usd.value, 'factory.min_seed_usd'))) *
+        10n ** decimals,
+      note: 'depth gate: a non-zero seed below this is refused',
+      source: 'derived; G3 depth commitment, paper Table 30',
+    },
   ];
 }
 
@@ -540,6 +549,7 @@ interface ConstantsDocument {
     readonly R5: { readonly expected_cost_bp: string };
   };
   readonly deployment: { readonly chain_id: number; readonly fork_block_l2: number };
+  readonly factory: { readonly min_seed_usd: { readonly value: number } };
   readonly print_book: { readonly max_prints: { readonly value: number } };
   readonly gas_budget: {
     readonly truncated_moment_closed_form: { readonly baseline: number };

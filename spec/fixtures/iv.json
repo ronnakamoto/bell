@@ -2,7 +2,7 @@
   "_note": "BELL-IV publish inputs for F1 slice 5. Integers > 2^53 as strings.",
   "readings": [
     {
-      "forSessionAddress": "0xcaebadcd061f2529967bb966288176b1e3701c37",
+      "forSessionAddress": "0x86919b9245178f2d05c3fe2ea7e117f19f3d60f3",
       "viewSession": "1",
       "boundSessions": "12",
       "pool": {

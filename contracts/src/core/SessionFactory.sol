@@ -43,6 +43,8 @@ contract SessionFactory {
     error SeedTransferFailed();
     /// @dev Thrown when a non-zero seed is too small to split into two non-empty legs.
     error SeedTooSmall(uint256 seed);
+    /// @dev Thrown when a non-zero seed is below the depth gate.
+    error SeedBelowMinimum(uint256 seed, uint256 minSeed);
 
     /// @dev Emitted on every listing, with the gates' verdicts recorded so a listing is auditable
     ///      from logs alone.
@@ -243,6 +245,14 @@ contract SessionFactory {
         //
         // Zero remains the documented way to ask for an unseeded session, and is not an error.
         if (seed == 1) revert SeedTooSmall(seed);
+        // The depth gate (G3): a non-zero seed must be at least the protocol minimum. A pool seeded
+        // below the challenger bond cannot absorb a challenge-sized trade without material price
+        // impact, so it is effectively empty -- and listing it would hand traders a market they
+        // cannot trade against. Zero is exempt: it is the documented way to ask for an unseeded
+        // session, which becomes tradeable once somebody seeds it.
+        if (seed != 0 && seed < Constants.MIN_SEED) {
+            revert SeedBelowMinimum(seed, Constants.MIN_SEED);
+        }
         // Both gates, before anything is deployed. A session that exists but should not is worse
         // than one that was never created, because its address is already being quoted against.
         uint256 capWad = checkListingLam(lamWad);

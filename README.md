@@ -85,7 +85,9 @@ block on chain 4663 but supplies no RPC endpoint, so `make test-fork` skips with
 `DESIGN_NOTES.md` carries the findings. Most are defects the build found in itself rather than
 objections to the brief. What remains open without an input is the fork suite (F6) and G3 (a maker
 for the LP cold start); the Eq (20) volatility pin (F11), the `commit` gas cap (F42), and the
-trading-fee wiring (F97) are ruled (Phases 48–49).
+trading-fee wiring (F97) are ruled (Phases 48–49). G3's preparatory work is complete: the pool
+imbalance measurement (F110), the depth-gated listing — a non-zero seed below $50,000 is refused
+(F111) — and the volatility-weighted fee (F97).
 F84's calibrator composition root is `make calibrate-publish` (calibrate → store window → commit
 intent preview); settlement's challenge-verify root landed with F2. The publisher's broadcast
 surface is the same CLI with `--rpc-url`/`--private-key`/`--premium` (F108), and the session
