@@ -1,13 +1,21 @@
 /**
- * A JSON-RPC 2.0 client over `fetch` for the CLI's broadcast surface.
+ * A JSON-RPC 2.0 client over `fetch` — the single copy of the transport client.
  *
- * The same generic client the indexer and the web carry — a node is reached through this and
- * nothing else, so a refused connection, a non-OK status, a body that is not JSON, and a JSON-RPC
- * `error` member all become typed refusals here. The three copies of this adapter are transport
- * plumbing, not domain logic: the encoder and the constants live in the domain exactly once, but a
- * fetch client is a stable ~80 lines that each workspace carries so it does not depend on a
- * sibling's adapters. Consolidating the copies into the shared core is noted in DESIGN_NOTES as
- * future work; it would touch the indexer's tested surface for no behavioural change.
+ * The adapter every workspace reaches a live node through. Everything that can go wrong with HTTP
+ * or with the JSON-RPC envelope goes wrong here and nowhere else: a refused connection, a non-OK
+ * status, a body that is not JSON, and a JSON-RPC `error` member. Callers receive `result` or a
+ * typed refusal — never a bare `TypeError` from `fetch`, which would make a down node
+ * indistinguishable from a programmer error.
+ *
+ * This was the third copy of a client the indexer and the web each carried (F108 recorded the
+ * duplication as future work). The copies had already drifted — the calibrator's variant treated a
+ * `null` error member as a failure and lost the node's `.message` — so the canonical implementation
+ * (the more thorough indexer/web one) now lives here, in the workspace the shared core already
+ * lives in, and the indexer and web re-export it (F112). The encoder and the constants live in the
+ * domain exactly once; the transport client now lives in this adapter exactly once.
+ *
+ * Fetch is injected so the tests never open a socket. The default is `globalThis.fetch`, which is
+ * what a process that is actually talking to a node uses.
  */
 
 /** The transport could not complete a call. Retryable, in the sense that the node may recover. */
@@ -27,7 +35,10 @@ export class RpcMalformed extends Error {
 }
 
 /**
- * Posts JSON-RPC 2.0 method calls to one URL. One request at a time, so the id is fixed at `1`.
+ * Posts JSON-RPC 2.0 method calls to one URL.
+ *
+ * The id is fixed at `1` because this client does not pipeline overlapping calls; matching replies
+ * by id would be ceremony for a conversation that is one request at a time.
  */
 export class JsonRpcClient {
   readonly url: string;
@@ -54,27 +65,41 @@ export class JsonRpcClient {
       throw new RpcUnavailable(`rpc ${this.url}: HTTP ${String(response.status)}`);
     }
     const text = await response.text();
-    let body: unknown;
+    let payload: unknown;
     try {
-      body = JSON.parse(text);
-    } catch {
-      throw new RpcMalformed(`rpc ${this.url}: body is not JSON`);
+      payload = JSON.parse(text) as unknown;
+    } catch (error) {
+      throw new RpcMalformed(`rpc ${this.url}: ${describeError(error)}`);
     }
-    if (typeof body !== 'object' || body === null) {
-      throw new RpcMalformed(`rpc ${this.url}: body is not an object`);
-    }
-    const envelope = body as { result?: unknown; error?: unknown };
-    if (envelope.error !== undefined) {
-      throw new RpcMalformed(`rpc ${this.url}: ${describeError(envelope.error)}`);
-    }
-    if (envelope.result === undefined) {
-      throw new RpcMalformed(`rpc ${this.url}: no result member`);
-    }
-    return envelope.result;
+    return resultOf(this.url, payload);
   }
 }
 
+/** Unwrap `result`, or refuse a JSON-RPC error object / a body that is not an object. */
+function resultOf(url: string, payload: unknown): unknown {
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new RpcMalformed(`rpc ${url}: expected a JSON-RPC object`);
+  }
+  const record = payload as Record<string, unknown>;
+  if ('error' in record && record['error'] != null) {
+    throw new RpcMalformed(`rpc ${url}: ${describeRpcError(record['error'])}`);
+  }
+  if (!('result' in record)) {
+    throw new RpcMalformed(`rpc ${url}: missing result`);
+  }
+  return record['result'];
+}
+
+/** An error's message, for the message of an `RpcUnavailable` or `RpcMalformed`. */
 function describeError(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return JSON.stringify(error);
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** A JSON-RPC error member, preferring `.message` when the node sent one. */
+function describeRpcError(error: unknown): string {
+  if (error !== null && typeof error === 'object' && !Array.isArray(error)) {
+    const message = (error as Record<string, unknown>)['message'];
+    if (typeof message === 'string') return message;
+  }
+  return describeError(error);
 }
